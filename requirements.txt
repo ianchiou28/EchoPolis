@@ -1,0 +1,3 @@
+# Echopolis 依赖包
+requests>=2.25.0
+pygame>=2.0.0

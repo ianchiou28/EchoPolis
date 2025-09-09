@@ -1,0 +1,327 @@
+/* Echopolis Web版本样式 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Microsoft YaHei', Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    color: white;
+    overflow: hidden;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#game-canvas {
+    border: 2px solid #4a90e2;
+    border-radius: 8px;
+    background: #0a0f1c;
+}
+
+#ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.scene {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: none;
+    pointer-events: auto;
+}
+
+.scene.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* 主菜单样式 */
+#main-menu h1 {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+#main-menu p {
+    font-size: 1.5rem;
+    margin-bottom: 3rem;
+    opacity: 0.8;
+}
+
+.menu-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.menu-btn {
+    padding: 1rem 2rem;
+    font-size: 1.2rem;
+    background: rgba(74, 144, 226, 0.2);
+    border: 2px solid #4a90e2;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 200px;
+}
+
+.menu-btn:hover {
+    background: rgba(74, 144, 226, 0.4);
+    transform: translateY(-2px);
+}
+
+/* 创建化身样式 */
+#avatar-creation {
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+.creation-form {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.mbti-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.mbti-btn {
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #4a90e2;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.mbti-btn:hover, .mbti-btn.selected {
+    background: rgba(74, 144, 226, 0.3);
+    border-color: #64b5f6;
+}
+
+.mbti-description {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    min-height: 60px;
+}
+
+.name-input input {
+    width: 100%;
+    padding: 0.8rem;
+    font-size: 1.1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #4a90e2;
+    color: white;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+}
+
+.name-input input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.fate-result {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(255, 215, 0, 0.2);
+    border: 1px solid #ffd700;
+    border-radius: 4px;
+    display: none;
+}
+
+.creation-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.creation-buttons button {
+    padding: 0.8rem 1.5rem;
+    font-size: 1.1rem;
+    background: rgba(74, 144, 226, 0.2);
+    border: 2px solid #4a90e2;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.creation-buttons button:hover {
+    background: rgba(74, 144, 226, 0.4);
+}
+
+/* 游戏界面样式 */
+#game-scene {
+    pointer-events: none;
+}
+
+.panel {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid #4a90e2;
+    border-radius: 4px;
+    padding: 1rem;
+    pointer-events: auto;
+}
+
+#status-panel {
+    top: 10px;
+    left: 10px;
+    width: 300px;
+}
+
+#chat-panel {
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 400px;
+}
+
+#chat-panel input {
+    width: 70%;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #4a90e2;
+    color: white;
+    border-radius: 4px;
+}
+
+#chat-panel button {
+    width: 25%;
+    padding: 0.5rem;
+    background: #4a90e2;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 0.5rem;
+}
+
+#controls-help {
+    bottom: 10px;
+    right: 10px;
+    font-size: 0.9rem;
+    opacity: 0.7;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* 对话框样式 */
+.situation-dialog, .decision-result {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.dialog-content, .result-content {
+    background: linear-gradient(135deg, #1e3c72, #2a5298);
+    border: 2px solid #4a90e2;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80%;
+    overflow-y: auto;
+}
+
+.situation-text {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin: 1rem 0;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+.options {
+    margin: 1.5rem 0;
+}
+
+.option-btn {
+    display: block;
+    width: 100%;
+    margin: 0.5rem 0;
+    padding: 1rem;
+    background: rgba(74, 144, 226, 0.2);
+    border: 1px solid #4a90e2;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+    font-size: 1rem;
+}
+
+.option-btn:hover {
+    background: rgba(74, 144, 226, 0.4);
+    transform: translateX(5px);
+}
+
+.dialog-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1.5rem;
+}
+
+.dialog-actions button {
+    padding: 0.8rem 1.5rem;
+    background: rgba(74, 144, 226, 0.3);
+    border: 1px solid #4a90e2;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dialog-actions button:hover {
+    background: rgba(74, 144, 226, 0.5);
+}
+
+#continue-btn {
+    padding: 1rem 2rem;
+    background: #4a90e2;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    margin-top: 1rem;
+}
+
+#continue-btn:hover {
+    background: #357abd;
+}

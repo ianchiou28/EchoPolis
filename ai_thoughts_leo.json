@@ -1,0 +1,24 @@
+[
+  {
+    "timestamp": "2025-09-08T11:48:50.180348",
+    "avatar_name": "leo",
+    "mbti_type": "INTJ",
+    "age": 22,
+    "decision_count": 1,
+    "chosen_option": "将10000CP全部投入NeuroTech天使轮（高风险高回报，符合战略家特质但会触发复仇心理）",
+    "ai_thoughts": "旧宅只是过去的象征，NeuroTech才是未来。高风险高回报符合战略布局，压力将转化为复仇动力。健康暂时牺牲，但胜利会治愈一切。",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:49:33.645898",
+    "avatar_name": "leo",
+    "mbti_type": "INTJ",
+    "age": 22,
+    "decision_count": 2,
+    "chosen_option": "立即组建临时团队，动用8000CP雇佣程序员和行业顾问，通宵完善商业计划书争取投资（高风险高回报）",
+    "ai_thoughts": "压力只是燃料。祖父的蓝图加上现代技术将创造指数级回报，必须抢占先机。牺牲短期舒适换取战略控制权符合家族复兴逻辑。",
+    "trust_level": 50,
+    "trust_change": 0
+  }
+]

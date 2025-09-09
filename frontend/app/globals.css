@@ -1,0 +1,177 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  /* 回响输入框样式 */
+  .echo-input {
+    @apply w-full px-4 py-3 bg-neutral-800 border border-neutral-600 rounded-lg;
+    @apply text-neutral-100 placeholder-neutral-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply transition-all duration-200;
+  }
+  
+  .echo-input:focus {
+    @apply animate-glow;
+  }
+  
+  /* 按钮样式 */
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg;
+    @apply transition-colors duration-200 font-medium;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-neutral-900;
+  }
+  
+  .btn-secondary {
+    @apply px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-100 rounded-lg;
+    @apply transition-colors duration-200 font-medium;
+    @apply focus:outline-none focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2 focus:ring-offset-neutral-900;
+  }
+  
+  /* 卡片样式 */
+  .card {
+    @apply bg-neutral-800 border border-neutral-700 rounded-xl p-6;
+    @apply shadow-lg backdrop-blur-sm;
+  }
+  
+  .card-hover {
+    @apply card hover:bg-neutral-750 hover:border-neutral-600;
+    @apply transition-all duration-200 cursor-pointer;
+  }
+  
+  /* 状态指示器 */
+  .status-indicator {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  
+  .status-healthy {
+    @apply status-indicator bg-green-900 text-green-300;
+  }
+  
+  .status-warning {
+    @apply status-indicator bg-yellow-900 text-yellow-300;
+  }
+  
+  .status-danger {
+    @apply status-indicator bg-red-900 text-red-300;
+  }
+  
+  /* 进度条 */
+  .progress-bar {
+    @apply w-full bg-neutral-700 rounded-full h-2;
+  }
+  
+  .progress-fill {
+    @apply h-2 rounded-full transition-all duration-300;
+  }
+  
+  /* 货币显示 */
+  .currency-cp {
+    @apply text-cp font-mono font-semibold;
+  }
+  
+  .currency-ic {
+    @apply text-ic font-mono font-semibold;
+  }
+  
+  /* 数据可视化 */
+  .chart-container {
+    @apply bg-neutral-800 border border-neutral-700 rounded-lg p-4;
+  }
+  
+  /* 新闻卡片 */
+  .news-card {
+    @apply card-hover border-l-4;
+  }
+  
+  .news-macro {
+    @apply news-card border-l-red-500;
+  }
+  
+  .news-industry {
+    @apply news-card border-l-blue-500;
+  }
+  
+  .news-personal {
+    @apply news-card border-l-green-500;
+  }
+  
+  /* 动画效果 */
+  .fade-in {
+    @apply animate-fade-in;
+  }
+  
+  .slide-up {
+    @apply animate-slide-up;
+  }
+  
+  /* 响应式网格 */
+  .dashboard-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6;
+  }
+  
+  .dashboard-main {
+    @apply col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-3;
+  }
+  
+  .dashboard-sidebar {
+    @apply col-span-1;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 to-secondary-400 bg-clip-text text-transparent;
+  }
+  
+  .bg-glass {
+    @apply bg-neutral-800/50 backdrop-blur-md border border-neutral-700/50;
+  }
+  
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-neutral-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-neutral-600 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-neutral-500;
+}
+
+/* 选择文本样式 */
+::selection {
+  @apply bg-primary-600/30;
+}
+
+/* 焦点样式 */
+.focus-visible {
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-neutral-900;
+}
