@@ -16,7 +16,7 @@ class FateType(Enum):
     MIDDLE_CLASS = "middle_class"     # 中产家庭
     WORKING_CLASS = "working_class"   # 工薪阶层
     RURAL_ORIGIN = "rural_origin"     # 农村出身
-    SINGLE_PARENT = "single_parent"   # 单亲家庭
+    LOW_INCOME = "low_income"         # 低收入户
 
 @dataclass
 class FateOutcome:
@@ -142,9 +142,9 @@ class FateWheelSystem:
             ),
             
             FateOutcome(
-                fate_type=FateType.SINGLE_PARENT,
-                name="👤 单亲家庭",
-                description="在单亲家庭中长大，更加独立坚强",
+                fate_type=FateType.LOW_INCOME,
+                name="💰 低收入户",
+                description="家庭收入微薄，生活拮据但充满希望",
                 initial_credits=25_000,
                 initial_attributes={
                     "happiness": 50,
@@ -153,8 +153,8 @@ class FateWheelSystem:
                     "energy": 85,
                     "credit_score": 650
                 },
-                special_traits=["独立性强", "情感敏感", "责任感重"],
-                background_story="你在单亲家庭中长大，母亲/父亲独自抚养你，这让你比同龄人更加成熟。",
+                special_traits=["节俭意识", "奋斗精神", "珍惜机会"],
+                background_story="你的家庭收入微薄，父母为了生计辛苦工作，这让你深知金钱的珍贵和奋斗的意义。",
                 probability=0.05  # 5%
             )
         ]
@@ -208,5 +208,5 @@ FATE_WHEEL = {
     '💪 白手起家': {'initial_money': 50_000, 'description': '普通家庭出身，凭借自己的努力奋斗'},
     '🏠 中产家庭': {'initial_money': 200_000, 'description': '标准的中产阶级家庭，生活稳定舒适'},
     '🔧 工薪阶层': {'initial_money': 30_000, 'description': '蓝领工人家庭，勤劳朴实'},
-    '👤 单亲家庭': {'initial_money': 25_000, 'description': '在单亲家庭中长大，更加独立坚强'}
+    '💰 低收入户': {'initial_money': 25_000, 'description': '家庭收入微薄，生活拮据但充满希望'}
 }
