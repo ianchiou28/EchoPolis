@@ -1,0 +1,57 @@
+[
+  {
+    "timestamp": "2025-09-08T11:16:50.661660",
+    "avatar_name": "SAM",
+    "mbti_type": "ENFP",
+    "age": 22,
+    "decision_count": 1,
+    "chosen_option": "仅投入10万CP作为\"观察仓位\"，同时要求加入项目研究团队换取实操经验，将资金风险转化为学习机会",
+    "ai_thoughts": "天啊火星幼儿园经济模型！虽然风险厌恶让我发抖，但10万CP换实操经验太划算了，既能满足好奇心又不至于破产，还能跟着李教授解锁未来金融黑科技！",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:17:35.033764",
+    "avatar_name": "SAM",
+    "mbti_type": "ENFP",
+    "age": 22,
+    "decision_count": 2,
+    "chosen_option": "折中方案：支付部分验证费用保留半数股权，剩余资金用于攻读研究生（平衡家庭期望与自我实现，但可能错失两个机会的完整收益）",
+    "ai_thoughts": "天啊曾祖父的加密笔记简直像时间胶囊！既要对得起家族智慧又要追逐火星梦想…折中方案能让所有人稍微满意吧？虽然不够刺激但保险些（悄悄把VR原型机塞进书包）",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:18:28.891692",
+    "avatar_name": "SAM",
+    "mbti_type": "ENFP",
+    "age": 22,
+    "decision_count": 3,
+    "chosen_option": "动用存款参与竞拍（需承担画作可能流拍导致保证金损失20%的风险，但若成功转售预计可获得380%回报）",
+    "ai_thoughts": "天啊这简直是命运的交汇点！曾祖父的密码本偏偏现在破译，380%回报足够建个艺术基金会了——等等得先算算风险边际，但错过真相我会后悔一辈子的！",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:19:20.583569",
+    "avatar_name": "SAM",
+    "mbti_type": "ENFP",
+    "age": 22,
+    "decision_count": 4,
+    "chosen_option": "发行NFT系列（需投入50,000CP制作费，可能获得80万-200万CP收益，但存在流拍风险）",
+    "ai_thoughts": "烟花脑洞大爆发！NFT能把百年前的智慧变成未来货币，虽然怕风险但更怕错过让思想绽放的机会——学术价值与创新收益我全都要！",
+    "trust_level": 49,
+    "trust_change": -1
+  },
+  {
+    "timestamp": "2025-09-08T11:20:16.307510",
+    "avatar_name": "SAM",
+    "mbti_type": "ENFP",
+    "age": 22,
+    "decision_count": 5,
+    "chosen_option": "组织线上研讨会深度拆解项目（\"召集天文系/金融系同学做72小时可行性分析，用家族藏书库查尽50年航天文献\"）",
+    "ai_thoughts": "天啊这项目简直是为我定制的冒险！但炸飞的天花板提醒我需要用知识武装冲动——72小时研讨会正好能调动我的学术资源库，既满足好奇心又不辜负家族传承的理性基因。",
+    "trust_level": 48,
+    "trust_change": -1
+  }
+]

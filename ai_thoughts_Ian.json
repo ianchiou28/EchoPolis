@@ -1,0 +1,46 @@
+[
+  {
+    "timestamp": "2025-09-08T11:37:10.460182",
+    "avatar_name": "Ian",
+    "mbti_type": "ENTJ",
+    "age": 22,
+    "decision_count": 1,
+    "chosen_option": "接受投行offer+立即购房（动用80%资金支付首付，利用高薪覆盖月供，建立资产但承受高压）",
+    "ai_thoughts": "高压即燃料，资产是根基。用首付锁定杠杆，用薪资证明价值——风险可控的征服才是真正回报。黎明前的咖啡渍终将铺成资产负债表上的金色刻度。",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:41:34.078912",
+    "avatar_name": "Ian",
+    "mbti_type": "ENTJ",
+    "age": 22,
+    "decision_count": 1,
+    "chosen_option": "全额投资项目并全身心创业（符合ENTJ的掌控欲和风险偏好，但可能耗尽所有资金）",
+    "ai_thoughts": "60%概率值得all-in。管培生是平庸的安稳，而这是建立教育科技帝国的机会。资金归零只是暂时状态——我的执行力能将风险转化为垄断性回报。",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:42:17.510597",
+    "avatar_name": "Ian",
+    "mbti_type": "ENTJ",
+    "age": 22,
+    "decision_count": 2,
+    "chosen_option": "自建风控模型深度分析后，说服可信赖的资深投资人联合尽调（发挥ENTJ的资源整合能力，但需投入大量时间成本）",
+    "ai_thoughts": "35%回报率？漏洞比专利文件还多。给我48小时重组数据，要么证伪撕碎骗局，要么把真正机会攥进手里——永远别用咖啡钱赌命运。",
+    "trust_level": 50,
+    "trust_change": 0
+  },
+  {
+    "timestamp": "2025-09-08T11:43:17.492955",
+    "avatar_name": "Ian",
+    "mbti_type": "ENTJ",
+    "age": 22,
+    "decision_count": 3,
+    "chosen_option": "投资Leo的项目（投入40,000CP，锁定18个月，预计年化收益20-35%但存在技术风险）",
+    "ai_thoughts": "28%的三个月回报率证明Leo的系统有潜力。40k CP的投入能在18个月内可能翻倍，远胜投行薪水的线性增长。风险可控，回报值得锁定。父母的首付建议过于保守，年轻人应优先投资自己。",
+    "trust_level": 49,
+    "trust_change": -1
+  }
+]
