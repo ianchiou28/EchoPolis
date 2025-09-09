@@ -1,1 +1,0 @@
-# Echopolis Avatar Module

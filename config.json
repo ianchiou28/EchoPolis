@@ -1,7 +1,0 @@
-{
-  "deepseek_api_key": "sk-your-deepseek-api-key-here",
-  "game_settings": {
-    "auto_save": true,
-    "difficulty": "normal"
-  }
-}
