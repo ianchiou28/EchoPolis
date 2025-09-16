@@ -54,17 +54,17 @@ class GameService:
         if AI_AVAILABLE:
             avatar = AIAvatar(name, mbti)
             avatar_data = {
-                "name": avatar.name,
-                "mbti": avatar.mbti,
-                "fate": avatar.fate.value,
-                "credits": avatar.credits,
-                "background_story": avatar.background_story,
-                "special_traits": avatar.special_traits,
-                "health": 100,
-                "energy": 100,
-                "happiness": 100,
-                "stress": 0,
-                "trust_level": 50,
+                "name": avatar.attributes.name,
+                "mbti": avatar.attributes.mbti_type.value,
+                "fate": avatar.attributes.fate_type.value,
+                "credits": avatar.attributes.credits,
+                "background_story": avatar.fate_background.background_story,
+                "special_traits": avatar.fate_background.special_traits,
+                "health": avatar.attributes.health,
+                "energy": avatar.attributes.energy,
+                "happiness": avatar.attributes.happiness,
+                "stress": avatar.attributes.stress,
+                "trust_level": avatar.attributes.trust_level,
                 "intervention_points": 10
             }
             
@@ -162,16 +162,16 @@ class GameService:
                 
                 # 更新会话数据
                 session["avatar_data"] = {
-                    "name": avatar.name,
-                    "mbti": avatar.mbti,
-                    "fate": avatar.fate.value,
-                    "credits": avatar.credits,
-                    "health": getattr(avatar, 'health', 100),
-                    "energy": getattr(avatar, 'energy', 100),
-                    "happiness": getattr(avatar, 'happiness', 100),
-                    "stress": getattr(avatar, 'stress', 0),
-                    "trust_level": getattr(avatar, 'trust_level', 50),
-                    "intervention_points": getattr(avatar, 'intervention_points', 10)
+                    "name": avatar.attributes.name,
+                    "mbti": avatar.attributes.mbti_type.value,
+                    "fate": avatar.attributes.fate_type.value,
+                    "credits": avatar.attributes.credits,
+                    "health": avatar.attributes.health,
+                    "energy": avatar.attributes.energy,
+                    "happiness": avatar.attributes.happiness,
+                    "stress": avatar.attributes.stress,
+                    "trust_level": avatar.attributes.trust_level,
+                    "intervention_points": 10
                 }
                 
                 return {

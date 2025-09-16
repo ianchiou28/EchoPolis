@@ -108,8 +108,10 @@ async def create_avatar(request: CreateAvatarRequest):
             "mbti": request.mbti,
             "fate": fate_name,
             "cash": initial_cash,
-            "other_assets": 0,
+            "invested_assets": 0,
             "total_assets": initial_cash,
+            "current_month": 0,
+            "active_investments": [],
             "background_story": f"你是{request.name}，{request.mbti}类型。",
             "special_traits": ["智慧", "勇气", "坚持"],
             "health": 100,
@@ -182,44 +184,90 @@ async def generate_situation(request: GenerateSituationRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=error_detail)
 
+def _process_monthly_events(session):
+    """处理每个月开始时发生的事件，例如投资到期"""
+    avatar_data = session["avatar_data"]
+    avatar_data["current_month"] += 1
+    
+    events_log = []
+    mature_investments = []
+    
+    # 检查到期投资
+    for investment in avatar_data.get("active_investments", []):
+        if avatar_data["current_month"] >= investment["maturity_month"]:
+            # 计算回报 (简单起见，我们用一个随机范围)
+            # 短期: -5% to 15%, 中期: -10% to 30%, 长期: -20% to 60%
+            duration = investment["duration"]
+            if duration == 3:
+                return_rate = random.uniform(-0.05, 0.15)
+            elif duration == 6:
+                return_rate = random.uniform(-0.10, 0.30)
+            else: # 12 months
+                return_rate = random.uniform(-0.20, 0.60)
+            
+            return_amount = investment["amount"] * (1 + return_rate)
+            profit = return_amount - investment["amount"]
+            
+            # 更新财务状况
+            avatar_data["cash"] += return_amount
+            avatar_data["invested_assets"] -= investment["amount"]
+            avatar_data["total_assets"] += profit
+            
+            log_message = f"第{avatar_data['current_month']}月：你于第{investment['start_month']}月投资的{investment['amount']:,}CP（{duration}个月）已到期，回报为{profit:,.0f}CP！"
+            events_log.append(log_message)
+            mature_investments.append(investment)
+
+    # 移除已到期的投资
+    if mature_investments:
+        avatar_data["active_investments"] = [inv for inv in avatar_data["active_investments"] if inv not in mature_investments]
+        
+    return events_log
+
 def process_decision(session, decision_context):
     avatar_data = session["avatar_data"]
     game_over = False
 
     ai_decision = ai_engine.make_decision(decision_context)
     
-    if not (ai_decision and "chosen_option" in ai_decision and "error" not in ai_decision):
+    if not (ai_decision and "chosen_option" in ai_decision and "financial_impact" in ai_decision):
         print(f"[WARN] AI decision returned abnormal result: {ai_decision}")
         return {
-            "decision": {
-                "chosen_option": "（AI决策异常，已选择默认选项）",
-                "ai_thoughts": "AI返回了异常结果，系统自动执行了安全操作。",
-                "cash_change": 0,
-                "other_assets_change": 0,
-                "ai_powered": False,
-            },
+            "decision": { "ai_thoughts": "AI决策异常，系统自动执行了安全操作。" },
             "avatar": avatar_data,
-            "game_over": False
+            "game_over": False,
+            "monthly_events": []
         }
 
-    financial_impact = ai_decision.get("financial_impact", {"cash_change": 0, "other_assets_change": 0})
-    
-    # --- FIX: Robustly convert AI output to integers ---
-    try:
-        cash_change = int(financial_impact.get("cash_change", 0))
-    except (ValueError, TypeError):
-        cash_change = 0
-    try:
-        other_assets_change = int(financial_impact.get("other_assets_change", 0))
-    except (ValueError, TypeError):
-        other_assets_change = 0
-    # --- END FIX ---
+    impact = ai_decision.get("decision_impact", {})
 
-    avatar_data["cash"] += cash_change
-    avatar_data["other_assets"] = avatar_data.get("other_assets", 0) + other_assets_change
-    avatar_data["total_assets"] = avatar_data["cash"] + avatar_data["other_assets"]
-    
-    session["decision_count"] = session.get("decision_count", 0) + 1
+    # 1. 处理新的投资
+    investment = impact.get("investment")
+    if investment and isinstance(investment, dict):
+        amount = int(investment.get("amount", 0))
+        duration = int(investment.get("duration", 0))
+        if amount > 0 and duration in [3, 6, 12] and avatar_data["cash"] >= amount:
+            # This is an investment, cash moves to invested_assets
+            avatar_data["cash"] -= amount
+            avatar_data["invested_assets"] = avatar_data.get("invested_assets", 0) + amount
+            
+            new_investment = {
+                "amount": amount,
+                "duration": duration,
+                "start_month": avatar_data["current_month"],
+                "maturity_month": avatar_data["current_month"] + duration
+            }
+            avatar_data.get("active_investments", []).append(new_investment)
+
+    # 2. 处理所有由AI计算的即时变化
+    avatar_data["cash"] += int(impact.get("cash_change", 0))
+    avatar_data["invested_assets"] += int(impact.get("invested_assets_change", 0))
+    avatar_data["health"] = max(0, min(100, avatar_data["health"] + int(impact.get("health_change", 0))))
+    avatar_data["happiness"] = max(0, min(100, avatar_data["happiness"] + int(impact.get("happiness_change", 0))))
+    avatar_data["stress"] = max(0, min(100, avatar_data["stress"] + int(impact.get("stress_change", 0))))
+    avatar_data["trust_level"] = max(0, min(100, avatar_data["trust_level"] + int(impact.get("trust_change", 0))))
+
+    # 3. 重新计算总资产并检查破产
+    avatar_data["total_assets"] = avatar_data["cash"] + avatar_data["invested_assets"]
     
     if avatar_data["cash"] < 0:
         game_over = True
@@ -230,8 +278,7 @@ def process_decision(session, decision_context):
         "decision": {
             "chosen_option": ai_decision["chosen_option"],
             "ai_thoughts": ai_decision.get("ai_thoughts", "AI未提供想法。"),
-            "cash_change": cash_change,
-            "other_assets_change": other_assets_change,
+            "decision_impact": impact, # Pass the whole impact object to frontend
             "ai_powered": True,
         },
         "avatar": avatar_data,
@@ -244,6 +291,11 @@ async def send_echo(request: EchoRequest):
         raise HTTPException(status_code=404, detail="Session not found")
     
     session = game_sessions[request.session_id]
+    
+    # 1. 处理本月事件
+    monthly_events = _process_monthly_events(session)
+
+    # 2. 执行玩家决策
     avatar_data = session["avatar_data"]
     current_situation = session.get("current_situation", {})
     
@@ -257,8 +309,9 @@ async def send_echo(request: EchoRequest):
         decision_context = {
             "name": avatar_data["name"], "mbti": avatar_data["mbti"], "age": 25,
             "cash": avatar_data["cash"],
-            "other_assets": avatar_data.get("other_assets", 0),
+            "invested_assets": avatar_data.get("invested_assets", 0),
             "total_assets": avatar_data.get("total_assets", avatar_data["cash"]),
+            "current_month": avatar_data.get("current_month", 0),
             "health": avatar_data["health"], "happiness": avatar_data["happiness"], "stress": avatar_data["stress"],
             "trust": avatar_data["trust_level"], "background": avatar_data["background_story"],
             "traits": ", ".join(avatar_data["special_traits"]),
@@ -268,7 +321,7 @@ async def send_echo(request: EchoRequest):
         }
         
         result = process_decision(session, decision_context)
-        result["echo_analysis"] = {"type": "advisory", "confidence": 0.9, "ai_powered": True}
+        result["monthly_events"] = monthly_events
         return result
 
     except Exception as e:
@@ -282,8 +335,13 @@ async def send_echo(request: EchoRequest):
 async def auto_decision(request: AutoDecisionRequest):
     if request.session_id not in game_sessions:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+        
     session = game_sessions[request.session_id]
+
+    # 1. 处理本月事件
+    monthly_events = _process_monthly_events(session)
+
+    # 2. 执行AI自主决策
     avatar_data = session["avatar_data"]
     current_situation = session.get("current_situation", {})
     
@@ -297,8 +355,9 @@ async def auto_decision(request: AutoDecisionRequest):
         decision_context = {
             "name": avatar_data["name"], "mbti": avatar_data["mbti"], "age": 25,
             "cash": avatar_data["cash"],
-            "other_assets": avatar_data.get("other_assets", 0),
+            "invested_assets": avatar_data.get("invested_assets", 0),
             "total_assets": avatar_data.get("total_assets", avatar_data["cash"]),
+            "current_month": avatar_data.get("current_month", 0),
             "health": avatar_data["health"], "happiness": avatar_data["happiness"], "stress": avatar_data["stress"],
             "trust": avatar_data["trust_level"], "background": avatar_data["background_story"],
             "traits": ", ".join(avatar_data["special_traits"]),
@@ -307,7 +366,9 @@ async def auto_decision(request: AutoDecisionRequest):
             "player_echo": "无玩家建议，请自主决策"
         }
         
-        return process_decision(session, decision_context)
+        result = process_decision(session, decision_context)
+        result["monthly_events"] = monthly_events
+        return result
 
     except Exception as e:
         print(f"[ERROR] AI auto decision failed: {e}")

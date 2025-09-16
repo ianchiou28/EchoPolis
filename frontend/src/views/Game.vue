@@ -25,6 +25,17 @@
     </div>
     
     <div v-else class="game-interface">
+      <!-- 月份和事件日志 -->
+      <div class="card time-events-panel">
+        <div class="month-display">第 <span>{{ gameStore.avatar.current_month || 0 }}</span> 月</div>
+        <div v-if="monthlyEvents.length > 0" class="events-log">
+          <h4>本月事件:</h4>
+          <ul>
+            <li v-for="(event, index) in monthlyEvents" :key="index">{{ event }}</li>
+          </ul>
+        </div>
+      </div>
+
       <!-- 化身状态面板 -->
       <div class="card avatar-status">
         <h3>🤖 {{ gameStore.avatar.name }} ({{ gameStore.avatar.mbti }})</h3>
@@ -38,8 +49,8 @@
             <span>{{ formatMoney(gameStore.avatar.cash) }} CP</span>
           </div>
           <div class="finance-item">
-            <span>🏦 其它资产:</span>
-            <span>{{ formatMoney(gameStore.avatar.other_assets) }} CP</span>
+            <span>🏦 投资中资产:</span>
+            <span>{{ formatMoney(gameStore.avatar.invested_assets) }} CP</span>
           </div>
         </div>
         <hr class="status-divider">
@@ -49,6 +60,16 @@
           <div class="status-item-sm"><span>😊 幸福:</span> <span>{{ gameStore.avatar.happiness || 100 }}</span></div>
           <div class="status-item-sm"><span>🤝 信任:</span> <span>{{ gameStore.avatar.trust_level || 50 }}</span></div>
         </div>
+      </div>
+
+      <!-- 进行中的投资 -->
+      <div v-if="gameStore.avatar.active_investments && gameStore.avatar.active_investments.length > 0" class="card active-investments">
+        <h3>📈 进行中的投资</h3>
+        <ul>
+          <li v-for="(inv, index) in gameStore.avatar.active_investments" :key="index">
+            投资 {{ formatMoney(inv.amount) }} CP ({{ inv.duration }}个月期) - 将于第{{ inv.maturity_month }}月到期
+          </li>
+        </ul>
       </div>
 
       <!-- 当前情况 -->
@@ -101,11 +122,12 @@
           <p><strong>选择:</strong> {{ lastDecision.chosen_option }}</p>
           <p><strong>AI想法:</strong> {{ lastDecision.ai_thoughts }}</p>
           <div class="changes">
-            <div v-if="lastDecision.cash_change" class="credit-change" :class="lastDecision.cash_change > 0 ? 'positive' : 'negative'">
-              💵 现金: {{ lastDecision.cash_change > 0 ? '+' : '' }}{{ formatMoney(lastDecision.cash_change) }} CP
-            </div>
-            <div v-if="lastDecision.other_assets_change" class="credit-change" :class="lastDecision.other_assets_change > 0 ? 'positive' : 'negative'">
-              🏦 其它资产: {{ lastDecision.other_assets_change > 0 ? '+' : '' }}{{ formatMoney(lastDecision.other_assets_change) }} CP
+            <div v-for="(value, key) in lastDecision.decision_impact" :key="key">
+              <div v-if="key !== 'investment' && value !== 0" 
+                   class="credit-change" 
+                   :class="value > 0 ? 'positive' : 'negative'">
+                {{ formatKey(key) }}: {{ value > 0 ? '+' : '' }}{{ formatMoney(value) }}
+              </div>
             </div>
           </div>
         </div>
@@ -127,6 +149,7 @@ const lastDecision = ref(null)
 const lastEchoAnalysis = ref(null)
 const isLoading = ref(false)
 const isGameOver = ref(false)
+const monthlyEvents = ref([])
 
 // 统一的错误处理
 const handleApiError = (action, error) => {
@@ -146,6 +169,7 @@ const handleApiError = (action, error) => {
 const processDecisionResult = (result) => {
   lastDecision.value = result.decision
   lastEchoAnalysis.value = result.echo_analysis || { ai_powered: result.decision.ai_powered }
+  monthlyEvents.value = result.monthly_events || []
   if (result.game_over) {
     isGameOver.value = true
   }
@@ -208,6 +232,18 @@ const restartGame = () => {
 const formatMoney = (amount) => {
   if (typeof amount !== 'number') return amount
   return new Intl.NumberFormat('zh-CN').format(amount)
+}
+
+const formatKey = (key) => {
+  const names = {
+    cash_change: '💵 现金',
+    invested_assets_change: '🏦 投资资产',
+    health_change: '❤️ 健康',
+    happiness_change: '😊 幸福',
+    stress_change: '🤯 压力',
+    trust_change: '🤝 信任'
+  }
+  return names[key] || key
 }
 </script>
 
@@ -322,6 +358,42 @@ const formatMoney = (amount) => {
 .status-item-sm span:last-child {
   font-weight: bold;
   margin-left: 8px;
+}
+
+.time-events-panel {
+  padding: 15px;
+  background: #2c3e50;
+  color: white;
+  border-left: 4px solid #f39c12;
+}
+
+.month-display {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.month-display span {
+  color: #f39c12;
+}
+
+.events-log h4 {
+  margin-bottom: 5px;
+}
+
+.events-log ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.active-investments ul {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.active-investments li {
+  padding: 5px 0;
 }
 
 .game-interface {

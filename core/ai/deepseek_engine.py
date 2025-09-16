@@ -51,7 +51,9 @@ class DeepSeekEngine:
             if response.status_code == 200:
                 result = response.json()
                 ai_response = result["choices"][0]["message"]["content"]
-                return self._parse_ai_response(ai_response, context["options"])
+                parsed_result = self._parse_ai_response(ai_response, context["options"])
+                print(f"[DEBUG] Parsed AI decision result: {parsed_result}")
+                return parsed_result
             else:
                 return {"error": f"API错误: {response.status_code}"}
                 
@@ -59,43 +61,44 @@ class DeepSeekEngine:
             return {"error": f"请求失败: {str(e)}"}
     
     def _build_decision_prompt(self, context: Dict) -> str:
-        """构建决策提示词"""
+        """构建决策提示词 V3，要求AI计算所有变化"""
         mbti_profiles = {
-            "ISTJ": "稽查者 - 像一座花岗岩堡垒般可靠，账本精确到小数点后两位，遵循着祖辈传下的日程表，用事实与经验浇筑世界秩序",
-            "ISFJ": "守护者 - 指尖带着温热的牛奶香，总记得你过敏的药材名，相册按年份编码存放，用绒布擦拭每段回忆",
-            "INFJ": "劝告者 - 看见火焰在众人眼中熄灭，用隐喻缝补破碎的灵魂，深夜书房亮着椭圆光斑，先知在稿纸上承受刺痛",
-            "INTJ": "战略家 - 棋盘延伸到十年之后，卒子过河即成女王，图书馆穹顶投下冷光，将万物纳入思维矩阵",
-            "ISTP": "巧匠 - 摩托车引擎倒悬如心脏，扳手旋转出黄金比例，对说明书嗤之以鼻，用直觉拆解时空密码",
-            "ISFP": "艺术家 - 颜料在帆布上长出静脉，耳后别着野蕨的春天，拒绝所有标签式拥抱，用沉默捍卫敏感内核",
-            "INFP": "调停者 - 捧着水晶般易碎的理想，在现实荆棘中采血验玫瑰，日记本里压着三叶虫化石，与十九世纪诗人共用一副灵魂",
-            "INTP": "逻辑学家 - 在脑内搭建巴别图书馆，用公式翻译上帝呓语，咖啡杯沿印着群论推导，突然停顿的交谈间隙",
-            "ESTP": "践行者 - 闯红灯的瞬间大笑不止，风险是活着的盐粒，即兴扑克牌局赌注——整条街道的日落权",
-            "ESFP": "表演者 - 把每间客厅变成舞台，笑声如彩纸屑旋转飘落，记住所有邻居的宠物名，用肢体语言翻译快乐",
-            "ENFP": "倡导者 - 思维是永不停歇的烟花厂，拉着陌生人畅想火星幼儿园，背包里装着未实现的奇迹，眼泪与灵感同等珍贵",
-            "ENTP": "辩论家 - 用悖论编织投石器，击碎所有庄严的玻璃窗，魔鬼辩护席空置太久，正好练习反向哲学体操",
-            "ESTJ": "监督者 - 怀表链拴着整个组织体系，用效率浇筑社会骨架，名单勾选框必须直角，延迟是原罪的一种形式",
-            "ESFJ": "执政官 - 记得所有成员的过敏原，社区花名册是圣典，用烘焙饼干化解纠纷，门廊灯为晚归者多亮一刻",
-            "ENFJ": "教育家 - 在瞳孔深处点燃星火，话语长出牵引的羽翼，发现每个灵魂的密钥，却把自己的锁孔藏在雾中",
-            "ENTJ": "指挥官 - 将混沌锻造成进度图表，目光扫过之处升起脚手架，战略蓝图铺满黎明——用咖啡渍标注滩头阵地"
+            "ISTJ": "稽查者 - 像一座花岗岩堡垒般可靠，账本精确到小数点后两位",
+            "ISFJ": "守护者 - 指尖带着温热的牛奶香，总记得你过敏的药材名",
+            "INFJ": "劝告者 - 看见火焰在众人眼中熄灭，用隐喻缝补破碎的灵魂",
+            "INTJ": "战略家 - 棋盘延伸到十年之后，卒子过河即成女王",
+            "ISTP": "巧匠 - 摩托车引擎倒悬如心脏，扳手旋转出黄金比例",
+            "ISFP": "艺术家 - 颜料在帆布上长出静脉，耳后别着野蕨的春天",
+            "INFP": "调停者 - 捧着水晶般易碎的理想，在现实荆棘中采血验玫瑰",
+            "INTP": "逻辑学家 - 在脑内搭建巴别图书馆，用公式翻译上帝呓语",
+            "ESTP": "践行者 - 闯红灯的瞬间大笑不止，风险是活着的盐粒",
+            "ESFP": "表演者 - 把每间客厅变成舞台，笑声如彩纸屑旋转飘落",
+            "ENFP": "倡导者 - 思维是永不停歇的烟花厂，拉着陌生人畅想火星幼儿园",
+            "ENTP": "辩论家 - 用悖论编织投石器，击碎所有庄严的玻璃窗",
+            "ESTJ": "监督者 - 怀表链拴着整个组织体系，用效率浇筑社会骨架",
+            "ESFJ": "执政官 - 记得所有成员的过敏原，社区花名册是圣典",
+            "ENFJ": "教育家 - 在瞳孔深处点燃星火，话语长出牵引的羽翼",
+            "ENTJ": "指挥官 - 将混沌锻造成进度图表，目光扫过之处升起脚手架"
         }
-        
         mbti_profile = mbti_profiles.get(context["mbti"], "理性决策者")
         
         prompt = f"""你是一个{context['mbti']}人格类型的人（{mbti_profile}），名叫{context['name']}，{context['age']}岁。
 
-你的当前财务状况：
-- 现金：{context['cash']:,} CP (注意：若现金低于0，你将破产)
-- 其它资产：{context['other_assets']:,} CP
-- 总资产：{context['total_assets']:,} CP
+# 游戏核心规则
+1. 你的每一个决策都将让时间前进一个月。
+2. 你的最终目标是实现财务自由，同时保持身心健康。
+3. 现金是你生存的关键，现金低于0意味着直接破产。
+
+# 投资规则
+投资分为三类：短期(3个月), 中期(6个月), 长期(12个月)。投资时，现金立刻减少，等额资金进入“投资中资产”。到期后，本金和收益/亏损会自动结算到现金中。
+
+你的当前财务状况(第{context.get('current_month', 0)}个月)：
+- 现金：{context.get('cash', 0):,} CP
+- 投资中资产：{context.get('invested_assets', 0):,} CP
+- 总资产：{context.get('total_assets', 0):,} CP
 
 你的其它状态：
-- 健康：{context['health']}/100
-- 幸福感：{context['happiness']}/100  
-- 压力：{context['stress']}/100
-- 对玩家信任度：{context['trust']}/100
-
-你的背景：{context['background']}
-特殊特质：{context['traits']}
+- 健康：{context['health']}/100, 幸福感：{context['happiness']}/100, 压力：{context['stress']}/100, 对玩家信任度：{context['trust']}/100
 
 现在面临情况：{context['situation']}
 
@@ -104,51 +107,62 @@ class DeepSeekEngine:
 
 玩家建议：{context.get('player_echo', '无')}
 
-请作为这个人格类型的人，真实地表达你的内心想法和决策过程。请包括：
-1. 你对这个情况的第一反应
-2. 你考虑的因素(如现金、资产、风险、个人状态等)
-3. 对玩家建议的看法(如果有)
-4. 你的最终决定和原因
-
-必须严格遵循以下格式，你的回复只能包含“选择”和“想法”两行：
-选择：[这里只写一个数字，代表你选择的选项编号]
-想法：[你的详细内心独白...][财务影响JSON: {{"cash_change": <数字>, "other_assets_change": <数字>}}]"""        
+# 你的任务
+作为这个角色进行决策。你的回复必须严格遵循以下两行格式。在“想法”的末尾，必须附带一个包含所有决策影响的完整JSON。所有数值变化都必须由你根据情况和人格来计算。
+选择：[数字]
+想法：[你的内心独白...][决策影响JSON: {{"cash_change": <number>, "invested_assets_change": <number>, "health_change": <number>, "happiness_change": <number>, "stress_change": <number>, "trust_change": <number>, "investment": {{"amount": <number>, "duration": <3,6,12>}} or null}}]"""
+        
         return prompt
-    
+
     def _parse_ai_response(self, response: str, options: List[str]) -> Dict:
-        """解析AI响应，包含财务影响"""
+        """解析AI响应，提取决策和统一的decision_impact JSON"""
         try:
-            # 提取选择
             choice_line = next((line for line in response.split('\n') if line.startswith('选择：')), None)
             choice_num = int(choice_line.split('：')[1].strip()) if choice_line else 1
             chosen_option = options[choice_num - 1] if 1 <= choice_num <= len(options) else options[0]
 
-            # 提取想法和财务JSON
             thoughts = ""
-            financial_impact = {"cash_change": 0, "other_assets_change": 0}
+            decision_impact = {}
+            investment = None
             
             idea_line = next((line for line in response.split('\n') if line.startswith('想法：')), None)
             if idea_line:
                 idea_content = idea_line.split('：', 1)[1]
-                json_marker = '[财务影响JSON:'
+                
+                json_marker = '[决策影响JSON:'
                 if json_marker in idea_content:
-                    thoughts_part, json_part = idea_content.rsplit(json_marker, 1)
-                    thoughts = thoughts_part.strip()
+                    idea_content, json_part = idea_content.rsplit(json_marker, 1)
                     try:
-                        # 提取并解析JSON
-                        json_str = json_part.strip()
-                        if json_str.endswith(']'):
-                            json_str = json_str[:-1]
-                        financial_impact = json.loads(json_str)
-                    except json.JSONDecodeError:
-                        print(f"[WARN] AI response JSON parsing failed. Raw: {json_part}")
-                else:
-                    thoughts = idea_content.strip()
+                        json_str = json_part.strip().rstrip(']')
+                        parsed_json = json.loads(json_str)
+                        
+                        # 提取投资信息
+                        if 'investment' in parsed_json and parsed_json['investment']:
+                            investment = parsed_json['investment']
+                        
+                        # 构建financial_impact
+                        financial_impact = {
+                            'cash_change': parsed_json.get('cash_change', 0),
+                            'other_assets_change': parsed_json.get('invested_assets_change', 0)
+                        }
+                        
+                        # 保留完整的decision_impact用于内部处理
+                        decision_impact = parsed_json
+                        
+                    except json.JSONDecodeError as e:
+                        print(f"[WARN] AI response decision impact JSON parsing failed. Raw: {json_part}. Error: {e}")
+                        financial_impact = {'cash_change': 0, 'other_assets_change': 0}
+
+                thoughts = idea_content.strip()
+            else:
+                financial_impact = {'cash_change': 0, 'other_assets_change': 0}
 
             return {
                 "chosen_option": chosen_option,
                 "ai_thoughts": thoughts or "AI没有提供明确想法。",
                 "financial_impact": financial_impact,
+                "investment": investment,
+                "decision_impact": decision_impact,  # 保留完整数据用于内部处理
                 "raw_response": response
             }
             
@@ -157,7 +171,9 @@ class DeepSeekEngine:
             return {
                 "chosen_option": options[0],
                 "ai_thoughts": "解析AI响应时出现意外错误。",
-                "financial_impact": {"cash_change": 0, "other_assets_change": 0},
+                "financial_impact": {'cash_change': 0, 'other_assets_change': 0},
+                "investment": None,
+                "decision_impact": {},
                 "raw_response": response
             }
     
