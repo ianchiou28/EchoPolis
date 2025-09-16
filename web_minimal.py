@@ -117,7 +117,6 @@ async def create_avatar(request: CreateAvatarRequest):
             "health": 100,
             "energy": 100,
             "happiness": 100,
-            "stress": 0,
             "trust_level": 50,
             "intervention_points": 10
         }
@@ -153,7 +152,7 @@ async def generate_situation(request: GenerateSituationRequest):
             "total_assets": avatar_data.get("total_assets", avatar_data["cash"]),
             "health": avatar_data["health"],
             "happiness": avatar_data["happiness"],
-            "stress": avatar_data["stress"],
+            "energy": avatar_data.get("energy", 100),
             "background": avatar_data["background_story"],
             "traits": ", ".join(avatar_data["special_traits"]),
             "life_stage": "exploration",
@@ -263,11 +262,11 @@ def process_decision(session, decision_context):
     avatar_data["invested_assets"] += int(impact.get("invested_assets_change", 0))
     avatar_data["health"] = max(0, min(100, avatar_data["health"] + int(impact.get("health_change", 0))))
     avatar_data["happiness"] = max(0, min(100, avatar_data["happiness"] + int(impact.get("happiness_change", 0))))
-    avatar_data["stress"] = max(0, min(100, avatar_data["stress"] + int(impact.get("stress_change", 0))))
+    avatar_data["energy"] = max(0, min(100, avatar_data.get("energy", 100) + int(impact.get("energy_change", 0))))
     avatar_data["trust_level"] = max(0, min(100, avatar_data["trust_level"] + int(impact.get("trust_change", 0))))
 
     # 3. 重新计算总资产并检查破产
-    avatar_data["total_assets"] = avatar_data["cash"] + avatar_data["invested_assets"]
+    avatar_data["total_assets"] = avatar_data["cash"] + avatar_data.get("invested_assets", 0)
     
     if avatar_data["cash"] < 0:
         game_over = True
@@ -312,7 +311,7 @@ async def send_echo(request: EchoRequest):
             "invested_assets": avatar_data.get("invested_assets", 0),
             "total_assets": avatar_data.get("total_assets", avatar_data["cash"]),
             "current_month": avatar_data.get("current_month", 0),
-            "health": avatar_data["health"], "happiness": avatar_data["happiness"], "stress": avatar_data["stress"],
+            "health": avatar_data["health"], "happiness": avatar_data["happiness"], "energy": avatar_data.get("energy", 100),
             "trust": avatar_data["trust_level"], "background": avatar_data["background_story"],
             "traits": ", ".join(avatar_data["special_traits"]),
             "situation": current_situation.get("situation", "面临决策"),
@@ -358,7 +357,7 @@ async def auto_decision(request: AutoDecisionRequest):
             "invested_assets": avatar_data.get("invested_assets", 0),
             "total_assets": avatar_data.get("total_assets", avatar_data["cash"]),
             "current_month": avatar_data.get("current_month", 0),
-            "health": avatar_data["health"], "happiness": avatar_data["happiness"], "stress": avatar_data["stress"],
+            "health": avatar_data["health"], "happiness": avatar_data["happiness"], "energy": avatar_data.get("energy", 100),
             "trust": avatar_data["trust_level"], "background": avatar_data["background_story"],
             "traits": ", ".join(avatar_data["special_traits"]),
             "situation": current_situation.get("situation", "面临决策"),
@@ -396,7 +395,7 @@ async def generate_situation(request: GenerateSituationRequest):
             "cash": avatar_data["cash"],
             "health": avatar_data["health"],
             "happiness": avatar_data["happiness"],
-            "stress": avatar_data["stress"],
+            "energy": avatar_data.get("energy", 100),
             "background": avatar_data["background_story"],
             "traits": ", ".join(avatar_data["special_traits"]),
             "life_stage": "exploration",
@@ -453,7 +452,7 @@ async def send_echo(request: EchoRequest):
                 "cash": avatar_data["cash"],
                 "health": avatar_data["health"],
                 "happiness": avatar_data["happiness"],
-                "stress": avatar_data["stress"],
+                "energy": avatar_data.get("energy", 100),
                 "trust": avatar_data["trust_level"],
                 "background": avatar_data["background_story"],
                 "traits": ", ".join(avatar_data["special_traits"]),
@@ -544,7 +543,7 @@ async def auto_decision(request: AutoDecisionRequest):
                 "cash": avatar_data["cash"],
                 "health": avatar_data["health"],
                 "happiness": avatar_data["happiness"],
-                "stress": avatar_data["stress"],
+                "energy": avatar_data.get("energy", 100),
                 "trust": avatar_data["trust_level"],
                 "background": avatar_data["background_story"],
                 "traits": ", ".join(avatar_data["special_traits"]),

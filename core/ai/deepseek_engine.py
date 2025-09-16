@@ -98,7 +98,7 @@ class DeepSeekEngine:
 - 总资产：{context.get('total_assets', 0):,} CP
 
 你的其它状态：
-- 健康：{context['health']}/100, 幸福感：{context['happiness']}/100, 压力：{context['stress']}/100, 对玩家信任度：{context['trust']}/100
+- 健康：{context['health']}/100, 幸福感：{context['happiness']}/100, 精力：{context.get('energy', 100)}/100, 对玩家信任度：{context['trust']}/100
 
 现在面临情况：{context['situation']}
 
@@ -110,68 +110,93 @@ class DeepSeekEngine:
 # 你的任务
 作为这个角色进行决策。你的回复必须严格遵循以下两行格式。在“想法”的末尾，必须附带一个包含所有决策影响的完整JSON。所有数值变化都必须由你根据情况和人格来计算。
 选择：[数字]
-想法：[你的内心独白...][决策影响JSON: {{"cash_change": <number>, "invested_assets_change": <number>, "health_change": <number>, "happiness_change": <number>, "stress_change": <number>, "trust_change": <number>, "investment": {{"amount": <number>, "duration": <3,6,12>}} or null}}]"""
+想法：[你的内心独白...][决策影响JSON: {{"cash_change": <number>, "invested_assets_change": <number>, "health_change": <number>, "happiness_change": <number>, "energy_change": <number>, "trust_change": <number>, "investment": {{"amount": <number>, "duration": <1,3,6,12>}} or null}}]
+
+## 重要：财务计算规则
+- 花费金钱时cash_change必须为负数（如花费5000CP，则cash_change: -5000）
+- 投资时设置investment对象并减少现金（如投资5000CP 3个月，则cash_change: -5000, investment: {{"amount": 5000, "duration": 3}}）
+- 根据选择内容准确计算所有数值变化"""
         
         return prompt
 
     def _parse_ai_response(self, response: str, options: List[str]) -> Dict:
         """解析AI响应，提取决策和统一的decision_impact JSON"""
+        print(f"[DEBUG] Raw AI response: {response}")
+        
+        # 默认值
+        chosen_option = options[0] if options else "默认选择"
+        thoughts = "AI没有提供明确想法。"
+        decision_impact = {}
+        investment = None
+        financial_impact = {'cash_change': 0, 'other_assets_change': 0}
+        
         try:
-            choice_line = next((line for line in response.split('\n') if line.startswith('选择：')), None)
-            choice_num = int(choice_line.split('：')[1].strip()) if choice_line else 1
-            chosen_option = options[choice_num - 1] if 1 <= choice_num <= len(options) else options[0]
-
-            thoughts = ""
-            decision_impact = {}
-            investment = None
-            
-            idea_line = next((line for line in response.split('\n') if line.startswith('想法：')), None)
-            if idea_line:
-                idea_content = idea_line.split('：', 1)[1]
-                
-                json_marker = '[决策影响JSON:'
-                if json_marker in idea_content:
-                    idea_content, json_part = idea_content.rsplit(json_marker, 1)
+            # 解析选择
+            for line in response.split('\n'):
+                line = line.strip()
+                if line.startswith('选择：'):
                     try:
-                        json_str = json_part.strip().rstrip(']')
-                        parsed_json = json.loads(json_str)
+                        choice_num = int(line.split('：')[1].strip())
+                        if 1 <= choice_num <= len(options):
+                            chosen_option = options[choice_num - 1]
+                    except (ValueError, IndexError):
+                        pass
+                    break
+            
+            # 解析想法和JSON
+            for line in response.split('\n'):
+                line = line.strip()
+                if line.startswith('想法：'):
+                    idea_content = line.split('：', 1)[1] if '：' in line else line
+                    
+                    # 查找JSON标记
+                    json_marker = '[决策影响JSON:'
+                    if json_marker in idea_content:
+                        thoughts_part, json_part = idea_content.rsplit(json_marker, 1)
+                        thoughts = thoughts_part.strip()
                         
-                        # 提取投资信息
-                        if 'investment' in parsed_json and parsed_json['investment']:
-                            investment = parsed_json['investment']
-                        
-                        # 构建financial_impact
-                        financial_impact = {
-                            'cash_change': parsed_json.get('cash_change', 0),
-                            'other_assets_change': parsed_json.get('invested_assets_change', 0)
-                        }
-                        
-                        # 保留完整的decision_impact用于内部处理
-                        decision_impact = parsed_json
-                        
-                    except json.JSONDecodeError as e:
-                        print(f"[WARN] AI response decision impact JSON parsing failed. Raw: {json_part}. Error: {e}")
-                        financial_impact = {'cash_change': 0, 'other_assets_change': 0}
-
-                thoughts = idea_content.strip()
-            else:
-                financial_impact = {'cash_change': 0, 'other_assets_change': 0}
-
-            return {
+                        # 解析JSON
+                        try:
+                            json_str = json_part.strip().rstrip(']')
+                            parsed_json = json.loads(json_str)
+                            
+                            decision_impact = parsed_json
+                            
+                            # 提取投资信息
+                            if 'investment' in parsed_json and parsed_json['investment']:
+                                investment = parsed_json['investment']
+                            
+                            # 构建financial_impact
+                            financial_impact = {
+                                'cash_change': parsed_json.get('cash_change', 0),
+                                'other_assets_change': parsed_json.get('invested_assets_change', 0)
+                            }
+                            
+                        except json.JSONDecodeError as e:
+                            print(f"[WARN] JSON parsing failed: {e}. Raw: {json_part}")
+                            thoughts = idea_content.strip()
+                    else:
+                        thoughts = idea_content.strip()
+                    break
+            
+            result = {
                 "chosen_option": chosen_option,
-                "ai_thoughts": thoughts or "AI没有提供明确想法。",
+                "ai_thoughts": thoughts,
                 "financial_impact": financial_impact,
                 "investment": investment,
-                "decision_impact": decision_impact,  # 保留完整数据用于内部处理
+                "decision_impact": decision_impact,
                 "raw_response": response
             }
             
+            print(f"[DEBUG] Parsed result: {result}")
+            return result
+            
         except Exception as e:
-            print(f"[ERROR] Parsing AI response failed: {e}. Raw: {response}")
+            print(f"[ERROR] Parsing AI response failed: {e}")
             return {
-                "chosen_option": options[0],
+                "chosen_option": chosen_option,
                 "ai_thoughts": "解析AI响应时出现意外错误。",
-                "financial_impact": {'cash_change': 0, 'other_assets_change': 0},
+                "financial_impact": financial_impact,
                 "investment": None,
                 "decision_impact": {},
                 "raw_response": response
@@ -244,7 +269,7 @@ class DeepSeekEngine:
 - 现金：{context['cash']:,} CP
 - 健康：{context['health']}/100
 - 幸福感：{context['happiness']}/100
-- 压力：{context['stress']}/100
+- 精力：{context.get('energy', 100)}/100
 - 背景：{context['background']}
 - 特质：{context['traits']}
 - 已做决策数：{context['decision_count']}
