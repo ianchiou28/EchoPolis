@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 DeepSeek AI引擎 - Echopolis AI决策模块
 """
@@ -6,7 +7,23 @@ import json
 from typing import Dict, List, Optional
 
 class DeepSeekEngine:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str = None):
+        # 尝试从配置文件读取API key
+        if api_key is None:
+            try:
+                import json
+                import os
+                config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.json')
+                if os.path.exists(config_path):
+                    with open(config_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                        api_key = config.get('deepseek_api_key')
+            except:
+                pass
+        
+        if not api_key:
+            raise ValueError("DeepSeek API key not found. Please set it in config.json")
+            
         self.api_key = api_key
         self.base_url = "https://api.deepseek.com/v1/chat/completions"
         self.headers = {
@@ -28,7 +45,7 @@ class DeepSeekEngine:
                     "temperature": 0.7,
                     "max_tokens": 250
                 },
-                timeout=30
+                timeout=60
             )
             
             if response.status_code == 200:
@@ -66,8 +83,12 @@ class DeepSeekEngine:
         
         prompt = f"""你是一个{context['mbti']}人格类型的人（{mbti_profile}），名叫{context['name']}，{context['age']}岁。
 
-你的当前状态：
-- 资金：{context['credits']:,} CP
+你的当前财务状况：
+- 现金：{context['cash']:,} CP (注意：若现金低于0，你将破产)
+- 其它资产：{context['other_assets']:,} CP
+- 总资产：{context['total_assets']:,} CP
+
+你的其它状态：
 - 健康：{context['health']}/100
 - 幸福感：{context['happiness']}/100  
 - 压力：{context['stress']}/100
@@ -85,60 +106,58 @@ class DeepSeekEngine:
 
 请作为这个人格类型的人，真实地表达你的内心想法和决策过程。请包括：
 1. 你对这个情况的第一反应
-2. 你考虑的因素(如资金、风险、个人状态等)
+2. 你考虑的因素(如现金、资产、风险、个人状态等)
 3. 对玩家建议的看法(如果有)
 4. 你的最终决定和原因
 
-格式：
-选择：[数字]
-想法：[你的详细内心独白，体现你的人格特质和真实情感，限制在150个字符内]"""
-        
+必须严格遵循以下格式，你的回复只能包含“选择”和“想法”两行：
+选择：[这里只写一个数字，代表你选择的选项编号]
+想法：[你的详细内心独白...][财务影响JSON: {{"cash_change": <数字>, "other_assets_change": <数字>}}]"""        
         return prompt
     
     def _parse_ai_response(self, response: str, options: List[str]) -> Dict:
-        """解析AI响应"""
+        """解析AI响应，包含财务影响"""
         try:
-            # 提取选择的数字
-            choice_num = None
-            for char in response:
-                if char.isdigit():
-                    num = int(char)
-                    if 1 <= num <= len(options):
-                        choice_num = num
-                        break
+            # 提取选择
+            choice_line = next((line for line in response.split('\n') if line.startswith('选择：')), None)
+            choice_num = int(choice_line.split('：')[1].strip()) if choice_line else 1
+            chosen_option = options[choice_num - 1] if 1 <= choice_num <= len(options) else options[0]
+
+            # 提取想法和财务JSON
+            thoughts = ""
+            financial_impact = {"cash_change": 0, "other_assets_change": 0}
             
-            if choice_num is None:
-                choice_num = 1  # 默认选择第一个
-            
-            chosen_option = options[choice_num - 1]
-            
-            # 提取想法
-            thoughts = response
-            if "想法：" in response:
-                thoughts = response.split("想法：", 1)[1].strip()
-            elif "选择：" in response and "\n" in response:
-                # 如果有选择和换行，取选择后的内容
-                parts = response.split("\n", 1)
-                if len(parts) > 1:
-                    thoughts = parts[1].strip()
-            
-            # 清理想法内容，移除多余的格式标记
-            thoughts = thoughts.replace("想法：", "").replace("选择：", "").strip()
-            
-            # 限制想法长度到150个字符
-            if len(thoughts) > 150:
-                thoughts = thoughts[:147] + "..."
-            
+            idea_line = next((line for line in response.split('\n') if line.startswith('想法：')), None)
+            if idea_line:
+                idea_content = idea_line.split('：', 1)[1]
+                json_marker = '[财务影响JSON:'
+                if json_marker in idea_content:
+                    thoughts_part, json_part = idea_content.rsplit(json_marker, 1)
+                    thoughts = thoughts_part.strip()
+                    try:
+                        # 提取并解析JSON
+                        json_str = json_part.strip()
+                        if json_str.endswith(']'):
+                            json_str = json_str[:-1]
+                        financial_impact = json.loads(json_str)
+                    except json.JSONDecodeError:
+                        print(f"[WARN] AI response JSON parsing failed. Raw: {json_part}")
+                else:
+                    thoughts = idea_content.strip()
+
             return {
                 "chosen_option": chosen_option,
-                "ai_thoughts": thoughts,
+                "ai_thoughts": thoughts or "AI没有提供明确想法。",
+                "financial_impact": financial_impact,
                 "raw_response": response
             }
             
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] Parsing AI response failed: {e}. Raw: {response}")
             return {
                 "chosen_option": options[0],
-                "ai_thoughts": "让我仔细考虑一下这个决策...这个情况比较复杂，我需要更多时间来分析各种可能性和潜在风险。",
+                "ai_thoughts": "解析AI响应时出现意外错误。",
+                "financial_impact": {"cash_change": 0, "other_assets_change": 0},
                 "raw_response": response
             }
     
@@ -155,7 +174,7 @@ class DeepSeekEngine:
                     "temperature": 0.8,
                     "max_tokens": 400
                 },
-                timeout=30
+                timeout=60
             )
             
             if response.status_code == 200:
@@ -206,7 +225,7 @@ class DeepSeekEngine:
 - 年龄：{context['age']}岁
 - 人生阶段：{life_stage_desc}
 - MBTI类型：{context['mbti']} ({mbti_profile})
-- 资金：{context['credits']:,} CP
+- 现金：{context['cash']:,} CP
 - 健康：{context['health']}/100
 - 幸福感：{context['happiness']}/100
 - 压力：{context['stress']}/100
@@ -218,54 +237,71 @@ class DeepSeekEngine:
 1. 与角色的年龄、背景和当前状态相符
 2. 具有金融或生活决策的性质
 3. 提供3个不同的选择方案
-4. 情况要有趣且具有挑战性
-5. 特别考虑角色的MBTI人格特质，生成符合其性格的情况
 
-请使用以下格式回复：
-情况：[情况描述]
-选项1：[选项1]
-选项2：[选项2]
-选项3：[选项3]
-类型：[类型：investment/career/housing/lifestyle/crisis/entrepreneurship]"""
-        
+请严格按照以下格式回复：
+情况：[详细描述当前面临的情况]
+选项1：[第一个选择]
+选项2：[第二个选择]
+选项3：[第三个选择]"""
         return prompt
     
-    def _parse_situation_response(self, response: str):
+    def _parse_situation_response(self, response: str) -> Optional[Dict]:
         """解析情况生成响应"""
         try:
-            from ..avatar.ai_avatar import DecisionContext
-            
             lines = response.strip().split('\n')
-            situation = ""
-            options = []
-            context_type = "general"
-            
+            data = {}
             for line in lines:
-                line = line.strip()
-                if line.startswith('情况：'):
-                    situation = line.replace('情况：', '').strip()
-                elif line.startswith('选项1：'):
-                    options.append(line.replace('选项1：', '').strip())
-                elif line.startswith('选项2：'):
-                    options.append(line.replace('选项2：', '').strip())
-                elif line.startswith('选项3：'):
-                    options.append(line.replace('选项3：', '').strip())
-                elif line.startswith('类型：'):
-                    context_type = line.replace('类型：', '').strip()
+                if '：' in line:
+                    key, value = line.split('：', 1)
+                    data[key.strip()] = value.strip()
             
-            if situation and len(options) >= 3:
-                return DecisionContext(situation, options[:3], context_type)
+            situation = data.get('情况')
+            options = [
+                data.get('选项1'),
+                data.get('选项2'),
+                data.get('选项3')
+            ]
+            
+            if situation and all(options):
+                return {
+                    "description": situation,
+                    "choices": options
+                }
             else:
+                print(f"[WARN] Parsing situation failed, missing fields. Data: {data}")
                 return None
                 
-        except Exception:
+        except Exception as e:
+            print(f"[ERROR] Parsing situation response failed: {e}")
             return None
+    
+    def make_autonomous_decision(self, avatar, situation):
+        """AI自主决策"""
+        context = {
+            "name": avatar.name,
+            "mbti": avatar.mbti,
+            "age": getattr(avatar, 'age', 25),
+            "cash": avatar.credits,
+            "other_assets": 0,
+            "total_assets": avatar.credits,
+            "health": avatar.health,
+            "happiness": avatar.happiness,
+            "stress": avatar.stress,
+            "trust": avatar.trust_level,
+            "background": avatar.background_story,
+            "traits": avatar.special_traits,
+            "situation": situation.get("description", situation.get("situation", "")),
+            "options": situation.get("choices", situation.get("options", [])),
+            "player_echo": ""
+        }
+        
+        return self.make_decision(context)
 
-# 全局实例 - 直接使用API key初始化
-deepseek_engine = DeepSeekEngine("sk-757f0fae8a504fba9427bf8d8855e9d2")
 
-def initialize_deepseek(api_key: str):
+def initialize_deepseek(api_key: str = None):
     """初始化DeepSeek引擎"""
-    global deepseek_engine
-    deepseek_engine = DeepSeekEngine(api_key)
-    return deepseek_engine
+    try:
+        return DeepSeekEngine(api_key)
+    except ValueError as e:
+        print(f"DeepSeek初始化失败: {e}")
+        return None

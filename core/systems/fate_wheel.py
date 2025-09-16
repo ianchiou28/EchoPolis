@@ -197,16 +197,22 @@ class FateWheelSystem:
         
         return influence
 
+class FateWheel:
+    """FateWheel兼容性类"""
+    
+    @staticmethod
+    def get_fate_info(fate_type):
+        """获取命运信息"""
+        fate_map = {
+            FateType.BILLIONAIRE: {'initial_money': 100_000_000, 'description': '含着金汤匙出生，家族企业遍布全球'},
+            FateType.SCHOLAR_FAMILY: {'initial_money': 1_000_000, 'description': '知识分子家庭，重视教育和文化传承'},
+            FateType.FALLEN_NOBLE: {'initial_money': 10_000, 'description': '曾经辉煌的家族如今衰落，但保留着贵族的品味'},
+            FateType.SELF_MADE: {'initial_money': 50_000, 'description': '普通家庭出身，凭借自己的努力奋斗'},
+            FateType.MIDDLE_CLASS: {'initial_money': 200_000, 'description': '标准的中产阶级家庭，生活稳定舒适'},
+            FateType.WORKING_CLASS: {'initial_money': 30_000, 'description': '蓝领工人家庭，勤劳朴实'},
+            FateType.LOW_INCOME: {'initial_money': 25_000, 'description': '家庭收入微薄，生活拮据但充满希望'}
+        }
+        return fate_map.get(fate_type, {'initial_money': 50000, 'description': '普通家庭'})
+
 # 全局实例
 fate_wheel = FateWheelSystem()
-
-# 导出命运轮盘字典供GUI使用
-FATE_WHEEL = {
-    '🏆 亿万富豪': {'initial_money': 100_000_000, 'description': '含着金汤匙出生，家族企业遍布全球'},
-    '📚 书香门第': {'initial_money': 1_000_000, 'description': '知识分子家庭，重视教育和文化传承'},
-    '💔 家道中落': {'initial_money': 10_000, 'description': '曾经辉煌的家族如今衰落，但保留着贵族的品味'},
-    '💪 白手起家': {'initial_money': 50_000, 'description': '普通家庭出身，凭借自己的努力奋斗'},
-    '🏠 中产家庭': {'initial_money': 200_000, 'description': '标准的中产阶级家庭，生活稳定舒适'},
-    '🔧 工薪阶层': {'initial_money': 30_000, 'description': '蓝领工人家庭，勤劳朴实'},
-    '💰 低收入户': {'initial_money': 25_000, 'description': '家庭收入微薄，生活拮据但充满希望'}
-}

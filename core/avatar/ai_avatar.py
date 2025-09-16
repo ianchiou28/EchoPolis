@@ -11,7 +11,7 @@ from enum import Enum
 from ..systems.mbti_traits import MBTIType, mbti_system
 from ..systems.fate_wheel import FateType, fate_wheel
 from ..systems.asset_calculator import asset_calculator
-from ..ai.deepseek_engine import deepseek_engine
+# from ..ai.deepseek_engine import deepseek_engine  # 移除错误的全局导入
 
 class LifeStage(Enum):
     """人生阶段"""
@@ -144,11 +144,11 @@ class AIAvatar:
             return 0.0
         return (self.attributes.successful_decisions / self.attributes.decision_count) * 100
     
-    def generate_situation(self) -> Optional[DecisionContext]:
+    def generate_situation(self, ai_engine=None) -> Optional[DecisionContext]:
         """生成决策情况"""
-        # 只使用AI生成情况
-        if deepseek_engine:
-            ai_situation = self._generate_ai_situation()
+        # 使用传入的AI引擎生成情况
+        if ai_engine:
+            ai_situation = self._generate_ai_situation(ai_engine)
             if ai_situation:
                 self.current_situation = ai_situation
                 return self.current_situation
@@ -156,7 +156,7 @@ class AIAvatar:
         # 如果没有AI引擎或AI生成失败，返回空
         return None
     
-    def _generate_ai_situation(self) -> Optional[DecisionContext]:
+    def _generate_ai_situation(self, ai_engine) -> Optional[DecisionContext]:
         """使用AI生成情况"""
         context = {
             "name": self.attributes.name,
@@ -172,25 +172,15 @@ class AIAvatar:
             "decision_count": self.attributes.decision_count
         }
         
-        return deepseek_engine.generate_situation(context)
+        return ai_engine.generate_situation(context)
     
     def make_decision(self, player_echo: Optional[str] = None) -> Dict:
         """AI做出决策"""
         if not self.current_situation:
             return {"error": "没有当前决策情况"}
         
-        # 如果有DeepSeek引擎，使用AI决策
-        if deepseek_engine:
-            ai_result = self._make_ai_decision(player_echo)
-            if "error" not in ai_result:
-                chosen_option = ai_result["chosen_option"]
-                ai_thoughts = ai_result["ai_thoughts"]
-            else:
-                # AI失败时回退到规则决策
-                chosen_option, ai_thoughts = self._make_rule_decision(player_echo)
-        else:
-            # 使用规则决策
-            chosen_option, ai_thoughts = self._make_rule_decision(player_echo)
+        # 使用规则决策作为默认方法
+        chosen_option, ai_thoughts = self._make_rule_decision(player_echo)
         
         # 计算资产影响
         result = asset_calculator.calculate_decision_impact(
@@ -261,7 +251,7 @@ class AIAvatar:
             "is_bankrupt": self.attributes.is_bankrupt
         }
     
-    def _make_ai_decision(self, player_echo: Optional[str] = None) -> Dict:
+    def make_ai_decision(self, ai_engine, player_echo: Optional[str] = None) -> Dict:
         """使用DeepSeek AI做决策"""
         context = {
             "name": self.attributes.name,
@@ -279,7 +269,7 @@ class AIAvatar:
             "player_echo": player_echo
         }
         
-        return deepseek_engine.make_decision(context)
+        return ai_engine.make_decision(context)
     
     def _make_rule_decision(self, player_echo: Optional[str] = None) -> Tuple[str, str]:
         """使用规则做决策(备用方案)"""

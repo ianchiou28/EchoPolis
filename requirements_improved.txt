@@ -1,3 +1,0 @@
-# 改进版Echopolis依赖
-requests>=2.25.0
-arcade>=2.6.0

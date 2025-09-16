@@ -172,6 +172,14 @@ class MBTITraitsSystem:
 # 全局实例
 mbti_system = MBTITraitsSystem()
 
+class MBTITraits:
+    """MBTI特质接口类 - 兼容性包装"""
+    
+    @staticmethod
+    def get_all_types():
+        """获取所有MBTI类型"""
+        return MBTI_TYPES
+
 # 导出MBTI类型字典供GUI使用
 MBTI_TYPES = {
     'INTJ': {'description': '建筑师 - 富有想象力和战略性的思想家，一切皆在计划中'},
