@@ -1,0 +1,48 @@
+﻿// The Core Loop of Echopolis Gameplay
+digraph Echopolis_Core_Loop {
+	graph [bgcolor="#1a2a3b" fontcolor="#ffffff" fontname="Microsoft YaHei" fontsize=24 label="The Core Loop: Echopolis Gameplay Cycle (核心循环：Echopolis玩法周期)" rankdir=TB splines=curved]
+	node [color="#00aaff" fillcolor="#2a394d" fontcolor="#ffffff" fontname="Microsoft YaHei" fontsize=16 labelloc=c shape=box style="rounded,filled"]
+	edge [color="#00aaff" fontcolor="#ffffff" fontname="Microsoft YaHei" fontsize=12]
+	subgraph cluster_core {
+		node [fillcolor="#2a394d" fontcolor="#ffffff" fontsize=20 shape=doublecircle style=filled]
+		color="#1a2a3b" style=filled
+		agent [label="AI Agent
+Your Digital Twin
+(你的数字孪生)"]
+	}
+	subgraph cluster_loop {
+		color="#1a2a3b"
+		observe [label="1. 观察 (Observe)
+
+- 审阅财务报表 (Review Financials)
+- 查看AI心理状态 (Check AI's Psychology)
+- 接收宏观新闻 (Receive Market News)
+- 发现决策事件 (Identify Decision Points)"]
+		reflect [label="2. 思考 (Reflect)
+
+- 分析AI行为动机 (Analyze AI's Motivation)
+- 评估风险与机遇 (Assess Risks & Opportunities)
+- 制定干预策略 (Formulate Intervention Strategy)
+- \"我该对‘他’说些什么？\" (\"What should I say to 'him'?\")"]
+		intervene [label="3. 干预 (Intervene)
+
+- 发出“意识回响” (Send \"Echoes of Consciousness\")
+- 消耗干预点数(IP) (Consume Intervention Points)
+- 选择干预类型 (Choose Intervention Type)
+- (启发/建议/指令/鼓励)" color="#ff8c00" fontcolor="#ff8c00"]
+		witness [label="4. 见证 (Witness)
+
+- 观察AI的即时反馈 (Observe AI's Immediate Feedback)
+- 追踪长期连锁后果 (Track Long-term Consequences)
+- AI化身学习与演化 (AI Agent Learns & Evolves)
+- 世界状态发生改变 (World State is Altered)"]
+	}
+	observe -> reflect [style=invis]
+	intervene -> witness [style=invis]
+	observe -> reflect [label="  " constraint=false]
+	reflect -> intervene [label="  " constraint=false]
+	intervene -> witness [label="Action & Consequence" constraint=false]
+	witness -> observe [label="New State, New Loop" constraint=false]
+	agent -> observe [style=invis]
+	agent -> intervene [style=invis]
+}
