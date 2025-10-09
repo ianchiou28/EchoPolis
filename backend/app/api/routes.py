@@ -19,9 +19,14 @@ async def get_fate_wheel():
 @router.post("/create-avatar")
 async def create_avatar(request: CreateAvatarRequest):
     try:
+        print(f"Creating avatar: name={request.name}, mbti={request.mbti}, session_id={request.session_id}")
         result = await game_service.create_avatar(request.name, request.mbti, request.session_id)
+        print(f"Avatar created successfully: {result}")
         return {"success": True, "avatar": result}
     except Exception as e:
+        print(f"Error creating avatar: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/generate-situation")

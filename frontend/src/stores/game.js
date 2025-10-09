@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 
 // 设置API基础URL
-axios.defaults.baseURL = 'http://localhost:8008'
+axios.defaults.baseURL = 'http://localhost:8000'
 
 export const useGameStore = defineStore('game', {
   state: () => ({

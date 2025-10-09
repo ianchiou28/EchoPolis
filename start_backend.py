@@ -6,7 +6,7 @@ import os
 import subprocess
 
 def start_backend():
-    backend_path = os.path.join(os.path.dirname(__file__), 'backend_new')
+    backend_path = os.path.join(os.path.dirname(__file__), 'backend')
     main_file = os.path.join(backend_path, 'app', 'main.py')
     
     print("🚀 启动Echopolis后端服务器...")

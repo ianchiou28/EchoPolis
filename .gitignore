@@ -39,3 +39,32 @@ Thumbs.db
 # Config
 config.json
 *.log
+
+# Unity
+UnityFrontend/Library/
+UnityFrontend/Logs/
+UnityFrontend/UserSettings/
+UnityFrontend/Temp/
+
+# Test files
+test_*.py
+
+# Generated files
+*.png
+*.dot
+*.jpg
+*.jpeg
+*.gif
+
+# Development tools
+create_*.py
+fix_*.py
+simple_*.py
+graph.py
+web_minimal.py
+
+# Documentation (development)
+CLEAN_*.md
+PROJECT_STRUCTURE.md
+UNITY_*.md
+README_STARTUP.md

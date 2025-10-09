@@ -13,7 +13,7 @@ os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 def start_backend():
     """启动后端服务器"""
-    backend_path = os.path.join(os.path.dirname(__file__), 'backend_new')
+    backend_path = os.path.join(os.path.dirname(__file__), 'backend')
     print(f"📁 切换到后端目录: {backend_path}")
     
     # 检查依赖
@@ -33,7 +33,7 @@ def start_backend():
 def start_frontend():
     """启动前端服务器"""
     time.sleep(3)  # 等待后端启动
-    frontend_path = os.path.join(os.path.dirname(__file__), 'frontend_vue')
+    frontend_path = os.path.join(os.path.dirname(__file__), 'frontend')
     
     print(f"📁 切换到前端目录: {frontend_path}")
     
