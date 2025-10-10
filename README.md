@@ -97,7 +97,7 @@ cd frontend && npm run dev
 ```
 
 ### 访问地址
-- 🎮 **游戏界面**: http://localhost:5173
+- 🎮 **游戏界面**: http://localhost:3001
 - 🔧 **后端API**: http://localhost:8000
 - 📚 **API文档**: http://localhost:8000/docs
 
