@@ -46,7 +46,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
+
+const router = useRouter()
 
 const gameStore = useGameStore()
 const avatarName = ref('')
@@ -54,6 +57,19 @@ const selectedMBTI = ref('')
 const mbtiTypes = ref({})
 
 onMounted(async () => {
+  // 检查用户是否已有角色
+  if (gameStore.user) {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/api/user/${gameStore.user}`)
+      if (response.ok) {
+        const userInfo = await response.json()
+        gameStore.avatar = userInfo
+      }
+    } catch (error) {
+      console.log('用户没有角色，可以创建新角色')
+    }
+  }
+  
   await gameStore.loadMBTITypes()
   mbtiTypes.value = gameStore.mbtiTypes
 })

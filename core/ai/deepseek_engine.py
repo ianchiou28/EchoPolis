@@ -13,7 +13,7 @@ class DeepSeekEngine:
             try:
                 import json
                 import os
-                config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config.json')
+                config_path = "C://Users//ian28//Desktop//EchoPolis//config.json"
                 if os.path.exists(config_path):
                     with open(config_path, 'r', encoding='utf-8') as f:
                         config = json.load(f)
@@ -22,43 +22,47 @@ class DeepSeekEngine:
                 pass
         
         if not api_key:
-            raise ValueError("DeepSeek API key not found. Please set it in config.json")
-            
-        self.api_key = api_key
+            print("[WARN] DeepSeek API key not found. Using fallback mode.")
+            self.api_key = None
+        else:
+            self.api_key = api_key
+            print(f"[INFO] DeepSeek API key loaded: {api_key[:10]}...")
         self.base_url = "https://api.deepseek.com/v1/chat/completions"
-        self.headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
+        if self.api_key:
+            self.headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+        else:
+            self.headers = {}
     
     def make_decision(self, context: Dict) -> Dict:
-        """使用DeepSeek AI做决策"""
+        """强制使用DeepSeek AI做决策"""
+        if not self.api_key:
+            raise Exception("DeepSeek API key is required for decision making")
+        
         prompt = self._build_decision_prompt(context)
         
-        try:
-            response = requests.post(
-                self.base_url,
-                headers=self.headers,
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.7,
-                    "max_tokens": 250
-                },
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result["choices"][0]["message"]["content"]
-                parsed_result = self._parse_ai_response(ai_response, context["options"])
-                print(f"[DEBUG] Parsed AI decision result: {parsed_result}")
-                return parsed_result
-            else:
-                return {"error": f"API错误: {response.status_code}"}
-                
-        except Exception as e:
-            return {"error": f"请求失败: {str(e)}"}
+        response = requests.post(
+            self.base_url,
+            headers=self.headers,
+            json={
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7,
+                "max_tokens": 250
+            },
+            timeout=30
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"DeepSeek API error: {response.status_code} - {response.text}")
+        
+        result = response.json()
+        ai_response = result["choices"][0]["message"]["content"]
+        parsed_result = self._parse_ai_response(ai_response, context["options"])
+        print(f"[DEBUG] Parsed AI decision result: {parsed_result}")
+        return parsed_result
     
     def _build_decision_prompt(self, context: Dict) -> str:
         """构建决策提示词 V3，要求AI计算所有变化"""
@@ -110,11 +114,12 @@ class DeepSeekEngine:
 # 你的任务
 作为这个角色进行决策。你的回复必须严格遵循以下两行格式。在“想法”的末尾，必须附带一个包含所有决策影响的完整JSON。所有数值变化都必须由你根据情况和人格来计算。
 选择：[数字]
-想法：[你的内心独白...][决策影响JSON: {{"cash_change": <number>, "invested_assets_change": <number>, "health_change": <number>, "happiness_change": <number>, "energy_change": <number>, "trust_change": <number>, "investment": {{"amount": <number>, "duration": <1,3,6,12>}} or null}}]
+想法：[你的内心独白...][决策影响JSON: {{"cash_change": <number>, "invested_assets_change": <number>, "health_change": <number>, "happiness_change": <number>, "energy_change": <number>, "trust_change": <number>, "investment_item": {{"name": "<投资项目名称>", "amount": <number>, "duration": <1,3,6,12>, "type": "SHORT_TERM|MEDIUM_TERM|LONG_TERM"}} or null}}]
 
 ## 重要：财务计算规则
 - 花费金钱时cash_change必须为负数（如花费5000CP，则cash_change: -5000）
-- 投资时设置investment对象并减少现金（如投资5000CP 3个月，则cash_change: -5000, investment: {{"amount": 5000, "duration": 3}}）
+- 投资时设置investment_item对象并减少现金（如投资5000CP到理财产品3个月，则cash_change: -5000, investment_item: {{"name": "理财产品", "amount": 5000, "duration": 3, "type": "SHORT_TERM"}}）
+- 投资类型：1-3个月=SHORT_TERM, 4-8个月=MEDIUM_TERM, 9个月以上=LONG_TERM
 - 根据选择内容准确计算所有数值变化"""
         
         return prompt
@@ -163,7 +168,9 @@ class DeepSeekEngine:
                             decision_impact = parsed_json
                             
                             # 提取投资信息
-                            if 'investment' in parsed_json and parsed_json['investment']:
+                            if 'investment_item' in parsed_json and parsed_json['investment_item']:
+                                investment = parsed_json['investment_item']
+                            elif 'investment' in parsed_json and parsed_json['investment']:
                                 investment = parsed_json['investment']
                             
                             # 构建financial_impact
@@ -204,29 +211,29 @@ class DeepSeekEngine:
     
     def generate_situation(self, context: Dict):
         """使用DeepSeek AI生成情况"""
+        if not self.api_key:
+            raise Exception("DeepSeek API key is required for situation generation")
+        
         prompt = self._build_situation_prompt(context)
-        try:
-            response = requests.post(
-                self.base_url,
-                headers=self.headers,
-                json={
-                    "model": "deepseek-chat",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.8,
-                    "max_tokens": 400
-                },
-                timeout=60
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result["choices"][0]["message"]["content"]
-                return self._parse_situation_response(ai_response)
-            else:
-                return None
-                
-        except Exception as e:
-            return None
+        
+        response = requests.post(
+            self.base_url,
+            headers=self.headers,
+            json={
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.8,
+                "max_tokens": 400
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            ai_response = result["choices"][0]["message"]["content"]
+            return self._parse_situation_response(ai_response)
+        else:
+            raise Exception(f"DeepSeek situation API error: {response.status_code} - {response.text}")
     
     def _build_situation_prompt(self, context: Dict) -> str:
         """构建情况生成提示词"""
@@ -339,10 +346,60 @@ class DeepSeekEngine:
         return self.make_decision(context)
 
 
+    def _fallback_decision(self, context: Dict) -> Dict:
+        """备用决策系统"""
+        import random
+        options = context.get("options", [])
+        if not options:
+            return {"error": "No options available"}
+        
+        chosen_option = random.choice(options)
+        
+        # 生成简单的决策影响
+        cash_change = random.randint(-50000, 30000)
+        invested_change = 0
+        if "投资" in chosen_option:
+            cash_change = random.randint(-120000, -10000)
+            invested_change = abs(cash_change)
+        
+        return {
+            "chosen_option": chosen_option,
+            "ai_thoughts": f"经过考虑，我选择了{chosen_option}。",
+            "decision_impact": {
+                "cash_change": cash_change,
+                "invested_assets_change": invested_change,
+                "health_change": random.randint(-2, 5),
+                "happiness_change": random.randint(-3, 8),
+                "energy_change": random.randint(-5, 5),
+                "trust_change": random.randint(-2, 3)
+            }
+        }
+    
+    def _fallback_situation(self, context: Dict):
+        """备用情况生成"""
+        import random
+        
+        situations = [
+            {
+                "description": "你刚入职一家科技公司，拿到第一笔年终奖金50,000 CP。同事邀请你加入一个“青年创投俱乐部”，入会费20,000 CP可参与优质初创项目投资。",
+                "choices": [
+                    "加入创投俱乐部 - 支付20,000 CP会费参与天使投资",
+                    "购置黄金ETF - 用30,000 CP购买黄金ETF保值",
+                    "升级生活体验 - 投入15,000 CP办理高端健身年卡"
+                ]
+            },
+            {
+                "description": "你的大学好友团队正在筹备一个智能健身镜创业项目，希望你能以天使投资人身份投入12万CP换取15%股权。",
+                "choices": [
+                    "投入12万CP参与创业项目 - 可能获得百倍回报",
+                    "租赁高端公寓提升生活品质 - 月租2.4万CP",
+                    "采纳父母建议进行稳健配置 - 80%资金定期理财"
+                ]
+            }
+        ]
+        
+        return random.choice(situations)
+
 def initialize_deepseek(api_key: str = None):
     """初始化DeepSeek引擎"""
-    try:
-        return DeepSeekEngine(api_key)
-    except ValueError as e:
-        print(f"DeepSeek初始化失败: {e}")
-        return None
+    return DeepSeekEngine(api_key)

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💰 Echopolis 投资管理演示</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .investment-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .collapsible-section {
+            margin-bottom: 16px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .section-header:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .section-header h3 {
+            margin: 0;
+            color: white;
+            font-size: 1.1em;
+        }
+
+        .toggle-icon {
+            color: white;
+            font-size: 1.2em;
+            transition: transform 0.2s;
+        }
+
+        .section-content {
+            padding: 12px;
+            display: none;
+        }
+
+        .section-content.show {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .investment-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .investment-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .investment-name {
+            color: white;
+            font-weight: bold;
+        }
+
+        .investment-amount {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .investment-details {
+            display: flex;
+            gap: 12px;
+            font-size: 0.9em;
+        }
+
+        .monthly-return {
+            color: #81C784;
+        }
+
+        .remaining-time {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .investment-summary {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .transaction-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 6px;
+            border-left: 3px solid #2196F3;
+        }
+
+        .transaction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .transaction-round {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9em;
+        }
+
+        .transaction-type {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .transaction-type.investment { background: #FF9800; color: white; }
+        .transaction-type.expense { background: #F44336; color: white; }
+        .transaction-type.income { background: #4CAF50; color: white; }
+        .transaction-type.savings { background: #2196F3; color: white; }
+
+        .transaction-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .transaction-amount {
+            font-weight: bold;
+        }
+
+        .transaction-amount.positive {
+            color: #4CAF50;
+        }
+
+        .transaction-amount.negative {
+            color: #F44336;
+        }
+
+        .transaction-desc {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9em;
+        }
+
+        .demo-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: white;
+            font-size: 1em;
+        }
+
+        .investment-btn {
+            background: linear-gradient(45deg, #FF9800, #FF5722);
+        }
+
+        .transaction-btn {
+            background: linear-gradient(45deg, #2196F3, #3F51B5);
+        }
+
+        .return-btn {
+            background: linear-gradient(45deg, #4CAF50, #8BC34A);
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>💰 Echopolis 投资管理演示</h1>
+        
+        <div class="investment-panel">
+            <!-- 投资组合 -->
+            <div class="collapsible-section">
+                <div class="section-header" onclick="toggleSection('investments')">
+                    <h3>📊 投资组合</h3>
+                    <span class="toggle-icon" id="investments-icon">▼</span>
+                </div>
+                <div class="section-content show" id="investments-content">
+                    <div id="investments-list">
+                        <div class="investment-item">
+                            <div class="investment-header">
+                                <span class="investment-name">投资基金</span>
+                                <span class="investment-amount">600,000 CP</span>
+                            </div>
+                            <div class="investment-details">
+                                <span class="monthly-return">+3,616 CP/月</span>
+                                <span class="remaining-time">剩余30月</span>
+                            </div>
+                        </div>
+                        <div class="investment-item">
+                            <div class="investment-header">
+                                <span class="investment-name">股票投资</span>
+                                <span class="investment-amount">200,000 CP</span>
+                            </div>
+                            <div class="investment-details">
+                                <span class="remaining-time">剩余18月</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="investment-summary">
+                        <div class="summary-item">
+                            <span>总投资:</span>
+                            <span id="total-invested">800,000 CP</span>
+                        </div>
+                        <div class="summary-item">
+                            <span>月收益:</span>
+                            <span id="monthly-income">3,616 CP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 交易记录 -->
+            <div class="collapsible-section">
+                <div class="section-header" onclick="toggleSection('transactions')">
+                    <h3>📋 交易记录</h3>
+                    <span class="toggle-icon" id="transactions-icon">▶</span>
+                </div>
+                <div class="section-content" id="transactions-content">
+                    <div id="transactions-list">
+                        <div class="transaction-item">
+                            <div class="transaction-header">
+                                <span class="transaction-round">第5回合</span>
+                                <span class="transaction-type income">收益</span>
+                            </div>
+                            <div class="transaction-details">
+                                <span class="transaction-amount positive">+3,616 CP</span>
+                                <span class="transaction-desc">投资基金月收益</span>
+                            </div>
+                        </div>
+                        <div class="transaction-item">
+                            <div class="transaction-header">
+                                <span class="transaction-round">第1回合</span>
+                                <span class="transaction-type investment">投资</span>
+                            </div>
+                            <div class="transaction-details">
+                                <span class="transaction-amount negative">-600,000 CP</span>
+                                <span class="transaction-desc">投资投资基金</span>
+                            </div>
+                        </div>
+                        <div class="transaction-item">
+                            <div class="transaction-header">
+                                <span class="transaction-round">第1回合</span>
+                                <span class="transaction-type expense">消费</span>
+                            </div>
+                            <div class="transaction-details">
+                                <span class="transaction-amount negative">-100,000 CP</span>
+                                <span class="transaction-desc">购买支出</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-actions">
+            <button class="action-btn investment-btn" onclick="addInvestment()">
+                📈 新增投资
+            </button>
+            <button class="action-btn transaction-btn" onclick="addTransaction()">
+                💳 添加交易
+            </button>
+            <button class="action-btn return-btn" onclick="processReturns()">
+                💰 处理月收益
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId + '-content');
+            const icon = document.getElementById(sectionId + '-icon');
+            
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                icon.textContent = '▶';
+            } else {
+                content.classList.add('show');
+                icon.textContent = '▼';
+            }
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('zh-CN').format(amount) + ' CP';
+        }
+
+        function addInvestment() {
+            const names = ['新基金', '债券投资', '理财产品', '股票组合'];
+            const name = names[Math.floor(Math.random() * names.length)];
+            const amount = Math.floor(Math.random() * 500000) + 50000;
+            const monthlyReturn = Math.floor(Math.random() * 2000) + 500;
+            const remainingMonths = Math.floor(Math.random() * 24) + 6;
+
+            const investmentsList = document.getElementById('investments-list');
+            const newItem = document.createElement('div');
+            newItem.className = 'investment-item';
+            newItem.innerHTML = `
+                <div class="investment-header">
+                    <span class="investment-name">${name}</span>
+                    <span class="investment-amount">${formatCurrency(amount)}</span>
+                </div>
+                <div class="investment-details">
+                    <span class="monthly-return">+${formatCurrency(monthlyReturn)}/月</span>
+                    <span class="remaining-time">剩余${remainingMonths}月</span>
+                </div>
+            `;
+            investmentsList.appendChild(newItem);
+        }
+
+        function addTransaction() {
+            const types = [
+                {name: '投资', class: 'investment', amount: -Math.floor(Math.random() * 100000) - 10000},
+                {name: '消费', class: 'expense', amount: -Math.floor(Math.random() * 50000) - 5000},
+                {name: '收益', class: 'income', amount: Math.floor(Math.random() * 10000) + 1000},
+                {name: '收入', class: 'income', amount: Math.floor(Math.random() * 20000) + 5000}
+            ];
+            
+            const type = types[Math.floor(Math.random() * types.length)];
+            const round = Math.floor(Math.random() * 10) + 1;
+
+            const transactionsList = document.getElementById('transactions-list');
+            const newItem = document.createElement('div');
+            newItem.className = 'transaction-item';
+            newItem.innerHTML = `
+                <div class="transaction-header">
+                    <span class="transaction-round">第${round}回合</span>
+                    <span class="transaction-type ${type.class}">${type.name}</span>
+                </div>
+                <div class="transaction-details">
+                    <span class="transaction-amount ${type.amount > 0 ? 'positive' : 'negative'}">
+                        ${type.amount > 0 ? '+' : ''}${formatCurrency(type.amount)}
+                    </span>
+                    <span class="transaction-desc">${type.name}示例</span>
+                </div>
+            `;
+            transactionsList.insertBefore(newItem, transactionsList.firstChild);
+        }
+
+        function processReturns() {
+            const transactionsList = document.getElementById('transactions-list');
+            const returnItem = document.createElement('div');
+            returnItem.className = 'transaction-item';
+            returnItem.innerHTML = `
+                <div class="transaction-header">
+                    <span class="transaction-round">第6回合</span>
+                    <span class="transaction-type income">收益</span>
+                </div>
+                <div class="transaction-details">
+                    <span class="transaction-amount positive">+3,616 CP</span>
+                    <span class="transaction-desc">投资基金月收益</span>
+                </div>
+            `;
+            transactionsList.insertBefore(returnItem, transactionsList.firstChild);
+        }
+    </script>
+</body>
+</html>

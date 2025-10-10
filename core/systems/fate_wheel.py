@@ -9,14 +9,14 @@ from dataclasses import dataclass
 
 class FateType(Enum):
     """命运类型枚举"""
-    BILLIONAIRE = "billionaire"      # 亿万富豪
-    SCHOLAR_FAMILY = "scholar_family" # 书香门第  
-    FALLEN_NOBLE = "fallen_noble"     # 家道中落
-    SELF_MADE = "self_made"          # 白手起家
-    MIDDLE_CLASS = "middle_class"     # 中产家庭
-    WORKING_CLASS = "working_class"   # 工薪阶层
-    RURAL_ORIGIN = "rural_origin"     # 农村出身
-    LOW_INCOME = "low_income"         # 低收入户
+    BILLIONAIRE = "亿万富豪"      # 亿万富豪
+    SCHOLAR_FAMILY = "书香门第 " # 书香门第  
+    FALLEN_NOBLE = "家道中落"     # 家道中落
+    SELF_MADE = "白手起家"          # 白手起家
+    MIDDLE_CLASS = "中产家庭"     # 中产家庭
+    WORKING_CLASS = "工薪阶层"   # 工薪阶层
+    RURAL_ORIGIN = "农村出身"     # 农村出身
+    LOW_INCOME = "低收入户"         # 低收入户
 
 @dataclass
 class FateOutcome:

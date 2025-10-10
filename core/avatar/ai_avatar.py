@@ -11,6 +11,7 @@ from enum import Enum
 from ..systems.mbti_traits import MBTIType, mbti_system
 from ..systems.fate_wheel import FateType, fate_wheel
 from ..systems.asset_calculator import asset_calculator
+from ..systems.investment_system import investment_system
 # from ..ai.deepseek_engine import deepseek_engine  # 移除错误的全局导入
 
 class LifeStage(Enum):
@@ -65,11 +66,12 @@ class DecisionContext:
 class AIAvatar:
     """AI化身主类"""
     
-    def __init__(self, name: str, mbti_type: MBTIType):
+    def __init__(self, name: str, mbti_type: MBTIType, session_id: str = None):
         self.attributes = AvatarAttributes(name=name, mbti_type=mbti_type)
         self.attributes.locked_investments = []
         self.decision_history: List[Dict] = []
         self.current_situation: Optional[DecisionContext] = None
+        self.session_id = session_id
         
         # 初始化命运
         self._initialize_fate()
@@ -153,38 +155,219 @@ class AIAvatar:
                 self.current_situation = ai_situation
                 return self.current_situation
         
-        # 如果没有AI引擎或AI生成失败，返回空
-        return None
+        # 如果没有AI引擎或AI生成失败，使用预设情况
+        fallback_situation = self._generate_fallback_situation()
+        if fallback_situation:
+            self.current_situation = fallback_situation
+        return self.current_situation
     
     def _generate_ai_situation(self, ai_engine) -> Optional[DecisionContext]:
         """使用AI生成情况"""
+        if not ai_engine or not hasattr(ai_engine, 'api_key') or not ai_engine.api_key:
+            print(f"[WARN] AI引擎不可用，跳过AI情况生成")
+            return None
+        
         context = {
             "name": self.attributes.name,
             "age": self.attributes.age,
-            "mbti": self.attributes.mbti_type.value,
-            "credits": self.attributes.credits,
+            "mbti": self.attributes.mbti_type.value if hasattr(self.attributes.mbti_type, 'value') else str(self.attributes.mbti_type),
+            "cash": self.attributes.credits,
             "health": self.attributes.health,
             "happiness": self.attributes.happiness,
             "stress": self.attributes.stress,
+            "energy": self.attributes.energy,
             "life_stage": self.attributes.life_stage.value,
             "background": self.fate_background.background_story,
             "traits": ", ".join(self.fate_background.special_traits),
             "decision_count": self.attributes.decision_count
         }
         
-        return ai_engine.generate_situation(context)
+        try:
+            print(f"[DEBUG] 调用AI情况生成，API Key可用: {ai_engine.api_key is not None}")
+            ai_situation = ai_engine.generate_situation(context)
+            if ai_situation:
+                print(f"[DEBUG] AI生成情况成功")
+                return DecisionContext(
+                    situation=ai_situation["description"],
+                    options=ai_situation["choices"],
+                    context_type="ai_generated"
+                )
+        except Exception as e:
+            print(f"[ERROR] AI情况生成失败: {e}")
+        
+        return None
     
-    def make_decision(self, player_echo: Optional[str] = None) -> Dict:
+    def make_decision(self, player_echo: Optional[str] = None, ai_engine=None) -> Dict:
         """AI做出决策"""
         if not self.current_situation:
             return {"error": "没有当前决策情况"}
         
-        # 使用规则决策作为默认方法
+        # 优先使用AI决策，如果失败则使用规则决策
+        print(f"[DEBUG] AI引擎可用: {ai_engine is not None}")
+        if ai_engine:
+            print(f"[DEBUG] API Key可用: {hasattr(ai_engine, 'api_key') and ai_engine.api_key is not None}")
+        
+        if ai_engine and hasattr(ai_engine, 'api_key') and ai_engine.api_key:
+            try:
+                print(f"[DEBUG] 尝试AI决策...")
+                ai_result = self.make_ai_decision(ai_engine, player_echo)
+                print(f"[DEBUG] AI决策结果: {ai_result}")
+                if "error" not in ai_result:
+                    return self._process_ai_decision_result(ai_result, player_echo)
+                else:
+                    print(f"[WARN] AI决策返回错误: {ai_result.get('error')}")
+            except Exception as e:
+                print(f"[ERROR] AI决策异常: {e}")
+                import traceback
+                traceback.print_exc()
+        else:
+            print(f"[INFO] AI引擎不可用，使用规则决策")
+        
+        # 使用规则决策作为备用方案
+        return self._process_rule_decision(player_echo)
+    
+    def _process_ai_decision_result(self, ai_result: Dict, player_echo: Optional[str]) -> Dict:
+        """处理AI决策结果并应用到化身属性"""
+        chosen_option = ai_result.get("chosen_option", "")
+        ai_thoughts = ai_result.get("ai_thoughts", "AI没有提供想法")
+        
+        old_credits = self.attributes.credits
+        old_cash_flow = self._calculate_cash_flow()
+        
+        # 应用AI决策的影响
+        if "decision_impact" in ai_result:
+            impact = ai_result["decision_impact"]
+            
+            # 应用财务变化
+            cash_change = impact.get("cash_change", 0)
+            invested_assets_change = impact.get("invested_assets_change", 0)
+            
+            # 现金变化
+            self.attributes.credits += cash_change
+            
+            # 投资资产变化（AI已经计算好了）
+            if invested_assets_change != 0:
+                self.attributes.long_term_investments += invested_assets_change
+            
+            # 应用状态变化
+            self.attributes.health += impact.get("health_change", 0)
+            self.attributes.happiness += impact.get("happiness_change", 0)
+            self.attributes.energy += impact.get("energy_change", 0)
+            self.attributes.stress += impact.get("stress_change", 0)
+            
+            # 确保属性在合理范围内
+            self.attributes.health = max(0, min(100, self.attributes.health))
+            self.attributes.happiness = max(0, min(100, self.attributes.happiness))
+            self.attributes.energy = max(0, min(100, self.attributes.energy))
+            self.attributes.stress = max(0, min(100, self.attributes.stress))
+            self.attributes.credits = max(0, self.attributes.credits)
+            
+            # 处理投资记录（只记录一次）
+            investment_saved = False
+            if "investment_item" in impact and impact["investment_item"] and not investment_saved:
+                inv_data = impact["investment_item"]
+                investment_name = inv_data.get("name", "AI投资项目")
+                amount = inv_data.get("amount", abs(invested_assets_change))
+                duration = inv_data.get("duration", 12)
+                inv_type = inv_data.get("type", "MEDIUM_TERM")
+                
+                # 保存投资到数据库
+                self._save_investment_to_db(investment_name, amount, inv_type, duration, 0, 0.1, ai_thoughts)
+                investment_saved = True
+            elif "investment" in impact and impact["investment"] and not investment_saved:
+                # 兼容旧格式
+                inv_data = impact["investment"]
+                investment_name = inv_data.get("name", "AI投资项目")
+                amount = inv_data.get("amount", abs(invested_assets_change))
+                
+                self._save_investment_to_db(investment_name, amount, "MEDIUM_TERM", 12, 0, 0.1, ai_thoughts)
+                investment_saved = True
+            
+            # 处理交易记录
+            if "transaction_name" in impact:
+                from ..systems.investment_system import investment_system
+                transaction_name = impact["transaction_name"]
+                transaction_amount = cash_change
+                investment_system.add_transaction(
+                    self.attributes.current_round,
+                    transaction_name,
+                    transaction_amount
+                )
+                
+                # 保存到数据库
+                self._save_transaction_to_db(transaction_name, transaction_amount, ai_thoughts)
+            else:
+                # 如果没有明确的交易名称，根据现金变化推断
+                if cash_change > 0:
+                    self._save_transaction_to_db("工资收入", cash_change, ai_thoughts)
+                elif cash_change < 0 and "investment" not in impact:
+                    self._save_transaction_to_db("其他支出", cash_change, ai_thoughts)
+            
+            # 处理投资（避免重复）
+            # if "investment" in ai_result and ai_result["investment"]:
+            #     pass  # 已在上面处理过了
+        
+        new_cash_flow = self._calculate_cash_flow()
+        cash_flow_change = new_cash_flow - old_cash_flow
+        
+        # 检查破产
+        self._check_bankruptcy()
+        
+        # 更新信任度（结合AI决策中的trust_change和传统逻辑）
+        ai_trust_change = 0
+        if "decision_impact" in ai_result:
+            ai_trust_change = ai_result["decision_impact"].get("trust_change", 0)
+        
+        traditional_trust_change = self._update_trust(player_echo, chosen_option)
+        trust_change = ai_trust_change + traditional_trust_change
+        
+        # 确保信任度在合理范围内
+        self.attributes.trust_level = max(0, min(100, self.attributes.trust_level))
+        
+        self._update_attributes_after_decision(chosen_option)
+        
+        # 记录决策历史
+        decision_record = {
+            "situation": self.current_situation.situation,
+            "options": self.current_situation.options,
+            "chosen": chosen_option,
+            "player_echo": player_echo,
+            "ai_thoughts": ai_thoughts,
+            "trust_change": trust_change,
+            "decision_count": self.attributes.decision_count,
+            "ai_decision": True
+        }
+        self.decision_history.append(decision_record)
+        
+        # 推进一个月
+        self.advance_round()
+        
+        # 清除当前情况
+        self.current_situation = None
+        
+        return {
+            "chosen_option": chosen_option,
+            "ai_thoughts": ai_thoughts,
+            "trust_change": trust_change,
+            "new_trust_level": self.attributes.trust_level,
+            "asset_change": ai_result.get("decision_impact", {}).get("cash_change", 0),
+            "monthly_expense": self._calculate_monthly_expense(),
+            "asset_desc": "AI决策影响",
+            "old_credits": old_credits,
+            "new_credits": self.attributes.credits,
+            "cash_flow": new_cash_flow,
+            "cash_flow_change": cash_flow_change,
+            "is_bankrupt": self.attributes.is_bankrupt,
+            "current_round": self.attributes.current_round
+        }
+    
+    def _process_rule_decision(self, player_echo: Optional[str]) -> Dict:
+        """处理规则决策"""
         chosen_option, ai_thoughts = self._make_rule_decision(player_echo)
         
         # 计算资产影响
         result = asset_calculator.calculate_decision_impact(
-            chosen_option, self.attributes.credits
+            chosen_option, self.attributes.credits, self.attributes.current_round
         )
         if len(result) == 3:
             asset_change, asset_desc, investment_type = result
@@ -214,9 +397,12 @@ class AIAvatar:
         # 检查破产
         self._check_bankruptcy()
         
-        # 通知央行监控交易
-        from ..entities.god import central_bank
-        central_bank.monitor_transaction(self, asset_change, "decision", chosen_option)
+        # 通知央行监控交易（如果可用）
+        try:
+            from ..entities.god import central_bank
+            central_bank.monitor_transaction(self, asset_change, "decision", chosen_option)
+        except ImportError:
+            pass  # 央行模块不可用时跳过
         
         # 更新状态
         trust_change = self._update_trust(player_echo, chosen_option)
@@ -230,9 +416,31 @@ class AIAvatar:
             "player_echo": player_echo,
             "ai_thoughts": ai_thoughts,
             "trust_change": trust_change,
-            "decision_count": self.attributes.decision_count
+            "decision_count": self.attributes.decision_count,
+            "ai_decision": False
         }
         self.decision_history.append(decision_record)
+        
+        # 记录其他交易（如果有现金变化但没有明确的交易记录）
+        if asset_change > 0:
+            self._save_transaction_to_db("工资收入", asset_change, ai_thoughts)
+        elif asset_change < 0 and "investment" not in asset_desc.lower():
+            self._save_transaction_to_db("其他支出", asset_change, ai_thoughts)
+        
+        # 记录月基础开支
+        monthly_expense = self._calculate_monthly_expense()
+        if monthly_expense > 0:
+            self._save_transaction_to_db("月基础开支", -monthly_expense, ai_thoughts)
+        
+        # 处理月收益
+        monthly_returns = asset_calculator.process_monthly_returns(self.attributes.current_round)
+        if monthly_returns > 0:
+            self.attributes.credits += monthly_returns
+            # 保存月收益到数据库
+            self._save_transaction_to_db("月收益", monthly_returns)
+        
+        # 推进一个月
+        self.advance_round()
         
         # 清除当前情况
         self.current_situation = None
@@ -248,28 +456,43 @@ class AIAvatar:
             "new_credits": self.attributes.credits,
             "cash_flow": new_cash_flow,
             "cash_flow_change": cash_flow_change,
-            "is_bankrupt": self.attributes.is_bankrupt
+            "is_bankrupt": self.attributes.is_bankrupt,
+            "current_round": self.attributes.current_round
         }
     
     def make_ai_decision(self, ai_engine, player_echo: Optional[str] = None) -> Dict:
         """使用DeepSeek AI做决策"""
+        if not ai_engine or not hasattr(ai_engine, 'api_key') or not ai_engine.api_key:
+            return {"error": "AI引擎不可用"}
+        
         context = {
             "name": self.attributes.name,
             "age": self.attributes.age,
-            "mbti": self.attributes.mbti_type.value,
-            "credits": self.attributes.credits,
+            "mbti": self.attributes.mbti_type.value if hasattr(self.attributes.mbti_type, 'value') else str(self.attributes.mbti_type),
+            "cash": self.attributes.credits,
+            "invested_assets": self.attributes.long_term_investments,
+            "total_assets": self.attributes.credits + self.attributes.long_term_investments,
             "health": self.attributes.health,
             "happiness": self.attributes.happiness,
+            "energy": self.attributes.energy,
             "stress": self.attributes.stress,
             "trust": self.attributes.trust_level,
             "background": self.fate_background.background_story,
             "traits": ", ".join(self.fate_background.special_traits),
             "situation": self.current_situation.situation,
             "options": self.current_situation.options,
-            "player_echo": player_echo
+            "player_echo": player_echo,
+            "current_month": self.attributes.current_round
         }
         
-        return ai_engine.make_decision(context)
+        try:
+            print(f"[DEBUG] 调用AI决策，API Key可用: {ai_engine.api_key is not None}")
+            result = ai_engine.make_decision(context)
+            print(f"[DEBUG] AI决策结果: {result.get('chosen_option', 'N/A')}")
+            return result
+        except Exception as e:
+            print(f"[ERROR] AI决策调用失败: {e}")
+            return {"error": str(e)}
     
     def _make_rule_decision(self, player_echo: Optional[str] = None) -> Tuple[str, str]:
         """使用规则做决策(备用方案)"""
@@ -424,6 +647,44 @@ class AIAvatar:
         
         return result
     
+    def _save_investment_to_db(self, name: str, amount: int, inv_type: str, duration: int, monthly_return: int, return_rate: float, ai_thoughts: str = None):
+        """保存投资到数据库"""
+        try:
+            from ..database.database import db
+            if self.session_id:
+                db.save_investment(
+                    self.session_id,  # 使用session_id作为username（账号）
+                    self.session_id,
+                    name,
+                    amount,
+                    inv_type,
+                    duration,
+                    monthly_return,
+                    return_rate,
+                    self.attributes.current_round,
+                    ai_thoughts
+                )
+        except Exception as e:
+            print(f"[WARN] 保存投资失败: {e}")
+            pass  # 数据库不可用时跳过
+    
+    def _save_transaction_to_db(self, transaction_name: str, amount: int, ai_thoughts: str = None):
+        """保存交易到数据库"""
+        try:
+            from ..database.database import db
+            if self.session_id:
+                db.save_transaction(
+                    self.session_id,  # 使用session_id作为username（账号）
+                    self.session_id,
+                    self.attributes.current_round,
+                    transaction_name,
+                    amount,
+                    ai_thoughts
+                )
+        except Exception as e:
+            print(f"[WARN] 保存交易失败: {e}")
+            pass  # 数据库不可用时跳过
+    
     def _update_trust(self, player_echo: Optional[str], chosen_option: str) -> int:
         """更新信任度"""
         if not player_echo:
@@ -472,6 +733,13 @@ class AIAvatar:
         # 压力自然衰减
         self.attributes.stress = max(0, self.attributes.stress - 2)
         
+        # 添加月工资收入
+        monthly_salary = self._calculate_monthly_salary()
+        if monthly_salary > 0:
+            self.attributes.credits += monthly_salary
+            self._save_transaction_to_db("月工资收入", monthly_salary)
+            print(f"[DEBUG] Saved monthly salary: {monthly_salary}")
+        
         # 信任度缓慢衰减
         if self.attributes.trust_level > 50:
             self.attributes.trust_level = max(50, self.attributes.trust_level - 1)
@@ -483,10 +751,19 @@ class AIAvatar:
         if self.attributes.long_term_investments > 0:
             monthly_return = int(self.attributes.long_term_investments * 0.003)  # 0.3%月收益
             self.attributes.credits += monthly_return
+            # 记录投资收益交易
+            if monthly_return > 0:
+                self._save_transaction_to_db("长期投资收益", monthly_return)
+                print(f"[DEBUG] Saved investment return: {monthly_return}")
         
-        # 月度开支
-        monthly_expense = random.randint(3000, 15000)
+        # 基于阶级的月度开支
+        monthly_expense = self._calculate_monthly_expense()
         self.attributes.credits -= monthly_expense
+        
+        # 记录月基础开支交易
+        if monthly_expense > 0:
+            self._save_transaction_to_db("月基础开支", -monthly_expense)
+            print(f"[DEBUG] Saved monthly expense: {-monthly_expense}")
         
         # 检查破产
         self._check_bankruptcy()
@@ -495,6 +772,40 @@ class AIAvatar:
         if self.attributes.current_round % 12 == 0:
             self.attributes.age += 1
             self._update_life_stage()
+    
+    def _calculate_monthly_expense(self) -> int:
+        """根据命运阶级计算月度基础开支"""
+        from ..systems.fate_wheel import FateType
+        
+        # 基于命运类型的月度开支
+        expense_map = {
+            FateType.BILLIONAIRE: random.randint(80000, 120000),      # 亿万富豪：8-12万/月
+            FateType.SCHOLAR_FAMILY: random.randint(15000, 25000),    # 书香门第：1.5-2.5万/月
+            FateType.MIDDLE_CLASS: random.randint(12000, 18000),      # 中产家庭：1.2-1.8万/月
+            FateType.SELF_MADE: random.randint(8000, 12000),          # 白手起家：0.8-1.2万/月
+            FateType.WORKING_CLASS: random.randint(6000, 10000),      # 工薪阶层：0.6-1万/月
+            FateType.FALLEN_NOBLE: random.randint(10000, 15000),      # 家道中落：1-1.5万/月（维持体面）
+            FateType.LOW_INCOME: random.randint(3000, 5000),          # 低收入户：0.3-0.5万/月
+        }
+        
+        return expense_map.get(self.attributes.fate_type, random.randint(8000, 12000))
+    
+    def _calculate_monthly_salary(self) -> int:
+        """根据命运阶级计算月工资"""
+        from ..systems.fate_wheel import FateType
+        
+        # 基于命运类型的月工资
+        salary_map = {
+            FateType.BILLIONAIRE: random.randint(200000, 300000),      # 亿万富豪：20-30万/月
+            FateType.SCHOLAR_FAMILY: random.randint(25000, 35000),     # 书香门第：2.5-3.5万/月
+            FateType.MIDDLE_CLASS: random.randint(18000, 25000),       # 中产家庭：1.8-2.5万/月
+            FateType.SELF_MADE: random.randint(12000, 18000),          # 白手起家：1.2-1.8万/月
+            FateType.WORKING_CLASS: random.randint(8000, 12000),       # 工薪阶层：0.8-1.2万/月
+            FateType.FALLEN_NOBLE: random.randint(15000, 20000),       # 家道中落：1.5-2万/月
+            FateType.LOW_INCOME: random.randint(5000, 8000),           # 低收入户：0.5-0.8万/月
+        }
+        
+        return salary_map.get(self.attributes.fate_type, random.randint(10000, 15000))
     
     def _update_life_stage(self):
         """更新人生阶段"""
@@ -551,6 +862,9 @@ class AIAvatar:
                 # 投资到期，返还本金和收益
                 return_amount = int(inv['amount'] * random.uniform(1.1, 1.4))  # 10%-40%收益
                 self.attributes.credits += return_amount
+                # 记录投资到期收益交易
+                self._save_transaction_to_db(f"{inv.get('description', '投资项目')}到期收益", return_amount)
+                print(f"[DEBUG] Saved matured investment return: {return_amount}")
                 expired_investments.append(i)
         
         # 移除已到期的投资
@@ -570,3 +884,42 @@ class AIAvatar:
         
         if "decision_history" in state_data:
             self.decision_history = state_data["decision_history"]
+    
+    def _generate_fallback_situation(self) -> Optional[DecisionContext]:
+        """生成预设情况（当AI不可用时）"""
+        import random
+        
+        situations = [
+            {
+                "situation": f"作为{self.attributes.mbti_type.value if hasattr(self.attributes.mbti_type, 'value') else str(self.attributes.mbti_type)}类型的{self.attributes.name}，你面临一个投资机会。银行经理向你推荐一个新的理财产品，年化收益率8%，但需要锁定资金2年。",
+                "options": [
+                    "投资50万元到该产品（锁定2年）",
+                    "只投资10万元试水（锁定2年）",
+                    "拒绝投资，寻找其他机会"
+                ]
+            },
+            {
+                "situation": f"作为{self.attributes.mbti_type.value if hasattr(self.attributes.mbti_type, 'value') else str(self.attributes.mbti_type)}类型的{self.attributes.name}，你在职场上面临选择。公司提供两个职位选择：高薪但压力大的管理岗，或稳定的技术岗。",
+                "options": [
+                    "选择管理岗位，追求高收入（月薪+5000，压力+20）",
+                    "选择技术岗位，追求稳定（月薪+3000，幸福感+10）",
+                    "继续寻找其他工作机会"
+                ]
+            },
+            {
+                "situation": f"作为{self.attributes.mbti_type.value if hasattr(self.attributes.mbti_type, 'value') else str(self.attributes.mbti_type)}类型的{self.attributes.name}，你的朋友邀请你投资他的创业项目。他声称这是下一个大机会，但需要投入30万元，成功率不确定。",
+                "options": [
+                    "全力支持朋友，投资30万（高风险高收益）",
+                    "小额投资5万表示支持（低风险）",
+                    "礼貌拒绝，保持友谊（保守选择）"
+                ]
+            }
+        ]
+        
+        situation_data = random.choice(situations)
+        self.current_situation = DecisionContext(
+            situation=situation_data["situation"],
+            options=situation_data["options"],
+            context_type="fallback"
+        )
+        return self.current_situation

@@ -5,7 +5,7 @@
       <div class="game-over-box">
         <h1>💀 你已破产 💀</h1>
         <p>你的现金流已断裂，无法再支撑你的生活。</p>
-        <p>最终现金: <span class="final-cash">{{ formatMoney(gameStore.avatar.cash) }}</span> CP</p>
+        <p>最终现金: <span class="final-cash">{{ formatMoney(gameStore.avatar.credits) }}</span> CP</p>
         <button @click="restartGame" class="btn btn-primary">重新开始</button>
       </div>
     </div>
@@ -27,7 +27,7 @@
     <div v-else class="game-interface">
       <!-- 月份和事件日志 -->
       <div class="card time-events-panel">
-        <div class="month-display">第 <span>{{ gameStore.avatar.current_month || 0 }}</span> 月</div>
+        <div class="month-display">第 <span>{{ gameStore.avatar.current_round || 1 }}</span> 月</div>
         <div v-if="monthlyEvents.length > 0" class="events-log">
           <h4>本月事件:</h4>
           <ul>
@@ -42,15 +42,15 @@
         <div class="status-grid-finance">
           <div class="finance-item main">
             <span>💰 总资产:</span>
-            <span>{{ formatMoney(gameStore.avatar.total_assets) }} CP</span>
+            <span>{{ formatMoney(gameStore.avatar.total_assets || 0) }} CP</span>
           </div>
           <div class="finance-item">
             <span>💵 现金:</span>
-            <span>{{ formatMoney(gameStore.avatar.cash) }} CP</span>
+            <span>{{ formatMoney(gameStore.avatar.credits || 0) }} CP</span>
           </div>
           <div class="finance-item">
             <span>🏦 投资中资产:</span>
-            <span>{{ formatMoney(gameStore.avatar.invested_assets) }} CP</span>
+            <span>{{ formatMoney((gameStore.avatar.long_term_investments || 0) + (gameStore.avatar.locked_investments || []).reduce((sum, inv) => sum + (inv.amount || 0), 0)) }} CP</span>
           </div>
         </div>
         <hr class="status-divider">
@@ -62,21 +62,16 @@
         </div>
       </div>
 
-      <!-- 进行中的投资 -->
-      <div v-if="gameStore.avatar.active_investments && gameStore.avatar.active_investments.length > 0" class="card active-investments">
-        <h3>📈 进行中的投资</h3>
-        <ul>
-          <li v-for="(inv, index) in gameStore.avatar.active_investments" :key="index">
-            投资 {{ formatMoney(inv.amount) }} CP ({{ inv.duration }}个月期) - 将于第{{ inv.maturity_month }}月到期
-          </li>
-        </ul>
-      </div>
+      <!-- 投资管理面板 -->
+      <InvestmentPanel 
+        :investments="gameInvestments" 
+        :transactions="gameTransactions" 
+      />
 
       <!-- 当前情况 -->
       <div v-if="currentSituation" class="card situation">
         <h3>📋 当前情况 
-          <span v-if="currentSituation.ai_generated" class="ai-badge">🤖 AI生成</span>
-          <span v-else class="default-badge">🎲 默认</span>
+          <span class="ai-badge">🤖 AI生成</span>
         </h3>
         <p class="situation-text">{{ currentSituation.situation }}</p>
         <div class="options">
@@ -115,18 +110,17 @@
       <!-- AI决策结果 -->
       <div v-if="lastDecision" class="card decision-result">
         <h3>🧠 AI决策结果 
-          <span v-if="lastEchoAnalysis && lastEchoAnalysis.ai_powered" class="ai-badge">🤖 AI驱动</span>
-          <span v-else class="default-badge">🎲 规则</span>
+          <span class="ai-badge">🤖 AI驱动</span>
         </h3>
         <div class="decision-content">
           <p><strong>选择:</strong> {{ lastDecision.chosen_option }}</p>
           <p><strong>AI想法:</strong> {{ lastDecision.ai_thoughts }}</p>
-          <div class="changes">
+          <div v-if="lastDecision.decision_impact" class="changes">
             <div v-for="(value, key) in lastDecision.decision_impact" :key="key">
-              <div v-if="key !== 'investment' && value !== 0" 
+              <div v-if="key !== 'investment_item' && value !== 0" 
                    class="credit-change" 
                    :class="value > 0 ? 'positive' : 'negative'">
-                {{ formatKey(key) }}: {{ value > 0 ? '+' : '' }}{{ formatMoney(value) }}
+                {{ formatKey(key) }}: {{ value > 0 ? '+' : '' }}{{ value }}
               </div>
             </div>
           </div>
@@ -137,9 +131,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
+import InvestmentPanel from '../components/InvestmentPanel.vue'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -166,13 +161,43 @@ const handleApiError = (action, error) => {
   alert(message)
 }
 
-const processDecisionResult = (result) => {
-  lastDecision.value = result.decision
-  lastEchoAnalysis.value = result.echo_analysis || { ai_powered: result.decision.ai_powered }
+const processDecisionResult = async (result) => {
+  console.log('[DEBUG] 处理决策结果:', result)
+  
+  // 确保决策结果显示
+  if (result.decision) {
+    lastDecision.value = {
+      ...result.decision,
+      ai_powered: result.decision.ai_powered !== false
+    }
+    console.log('[DEBUG] 设置决策结果:', lastDecision.value)
+  }
+  
+  lastEchoAnalysis.value = result.echo_analysis || { ai_powered: true }
   monthlyEvents.value = result.monthly_events || []
-  if (result.game_over) {
+  
+  // 处理自动生成的下一个情况
+  if (result.next_situation && result.next_situation.situation) {
+    currentSituation.value = {
+      situation: result.next_situation.situation,
+      options: result.next_situation.options,
+      ai_generated: true
+    }
+  } else {
+    // 如果没有下一个情况，自动生成一个
+    setTimeout(() => {
+      if (!isLoading.value) {
+        generateSituation()
+      }
+    }, 2000)
+  }
+  
+  if (result.game_over || (result.avatar && result.avatar.credits <= 0)) {
     isGameOver.value = true
   }
+  
+  // 实时更新投资数据
+  await loadInvestmentData()
 }
 
 onMounted(() => {
@@ -181,16 +206,27 @@ onMounted(() => {
     return
   }
   generateSituation()
+  loadInvestmentData()
 })
 
 const generateSituation = async () => {
   if (isLoading.value || isGameOver.value) return
   isLoading.value = true
   try {
-    currentSituation.value = await gameStore.generateSituation()
+    console.log('[DEBUG] 生成情况')
+    console.log('[DEBUG] Session ID:', gameStore.user || gameStore.sessionId)
+    
+    const situation = await gameStore.generateSituation()
+    console.log('[DEBUG] 生成的情况:', situation)
+    
+    currentSituation.value = {
+      ...situation,
+      ai_generated: true  // 标记为AI生成
+    }
     lastDecision.value = null
     lastEchoAnalysis.value = null
   } catch (error) {
+    console.error('[ERROR] 生成情况失败:', error)
     handleApiError('生成新情况', error)
   } finally {
     isLoading.value = false
@@ -201,10 +237,16 @@ const sendEcho = async () => {
   if (!echoText.value.trim() || isLoading.value || isGameOver.value) return
   isLoading.value = true
   try {
+    console.log('[DEBUG] 发送回响:', echoText.value)
+    console.log('[DEBUG] Session ID:', gameStore.user || gameStore.sessionId)
+    
     const result = await gameStore.sendEcho(echoText.value)
-    processDecisionResult(result)
+    console.log('[DEBUG] 回响结果:', result)
+    
+    await processDecisionResult(result)
     echoText.value = ''
   } catch (error) {
+    console.error('[ERROR] 发送回响失败:', error)
     handleApiError('发送回响', error)
   } finally {
     isLoading.value = false
@@ -215,9 +257,15 @@ const autoDecision = async () => {
   if (isLoading.value || isGameOver.value) return
   isLoading.value = true
   try {
+    console.log('[DEBUG] AI自主决策')
+    console.log('[DEBUG] Session ID:', gameStore.user || gameStore.sessionId)
+    
     const result = await gameStore.autoDecision()
-    processDecisionResult(result)
+    console.log('[DEBUG] AI决策结果:', result)
+    
+    await processDecisionResult(result)
   } catch (error) {
+    console.error('[ERROR] AI决策失败:', error)
     handleApiError('AI自主决策', error)
   } finally {
     isLoading.value = false
@@ -244,6 +292,48 @@ const formatKey = (key) => {
     trust_change: '🤝 信任'
   }
   return names[key] || key
+}
+
+// 投资和交易数据
+const gameInvestments = ref([])
+const gameTransactions = ref([])
+
+// 从API获取投资和交易数据
+const loadInvestmentData = async () => {
+  if (!gameStore.user) return
+  
+  try {
+    // 使用账号作为username
+    const username = gameStore.user
+    
+    // 获取投资数据
+    const investmentResponse = await fetch(`http://127.0.0.1:8000/api/investments/${username}`)
+    if (investmentResponse.ok) {
+      const investments = await investmentResponse.json()
+      gameInvestments.value = investments.map(inv => ({
+        name: inv.name,
+        amount: inv.amount,
+        type: inv.type,
+        monthlyReturn: inv.monthly_return,
+        remainingMonths: inv.remaining_months
+      }))
+    }
+    
+    // 获取交易数据
+    const transactionResponse = await fetch(`http://127.0.0.1:8000/api/transactions/${username}`)
+    if (transactionResponse.ok) {
+      const transactions = await transactionResponse.json()
+      gameTransactions.value = transactions.map((tx, index) => ({
+        id: index,
+        round: tx.round,
+        type: tx.type,
+        amount: tx.amount,
+        description: tx.description
+      }))
+    }
+  } catch (error) {
+    console.error('加载投资数据失败:', error)
+  }
 }
 </script>
 

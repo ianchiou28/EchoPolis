@@ -4,12 +4,13 @@
 import re
 import random
 from typing import Dict, Tuple
+from .investment_system import investment_system, InvestmentType
 
 class AssetCalculator:
     """资产影响计算器"""
     
     @staticmethod
-    def calculate_decision_impact(chosen_option: str, current_credits: int) -> Tuple[int, str]:
+    def calculate_decision_impact(chosen_option: str, current_credits: int, current_round: int = 1) -> Tuple[int, str]:
         """计算决策对资产的影响
         
         Returns:
@@ -18,28 +19,36 @@ class AssetCalculator:
         option_lower = chosen_option.lower()
         
         # 投资相关决策
-        if "投资" in chosen_option:
-            return AssetCalculator._calculate_investment_impact(chosen_option, current_credits)
+        if any(keyword in chosen_option for keyword in ["投资", "投入", "试水", "孵化", "参与"]):
+            change, desc, _ = AssetCalculator._calculate_investment_impact(chosen_option, current_credits, current_round)
+            return change, desc
         
         # 购买相关决策
         if any(keyword in option_lower for keyword in ["购买", "买入", "花费", "购房", "首付", "80%"]):
-            return AssetCalculator._calculate_purchase_impact(chosen_option, current_credits)
+            change, desc, _ = AssetCalculator._calculate_purchase_impact(chosen_option, current_credits)
+            investment_system.add_transaction(current_round, desc, change)
+            return change, desc
         
         # 储蓄相关决策
         if any(keyword in option_lower for keyword in ["储蓄", "存款", "定存"]):
-            return AssetCalculator._calculate_savings_impact(chosen_option, current_credits)
+            change, desc, _ = AssetCalculator._calculate_savings_impact(chosen_option, current_credits)
+            investment_system.add_transaction(current_round, desc, change)
+            return change, desc
         
         # 工作相关决策
         if any(keyword in option_lower for keyword in ["工作", "兼职", "加班"]):
-            return AssetCalculator._calculate_work_impact(chosen_option, current_credits)
+            change, desc, _ = AssetCalculator._calculate_work_impact(chosen_option, current_credits)
+            investment_system.add_transaction(current_round, desc, change)
+            return change, desc
         
         # 默认小幅随机变化
         change = random.randint(-500, 1000)
         desc = "日常开支" if change < 0 else "意外收入"
+        investment_system.add_transaction(current_round, desc, change)
         return change, desc
     
     @staticmethod
-    def _calculate_investment_impact(option: str, credits: int) -> Tuple[int, str, str]:
+    def _calculate_investment_impact(option: str, credits: int, current_round: int = 1) -> Tuple[int, str, str]:
         """计算投资影响"""
         # 提取投资金额
         amounts = re.findall(r'(\d+)万', option)
@@ -54,33 +63,43 @@ class AssetCalculator:
             else:
                 amount = int(credits * 0.2)
         
-        # 判断投资类型
-        if any(keyword in option for keyword in ["锁定", "个月", "年"]) and any(char.isdigit() for char in option):
-            investment_type = "locked"
-        elif any(keyword in option for keyword in ["长期", "定投", "基金"]):
-            investment_type = "long_term"
+        # 判断投资类型和期限
+        if "基金" in option or "月收益" in option:
+            inv_type = InvestmentType.MONTHLY
+            duration = random.randint(12, 36)
+            return_rate = random.uniform(0.06, 0.12)  # 年化6-12%
+        elif "短期" in option or "3个月" in option:
+            inv_type = InvestmentType.SHORT_TERM
+            duration = random.randint(1, 3)
+            return_rate = random.uniform(0.02, 0.08)
+        elif "长期" in option or "年" in option:
+            inv_type = InvestmentType.LONG_TERM
+            duration = random.randint(12, 24)
+            return_rate = random.uniform(0.08, 0.20)
         else:
-            investment_type = "short_term"
+            inv_type = InvestmentType.MEDIUM_TERM
+            duration = random.randint(3, 12)
+            return_rate = random.uniform(0.05, 0.15)
         
-        # 投资成功率和收益率
-        if "高风险" in option or "股票" in option:
-            success_rate = 0.4
-            return_rate = random.uniform(-0.3, 0.5)
-        elif "稳健" in option or "债券" in option:
-            success_rate = 0.8
-            return_rate = random.uniform(-0.05, 0.15)
+        # 生成投资名称
+        if "股票" in option:
+            name = "股票投资"
+        elif "基金" in option:
+            name = "投资基金"
+        elif "债券" in option:
+            name = "债券投资"
+        elif "孵化" in option or "科技" in option:
+            name = "科技孵化项目"
         else:
-            success_rate = 0.6
-            return_rate = random.uniform(-0.1, 0.25)
+            name = "理财产品"
         
-        if random.random() < success_rate:
-            change = int(amount * return_rate)
-            desc = f"投资收益 {return_rate*100:.1f}%"
-        else:
-            change = -int(amount * random.uniform(0.1, 0.3))
-            desc = "投资亏损"
+        # 创建投资记录
+        investment_system.add_investment(name, amount, inv_type, duration, return_rate, current_round)
         
-        return change, desc, investment_type
+        # 记录投资交易
+        investment_system.add_transaction(current_round, f"投资{name}", -amount)
+        
+        return -amount, f"投资{name}", "investment"
     
     @staticmethod
     def _calculate_purchase_impact(option: str, credits: int) -> Tuple[int, str, str]:
@@ -139,6 +158,21 @@ class AssetCalculator:
             desc = "工作收入"
         
         return change, desc, "short_term"
+
+    @staticmethod
+    def process_monthly_returns(current_round: int) -> int:
+        """处理月收益"""
+        return investment_system.process_monthly_returns(current_round)
+    
+    @staticmethod
+    def get_investment_summary() -> str:
+        """获取投资摘要"""
+        return investment_system.get_investment_summary()
+    
+    @staticmethod
+    def get_transaction_summary(rounds: int = 5) -> str:
+        """获取交易摘要"""
+        return investment_system.get_transaction_summary(rounds)
 
 # 全局实例
 asset_calculator = AssetCalculator()

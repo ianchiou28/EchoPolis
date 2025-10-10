@@ -19,6 +19,7 @@ class EchopolisGame:
         self.current_avatar: Optional[AIAvatar] = None
         self.game_started = False
         self.ai_enabled = False
+        self.ai_engine = None
         self.save_file = "echopolis_save.json"
         # 自动尝试设置AI
         self.setup_ai()
@@ -273,7 +274,7 @@ class EchopolisGame:
             print("❌ 请先创建AI化身")
             return
         
-        situation = self.current_avatar.generate_situation()
+        situation = self.current_avatar.generate_situation(self.ai_engine)
         
         if not situation:
             print("❌ 无法生成情况，请稍后重试")
@@ -317,7 +318,7 @@ class EchopolisGame:
         print(f"⚡ 剩余干预点数: {result['remaining_points']}")
         
         # AI做出决策
-        decision_result = self.current_avatar.make_decision(echo_text)
+        decision_result = self.current_avatar.make_decision(echo_text, self.ai_engine)
         
         # 首先显示决策结果
         print(f"\n🤖 AI决策: {decision_result['chosen_option']}")
@@ -352,7 +353,7 @@ class EchopolisGame:
             print("❌ 当前没有需要决策的情况，请先使用 'situation' 生成情况")
             return
         
-        decision_result = self.current_avatar.make_decision()
+        decision_result = self.current_avatar.make_decision(None, self.ai_engine)
         
         # 首先显示决策结果
         print(f"\n🤖 AI自主决策: {decision_result['chosen_option']}")
@@ -547,9 +548,11 @@ class EchopolisGame:
             return False
         
         try:
-            initialize_deepseek(api_key)
-            self.ai_enabled = True
-            return True
+            self.ai_engine = initialize_deepseek(api_key)
+            if self.ai_engine:
+                self.ai_enabled = True
+                return True
+            return False
         except Exception as e:
             return False
     

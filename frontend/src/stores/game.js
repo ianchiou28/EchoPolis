@@ -2,22 +2,29 @@ import { defineStore } from 'pinia'
 import axios from 'axios'
 
 // 设置API基础URL
-axios.defaults.baseURL = 'http://localhost:8000'
+axios.defaults.baseURL = 'http://127.0.0.1:8000'
 
 export const useGameStore = defineStore('game', {
   state: () => ({
+    user: null,
     avatar: null,
     mbtiTypes: {},
     sessionId: null
   }),
 
   actions: {
+    setUser(username) {
+      this.user = username
+      this.sessionId = username
+    },
+    
     generateSessionId() {
       this.sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
       return this.sessionId
     },
 
     reset() {
+      this.user = null
       this.avatar = null
       this.sessionId = null
     },
@@ -40,7 +47,8 @@ export const useGameStore = defineStore('game', {
 
     async createAvatar(name, mbti) {
       try {
-        const sessionId = this.generateSessionId()
+        const sessionId = this.user
+        this.sessionId = sessionId
         const response = await axios.post('/api/create-avatar', {
           name,
           mbti,
@@ -59,8 +67,9 @@ export const useGameStore = defineStore('game', {
 
     async generateSituation(context = '') {
       try {
+        const sessionId = this.user || this.sessionId
         const response = await axios.post('/api/generate-situation', {
-          session_id: this.sessionId,
+          session_id: sessionId,
           context
         })
         return response.data
@@ -72,8 +81,9 @@ export const useGameStore = defineStore('game', {
 
     async sendEcho(echoText) {
       try {
+        const sessionId = this.user || this.sessionId
         const response = await axios.post('/api/echo', {
-          session_id: this.sessionId,
+          session_id: sessionId,
           echo_text: echoText
         })
         
@@ -90,8 +100,9 @@ export const useGameStore = defineStore('game', {
 
     async autoDecision() {
       try {
+        const sessionId = this.user || this.sessionId
         const response = await axios.post('/api/auto-decision', {
-          session_id: this.sessionId
+          session_id: sessionId
         })
         
         if (response.data.avatar) {
