@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.api.routes import router
+from app.api.unity_routes import router as unity_router
 from app.services.game_service import GameService
 
 app = FastAPI(title="Echopolis API", version="1.0.0")
@@ -34,6 +35,7 @@ game_service = GameService()
 
 # 注册路由
 app.include_router(router, prefix="/api")
+app.include_router(unity_router, prefix="/api")
 
 @app.get("/")
 async def root():
