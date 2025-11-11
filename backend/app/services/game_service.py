@@ -3,12 +3,13 @@
 """
 import random
 from typing import Dict, Any
+import uuid
 
 # 尝试导入核心游戏系统
 try:
     from core.avatar.ai_avatar import AIAvatar
     from core.systems.mbti_traits import MBTITraits
-    from core.systems.fate_wheel import FateWheel
+    from core.systems.fate_wheel import FateWheel, FateType
     from core.systems.echo_system import EchoSystem
     from core.systems.asset_calculator import asset_calculator
     from core.systems.investment_system import investment_system
@@ -21,6 +22,7 @@ except ImportError as e:
 class GameService:
     def __init__(self):
         self.game_sessions = {}
+        self.session_to_avatar = {}  # 新增：session_id -> avatar_id 映射
         self.ai_engine = None
         
         # 初始化数据库
@@ -53,7 +55,7 @@ class GameService:
 
     def get_fate_wheel(self) -> Dict[str, Any]:
         if AI_AVAILABLE:
-            return {fate.value: FateWheel.get_fate_info(fate) for fate in FateWheel.FateType}
+            return {fate.value: FateWheel.get_fate_info(fate) for fate in FateType}
         else:
             return {
                 '💰 亿万富豪': {'initial_money': 100000000, 'description': '亿万富豪家庭'},
@@ -71,16 +73,19 @@ class GameService:
         except:
             return [], []
 
-    def _build_avatar_data(self, avatar, session_id: str = None):
+    def _build_avatar_data(self, avatar, session_id: str = None, avatar_id: str = None):
         """构建化身数据"""
-        # 从数据库获取数据
-        if session_id and self.db:
-            active_investments = self.db.get_user_investments(session_id)
-            recent_transactions = self.db.get_user_transactions(session_id, 10)
+        # 优先使用 avatar_id 在数据库中查询该化身的投资与交易
+        if avatar_id and self.db:
+            try:
+                active_investments = self.db.get_avatar_investments(avatar_id)
+                recent_transactions = self.db.get_avatar_transactions(avatar_id, 10)
+            except Exception:
+                active_investments, recent_transactions = self._get_investment_data()
         else:
             active_investments, recent_transactions = self._get_investment_data()
-        
         return {
+            "avatar_id": avatar_id,
             "name": avatar.attributes.name,
             "mbti": getattr(avatar.attributes.mbti_type, 'value', avatar.attributes.mbti_type),
             "fate": getattr(avatar.attributes.fate_type, 'value', avatar.attributes.fate_type),
@@ -111,56 +116,99 @@ class GameService:
             "intervention_points": 10
         }
 
-    async def create_avatar(self, name: str, mbti: str, session_id: str) -> Dict[str, Any]:
+    async def create_avatar(self, name: str, mbti: str, session_id: str, username: str = None) -> Dict[str, Any]:
+        avatar_id = str(uuid.uuid4())
         if AI_AVAILABLE:
             from core.systems.mbti_traits import MBTIType
             mbti_type = MBTIType(mbti.upper())
-            avatar = AIAvatar(name, mbti_type, session_id)
-            
-            # 保存用户到数据库
-            if self.db:
-                self.db.save_user(session_id, session_id, avatar.attributes.name, 
-                               getattr(avatar.attributes.mbti_type, 'value', str(avatar.attributes.mbti_type)),
-                               getattr(avatar.attributes.fate_type, 'value', str(avatar.attributes.fate_type)),
-                               avatar.attributes.credits)
-            
-            avatar_data = self._build_avatar_data(avatar, session_id)
-            
+            avatar = AIAvatar(name, mbti_type, session_id, username=username, avatar_id=avatar_id)
+            if self.db and username:
+                self.db.save_user(username, avatar_id, session_id, avatar.attributes.name, getattr(avatar.attributes.mbti_type, 'value', str(avatar.attributes.mbti_type)), getattr(avatar.attributes.fate_type, 'value', str(avatar.attributes.fate_type)), avatar.attributes.credits)
+            avatar_data = self._build_avatar_data(avatar, session_id, avatar_id)
             try:
                 echo_system = EchoSystem(avatar)
             except TypeError:
                 echo_system = EchoSystem()
-            
-            self.game_sessions[session_id] = {
-                "avatar": avatar,
-                "avatar_data": avatar_data,
-                "echo_system": echo_system
-            }
+            self.game_sessions[session_id] = {"avatar": avatar, "avatar_data": avatar_data, "echo_system": echo_system, "avatar_id": avatar_id}
         else:
             # 简化版本
-            fates = ['💰 亿万富豪', '📚 书香门第', '💔 家道中落', '💰 低收入户']
+            fates = ['💰 亿万富豪', '📚 书香门第', '💔 家道中落', '💪 白手起家', '🏠 中产家庭', '🔧 工薪阶层', '💰 低收入户']
             fate_name = random.choice(fates)
-            credits_map = {'💰 亿万富豪': 100000000, '📚 书香门第': 1000000, '💔 家道中落': 10000, '💰 低收入户': 25000}
-            
-            avatar_data = {
-                "name": name,
-                "mbti": mbti,
-                "fate": fate_name,
-                "credits": credits_map[fate_name],
-                "active_investments": [],
-                "transaction_history": [],
-                "background_story": f"你是{name}，{mbti}类型。",
-                "special_traits": ["智慧", "勇气", "坚持"],
-                "health": 100,
-                "energy": 100,
-                "happiness": 100,
-                "stress": 0,
-                "trust_level": 50,
-                "intervention_points": 10
-            }
-            
-            self.game_sessions[session_id] = {"avatar_data": avatar_data}
-        
+            credits_map = {'💰 亿万富豪': 100000000, '📚 书香门第': 1000000, '💔 家道中落': 10000, '💪 白手起家': 50000, '🏠 中产家庭': 200000, '🔧 工薪阶层': 30000, '💰 低收入户': 25000}
+            avatar_data = {"avatar_id": avatar_id, "name": name, "mbti": mbti, "fate": fate_name, "credits": credits_map[fate_name], "active_investments": [], "transaction_history": [], "background_story": f"你是{name}，{mbti}类型。", "special_traits": ["智慧", "勇气", "坚持"], "health": 100, "energy": 100, "happiness": 100, "stress": 0, "trust_level": 50, "intervention_points": 10}
+            self.game_sessions[session_id] = {"avatar_data": avatar_data, "avatar_id": avatar_id}
+            if self.db and username:
+                self.db.save_user(username, avatar_id, session_id, name, mbti, fate_name, credits_map[fate_name])
+        self.session_to_avatar[session_id] = avatar_id
+        return avatar_data
+
+    # 新增：列出账号所有化身
+    def list_avatars(self, username: str):
+        if self.db:
+            return self.db.list_avatars(username)
+        return []
+
+    # 新增：获取单化身
+    def get_avatar(self, avatar_id: str):
+        if self.db:
+            return self.db.get_avatar(avatar_id)
+        return None
+
+    # 新增：重置化身
+    def reset_avatar(self, avatar_id: str):
+        if self.db:
+            ok = self.db.reset_avatar(avatar_id)
+            return ok
+        return False
+
+    def start_session(self, avatar_id: str, session_id: str):
+        """根据化身ID开始一个新会话，并创建 AIAvatar 实例"""
+        if not self.db:
+            return None
+        avatar = self.db.get_avatar(avatar_id)
+        if not avatar:
+            return None
+        # 创建 AIAvatar
+        try:
+            from core.systems.mbti_traits import MBTIType
+            ai_avatar = AIAvatar(
+                avatar["name"],
+                MBTIType(avatar["mbti"]),
+                session_id=session_id,
+                username=avatar.get("username"),
+                avatar_id=avatar_id
+            )
+            # 覆盖随机命运为数据库中保存的命运
+            from core.systems.fate_wheel import FateType
+            try:
+                ai_avatar.attributes.fate_type = FateType(avatar["fate"]) if isinstance(avatar["fate"], str) else avatar["fate"]
+            except Exception:
+                pass
+            ai_avatar.attributes.credits = avatar.get("credits", ai_avatar.attributes.credits)
+            ai_avatar.attributes.health = avatar.get("health", ai_avatar.attributes.health)
+            ai_avatar.attributes.energy = avatar.get("energy", ai_avatar.attributes.energy)
+            ai_avatar.attributes.happiness = avatar.get("happiness", ai_avatar.attributes.happiness)
+            ai_avatar.attributes.stress = avatar.get("stress", ai_avatar.attributes.stress)
+            ai_avatar.attributes.trust_level = avatar.get("trust_level", ai_avatar.attributes.trust_level)
+            ai_avatar.attributes.current_round = avatar.get("current_round", ai_avatar.attributes.current_round)
+            ai_avatar.attributes.long_term_investments = avatar.get("long_term_investments", 0)
+            ai_avatar.attributes.locked_investments = avatar.get("locked_investments", [])
+        except Exception as e:
+            print(f"[ERROR] start_session create AIAvatar failed: {e}")
+            return None
+        # 写入会话
+        avatar_data = self._build_avatar_data(ai_avatar, session_id, avatar_id)
+        try:
+            echo_system = EchoSystem(ai_avatar)
+        except TypeError:
+            echo_system = EchoSystem()
+        self.game_sessions[session_id] = {
+            "avatar": ai_avatar,
+            "avatar_data": avatar_data,
+            "echo_system": echo_system,
+            "avatar_id": avatar_id
+        }
+        self.session_to_avatar[session_id] = avatar_id
         return avatar_data
 
     async def generate_situation(self, session_id: str, context: str = "") -> Dict[str, Any]:
@@ -171,16 +219,23 @@ class GameService:
             print(f"[DEBUG] AI engine has API key: {self.ai_engine.api_key is not None}")
         
         if session_id not in self.game_sessions:
-            # 如果没有session，尝试从数据库加载用户信息
-            user_info = self.get_user_info(session_id)
-            if not user_info:
+            avatar_id = self.session_to_avatar.get(session_id)
+            if avatar_id and self.db:
+                avatar_record = self.db.get_avatar(avatar_id)
+                if avatar_record:
+                    # 构造最小 avatar_data 占位供后续 AIAvatar 创建
+                    self.game_sessions[session_id] = {
+                        "avatar_data": {
+                            "name": avatar_record["name"],
+                            "mbti": avatar_record["mbti"],
+                            "fate": avatar_record["fate"],
+                            "credits": avatar_record["credits"]
+                        },
+                        "avatar_id": avatar_id
+                    }
+            if session_id not in self.game_sessions:
                 raise Exception("Session not found")
-            
-            # 创建临时session
-            self.game_sessions[session_id] = {
-                "avatar_data": user_info
-            }
-        
+
         session = self.game_sessions[session_id]
         print(f"[DEBUG] Session has avatar: {'avatar' in session}")
         
@@ -189,12 +244,17 @@ class GameService:
             if "avatar" not in session:
                 # 创建 AI Avatar 实例
                 try:
-                    from core.avatar.ai_avatar import AIAvatar
                     from core.systems.mbti_traits import MBTIType
                     
                     avatar_data = session["avatar_data"]
                     mbti_type = MBTIType(avatar_data["mbti"])
-                    avatar = AIAvatar(avatar_data["name"], mbti_type, session_id)
+                    username = None
+                    avatar_id = session.get("avatar_id")
+                    if avatar_id and self.db:
+                        rec = self.db.get_avatar(avatar_id)
+                        if rec:
+                            username = rec.get('username')
+                    avatar = AIAvatar(avatar_data["name"], mbti_type, session_id, username=username, avatar_id=session.get("avatar_id"))
                     session["avatar"] = avatar
                     print(f"[DEBUG] Created AI Avatar for session {session_id}")
                 except Exception as e:
@@ -247,16 +307,22 @@ class GameService:
 
     async def send_echo(self, session_id: str, echo_text: str) -> Dict[str, Any]:
         if session_id not in self.game_sessions:
-            # 如果没有session，尝试从数据库加载用户信息
-            user_info = self.get_user_info(session_id)
-            if not user_info:
+            avatar_id = self.session_to_avatar.get(session_id)
+            if avatar_id and self.db:
+                avatar_record = self.db.get_avatar(avatar_id)
+                if avatar_record:
+                    self.game_sessions[session_id] = {
+                        "avatar_data": {
+                            "name": avatar_record["name"],
+                            "mbti": avatar_record["mbti"],
+                            "fate": avatar_record["fate"],
+                            "credits": avatar_record["credits"]
+                        },
+                        "avatar_id": avatar_id
+                    }
+            if session_id not in self.game_sessions:
                 raise Exception("Session not found")
-            
-            # 创建临时session
-            self.game_sessions[session_id] = {
-                "avatar_data": user_info
-            }
-        
+
         session = self.game_sessions[session_id]
         
         if AI_AVAILABLE and "avatar" in session and self.ai_engine:
@@ -270,8 +336,8 @@ class GameService:
                 decision_result = avatar.make_decision(echo_text, self.ai_engine)
                 
                 if "error" not in decision_result:
-                    session["avatar_data"] = self._build_avatar_data(avatar, session_id)
-                    
+                    session["avatar_data"] = self._build_avatar_data(avatar, session_id, session.get("avatar_id"))
+
                     # 自动生成下一个情况
                     next_situation = None
                     if not decision_result.get("is_bankrupt", False):
@@ -339,16 +405,22 @@ class GameService:
 
     async def auto_decision(self, session_id: str) -> Dict[str, Any]:
         if session_id not in self.game_sessions:
-            # 如果没有session，尝试从数据库加载用户信息
-            user_info = self.get_user_info(session_id)
-            if not user_info:
+            avatar_id = self.session_to_avatar.get(session_id)
+            if avatar_id and self.db:
+                avatar_record = self.db.get_avatar(avatar_id)
+                if avatar_record:
+                    self.game_sessions[session_id] = {
+                        "avatar_data": {
+                            "name": avatar_record["name"],
+                            "mbti": avatar_record["mbti"],
+                            "fate": avatar_record["fate"],
+                            "credits": avatar_record["credits"]
+                        },
+                        "avatar_id": avatar_id
+                    }
+            if session_id not in self.game_sessions:
                 raise Exception("Session not found")
-            
-            # 创建临时session
-            self.game_sessions[session_id] = {
-                "avatar_data": user_info
-            }
-        
+
         session = self.game_sessions[session_id]
         current_situation = session.get("current_situation", {})
         
@@ -361,8 +433,8 @@ class GameService:
                 decision_result = avatar.make_decision(None, self.ai_engine)
                 
                 if "error" not in decision_result:
-                    session["avatar_data"] = self._build_avatar_data(avatar, session_id)
-                    
+                    session["avatar_data"] = self._build_avatar_data(avatar, session_id, session.get("avatar_id"))
+
                     # 自动生成下一个情况
                     next_situation = None
                     if not decision_result.get("is_bankrupt", False):
@@ -452,3 +524,13 @@ class GameService:
         if self.db:
             return self.db.get_user_info(username)
         return None
+
+    def get_avatar_investments(self, avatar_id: str):
+        if self.db:
+            return self.db.get_avatar_investments(avatar_id)
+        return []
+
+    def get_avatar_transactions(self, avatar_id: str, limit: int = 10):
+        if self.db:
+            return self.db.get_avatar_transactions(avatar_id, limit)
+        return []

@@ -107,6 +107,44 @@
         </div>
       </div>
 
+      <div v-if="history.length > 0" class="card history-list">
+        <div class="history-header">
+          <h3>📝 历史记录</h3>
+          <button class="btn btn-secondary" v-if="history.length" @click="clearHistory">清空</button>
+        </div>
+        <ul class="timeline">
+          <li v-for="(item, idx) in history" :key="idx" class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-meta">
+                <span class="badge">决策</span>
+                <span class="meta-text">第{{ item.round || (gameStore.avatar?.current_round || 1) }}月</span>
+                <span class="meta-text time">{{ formatTime(item.time) }}</span>
+              </div>
+              <div class="situation-line">📋 {{ item.situation }}</div>
+              <div class="choice-line">✅ 选择：<strong>{{ item.data.chosen_option }}</strong></div>
+              <div class="impact-line" v-if="item.data.decision_impact">
+                <span v-for="(value, key) in item.data.decision_impact" :key="key"
+                      v-if="key !== 'investment_item' && value !== 0"
+                      class="impact-chip" :class="value > 0 ? 'positive' : 'negative'">
+                  {{ formatKey(key) }} {{ value > 0 ? '+' : '' }}{{ value }}
+                </span>
+              </div>
+              <div class="thoughts">
+                <div class="thoughts-label">🧠 AI想法：</div>
+                <div class="thoughts-text" :class="{ clamped: !expandedHistory[idx] }">{{ item.data.ai_thoughts }}</div>
+                <div class="thoughts-actions">
+                  <button class="link" @click="expandedHistory[idx] = !expandedHistory[idx]">
+                    {{ expandedHistory[idx] ? '收起' : '展开' }}
+                  </button>
+                  <button class="link" @click="copyThought(item.data.ai_thoughts)">复制</button>
+                </div>
+              </div>
+            </div>
+          </li>
+        </ul>
+      </div>
+
       <!-- AI决策结果 -->
       <div v-if="lastDecision" class="card decision-result">
         <h3>🧠 AI决策结果 
@@ -131,7 +169,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
 import InvestmentPanel from '../components/InvestmentPanel.vue'
@@ -161,6 +199,8 @@ const handleApiError = (action, error) => {
   alert(message)
 }
 
+const history = ref([])
+const expandedHistory = ref({})
 const processDecisionResult = async (result) => {
   console.log('[DEBUG] 处理决策结果:', result)
   
@@ -170,6 +210,13 @@ const processDecisionResult = async (result) => {
       ...result.decision,
       ai_powered: result.decision.ai_powered !== false
     }
+    history.value.push({
+      type: 'decision',
+      data: lastDecision.value,
+      situation: currentSituation.value ? currentSituation.value.situation : '',
+      round: (result.decision && result.decision.current_round) || (result.avatar && result.avatar.current_round) || (gameStore.avatar && gameStore.avatar.current_round) || 1,
+      time: Date.now()
+    })
     console.log('[DEBUG] 设置决策结果:', lastDecision.value)
   }
   
@@ -205,6 +252,8 @@ onMounted(() => {
     router.push('/')
     return
   }
+  // 先用已有 avatar_data 填充，再尝试从API刷新
+  fillFromAvatarData()
   generateSituation()
   loadInvestmentData()
 })
@@ -272,9 +321,42 @@ const autoDecision = async () => {
   }
 }
 
-const restartGame = () => {
-  gameStore.reset()
-  router.push('/')
+const restartGame = async () => {
+  if (isLoading.value) return
+  isLoading.value = true
+  try {
+    await gameStore.resetGame()
+    // 重置本地状态
+    currentSituation.value = null
+    lastDecision.value = null
+    lastEchoAnalysis.value = null
+    isGameOver.value = false
+    monthlyEvents.value = []
+    history.value = []
+    gameInvestments.value = []
+    gameTransactions.value = []
+    echoText.value = ''
+    // 先关闭加载态以便 generateSituation 不被短路
+    isLoading.value = false
+    await generateSituation()
+    await loadInvestmentData()
+  } catch (e) {
+    handleApiError('重新开始', e)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const copyThought = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text || '')
+  } catch (e) {
+    console.error('复制失败', e)
+  }
+}
+
+const clearHistory = () => {
+  history.value = []
 }
 
 const formatMoney = (amount) => {
@@ -294,20 +376,48 @@ const formatKey = (key) => {
   return names[key] || key
 }
 
+const formatTime = (t) => {
+  if (!t) return ''
+  try {
+    const d = new Date(t)
+    return d.toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+  } catch { return '' }
+}
+
 // 投资和交易数据
 const gameInvestments = ref([])
 const gameTransactions = ref([])
 
+const fillFromAvatarData = () => {
+  const a = gameStore.avatar || {}
+  const inv = Array.isArray(a.active_investments) ? a.active_investments : []
+  gameInvestments.value = inv.map(x => ({
+    name: x.name,
+    amount: x.amount,
+    type: x.type,
+    monthlyReturn: x.monthly_return ?? x.monthlyReturn ?? 0,
+    remainingMonths: x.remaining_months ?? x.remainingMonths ?? 0
+  }))
+  const tx = Array.isArray(a.transaction_history) ? a.transaction_history : []
+  gameTransactions.value = tx.map((t, i) => ({
+    id: i,
+    round: t.round,
+    type: t.type || '交易',
+    amount: t.amount,
+    description: t.description
+  }))
+}
+
 // 从API获取投资和交易数据
 const loadInvestmentData = async () => {
-  if (!gameStore.user) return
-  
+  const avatarId = gameStore.currentAvatarId || (gameStore.avatar && gameStore.avatar.avatar_id)
+  if (!avatarId) {
+    fillFromAvatarData()
+    return
+  }
   try {
-    // 使用账号作为username
-    const username = gameStore.user
-    
-    // 获取投资数据
-    const investmentResponse = await fetch(`http://127.0.0.1:8000/api/investments/${username}`)
+    // 获取投资数据（按化身）
+    const investmentResponse = await fetch(`http://127.0.0.1:8000/api/avatar/${avatarId}/investments`)
     if (investmentResponse.ok) {
       const investments = await investmentResponse.json()
       gameInvestments.value = investments.map(inv => ({
@@ -317,10 +427,12 @@ const loadInvestmentData = async () => {
         monthlyReturn: inv.monthly_return,
         remainingMonths: inv.remaining_months
       }))
+    } else {
+      // 回退：使用 avatar_data
+      fillFromAvatarData()
     }
-    
-    // 获取交易数据
-    const transactionResponse = await fetch(`http://127.0.0.1:8000/api/transactions/${username}`)
+    // 获取交易数据（按化身）
+    const transactionResponse = await fetch(`http://127.0.0.1:8000/api/avatar/${avatarId}/transactions`)
     if (transactionResponse.ok) {
       const transactions = await transactionResponse.json()
       gameTransactions.value = transactions.map((tx, index) => ({
@@ -330,11 +442,26 @@ const loadInvestmentData = async () => {
         amount: tx.amount,
         description: tx.description
       }))
+    } else {
+      // 回退：使用 avatar_data
+      fillFromAvatarData()
     }
   } catch (error) {
     console.error('加载投资数据失败:', error)
+    fillFromAvatarData()
   }
 }
+
+onMounted(() => {
+  if (!gameStore.avatar) {
+    router.push('/')
+    return
+  }
+  // 先用已有 avatar_data 填充，再尝试从API刷新
+  fillFromAvatarData()
+  generateSituation()
+  loadInvestmentData()
+})
 </script>
 
 <style scoped>
@@ -597,6 +724,30 @@ const loadInvestmentData = async () => {
   background: #dc3545;
   color: white;
 }
+
+/* 历史记录时间轴样式 */
+.history-list .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.timeline { position: relative; margin: 0; padding-left: 26px; }
+.timeline:before { content: ''; position: absolute; left: 14px; top: 0; bottom: 0; width: 2px; background: #e6e6e6; }
+.timeline-item { position: relative; margin: 12px 0; list-style: none; }
+.timeline-dot { position: absolute; left: 7px; top: 8px; width: 14px; height: 14px; background: #667eea; border-radius: 50%; box-shadow: 0 0 0 3px rgba(102,126,234,0.2); }
+.timeline-content { background: #f8f9fa; border-radius: 10px; padding: 12px 14px; border-left: 4px solid #667eea; }
+.timeline-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.badge { background: #e9ecef; border-radius: 12px; padding: 2px 8px; font-size: 12px; color: #333; }
+.meta-text { color: #666; font-size: 12px; }
+.meta-text.time { margin-left: auto; }
+.situation-line { font-weight: 600; margin: 4px 0; }
+.choice-line { margin: 4px 0; }
+.impact-line { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px; }
+.impact-chip { font-size: 12px; padding: 4px 8px; border-radius: 12px; background: #eef2ff; color: #3b5bdb; }
+.impact-chip.positive { background: #e6f4ea; color: #1e7e34; }
+.impact-chip.negative { background: #fdecea; color: #b71c1c; }
+.thoughts { margin-top: 8px; }
+.thoughts-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+.thoughts-text { line-height: 1.6; color: #333; }
+.thoughts-text.clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.thoughts-actions { margin-top: 4px; display: flex; gap: 10px; }
+button.link { border: none; background: none; color: #667eea; cursor: pointer; padding: 0; font-size: 12px; }
 
 .btn:disabled {
   opacity: 0.6;

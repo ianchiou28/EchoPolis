@@ -2,9 +2,9 @@
 API路由定义
 """
 from fastapi import APIRouter, HTTPException
-from app.models.requests import CreateAvatarRequest, GenerateSituationRequest, EchoRequest, AutoDecisionRequest
-from app.models.auth import LoginRequest, RegisterRequest, AuthResponse
-from app.services.game_service import GameService
+from ..models.requests import CreateAvatarRequest, GenerateSituationRequest, EchoRequest, AutoDecisionRequest, StartSessionRequest
+from ..models.auth import LoginRequest, RegisterRequest, AuthResponse
+from ..services.game_service import GameService
 
 router = APIRouter()
 game_service = GameService()
@@ -20,14 +20,53 @@ async def get_fate_wheel():
 @router.post("/create-avatar")
 async def create_avatar(request: CreateAvatarRequest):
     try:
-        print(f"Creating avatar: name={request.name}, mbti={request.mbti}, session_id={request.session_id}")
-        result = await game_service.create_avatar(request.name, request.mbti, request.session_id)
+        print(f"Creating avatar: name={request.name}, mbti={request.mbti}, session_id={request.session_id}, username={request.username}")
+        result = await game_service.create_avatar(request.name, request.mbti, request.session_id, request.username)
         print(f"Avatar created successfully: {result}")
         return {"success": True, "avatar": result}
     except Exception as e:
         print(f"Error creating avatar: {str(e)}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/start-session")
+async def start_session(request: StartSessionRequest):
+    try:
+        avatar = game_service.start_session(request.avatar_id, request.session_id)
+        if not avatar:
+            raise HTTPException(status_code=404, detail="化身不存在")
+        return {"success": True, "avatar": avatar}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/avatars/{username}")
+async def list_avatars(username: str):
+    try:
+        avatars = game_service.list_avatars(username)
+        return {"success": True, "avatars": avatars}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/avatar/{avatar_id}")
+async def get_avatar(avatar_id: str):
+    try:
+        avatar = game_service.get_avatar(avatar_id)
+        if not avatar:
+            raise HTTPException(status_code=404, detail="化身不存在")
+        return {"success": True, "avatar": avatar}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/avatar/{avatar_id}/reset")
+async def reset_avatar(avatar_id: str):
+    try:
+        ok = game_service.reset_avatar(avatar_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="化身不存在")
+        avatar = game_service.get_avatar(avatar_id)
+        return {"success": True, "avatar": avatar}
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/generate-situation")
@@ -98,3 +137,17 @@ async def get_user_info(username: str):
     except Exception as e:
         print(f"Error getting user info: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/avatar/{avatar_id}/investments")
+async def get_avatar_investments(avatar_id: str):
+  try:
+    return game_service.get_avatar_investments(avatar_id)
+  except Exception as e:
+    raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/avatar/{avatar_id}/transactions")
+async def get_avatar_transactions(avatar_id: str, limit: int = 10):
+  try:
+    return game_service.get_avatar_transactions(avatar_id, limit)
+  except Exception as e:
+    raise HTTPException(status_code=400, detail=str(e))

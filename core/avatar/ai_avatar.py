@@ -66,13 +66,15 @@ class DecisionContext:
 class AIAvatar:
     """AI化身主类"""
     
-    def __init__(self, name: str, mbti_type: MBTIType, session_id: str = None):
+    def __init__(self, name: str, mbti_type: MBTIType, session_id: str = None, username: Optional[str] = None, avatar_id: Optional[str] = None):
         self.attributes = AvatarAttributes(name=name, mbti_type=mbti_type)
         self.attributes.locked_investments = []
         self.decision_history: List[Dict] = []
         self.current_situation: Optional[DecisionContext] = None
         self.session_id = session_id
-        
+        self.username = username
+        self.avatar_id = avatar_id
+
         # 初始化命运
         self._initialize_fate()
     
@@ -651,9 +653,10 @@ class AIAvatar:
         """保存投资到数据库"""
         try:
             from ..database.database import db
-            if self.session_id:
+            if self.session_id and self.username and self.avatar_id:
                 db.save_investment(
-                    self.session_id,  # 使用session_id作为username（账号）
+                    self.username,
+                    self.avatar_id,
                     self.session_id,
                     name,
                     amount,
@@ -672,9 +675,10 @@ class AIAvatar:
         """保存交易到数据库"""
         try:
             from ..database.database import db
-            if self.session_id:
+            if self.session_id and self.username and self.avatar_id:
                 db.save_transaction(
-                    self.session_id,  # 使用session_id作为username（账号）
+                    self.username,
+                    self.avatar_id,
                     self.session_id,
                     self.attributes.current_round,
                     transaction_name,
