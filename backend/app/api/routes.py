@@ -98,3 +98,47 @@ async def get_user_info(username: str):
     except Exception as e:
         print(f"Error getting user info: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/avatar/status")
+async def get_avatar_status():
+    try:
+        # TODO: 从session获取当前用户
+        return {
+            "name": "测试用户",
+            "mbti_type": "INTJ",
+            "total_assets": 150000,
+            "cash": 80000,
+            "trust_level": 65,
+            "current_month": 6
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/investments")
+async def get_investments():
+    try:
+        # TODO: 从session获取当前用户的投资
+        return [
+            {
+                "id": 1,
+                "name": "科技股基金",
+                "term": "short",
+                "amount": 30000,
+                "profit": 2500,
+                "duration": 3,
+                "monthly_return": 833,
+                "is_active": True
+            },
+            {
+                "id": 2,
+                "name": "房地产信托",
+                "term": "long",
+                "amount": 50000,
+                "profit": -3000,
+                "duration": 12,
+                "monthly_return": 0,
+                "is_active": True
+            }
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
