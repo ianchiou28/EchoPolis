@@ -13,7 +13,7 @@ class DeepSeekEngine:
             try:
                 import json
                 import os
-                config_path = "C://Users//ian28//Desktop//EchoPolis//config.json"
+                config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json")
                 if os.path.exists(config_path):
                     with open(config_path, 'r', encoding='utf-8') as f:
                         config = json.load(f)
