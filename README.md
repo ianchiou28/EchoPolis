@@ -222,30 +222,106 @@ cd frontend && npm run dev
 ### 1. 系统结构
 ```
 EchoPolis/
-├── core/                    # 核心游戏引擎
-│   ├── ai/deepseek_engine.py   # DeepSeek AI集成
-│   ├── avatar/ai_avatar.py     # AI化身逻辑
-│   ├── entities/brain.py       # 决策大脑模块
-│   ├── systems/                # 游戏系统
-│   └── database/database.py    # 数据持久化
-├── backend/                 # FastAPI后端服务
-│   └── app/
-│       ├── api/routes.py       # RESTful API
-│       └── services/           # 业务逻辑
-├── frontend/                # Vue.js前端界面
-│   └── src/
-│       ├── views/Game.vue      # 主游戏界面
-│       ├── components/         # UI组件
-│       └── stores/game.js      # 状态管理
-└── echopolis.db            # SQLite数据库
+├── core/                           # 🎮 核心游戏引擎
+│   ├── ai/
+│   │   └── deepseek_engine.py     # DeepSeek AI集成，处理AI决策
+│   ├── avatar/
+│   │   └── ai_avatar.py           # AI化身逻辑，管理角色状态
+│   ├── entities/
+│   │   ├── brain.py               # 决策大脑模块，处理决策流程
+│   │   └── person.py              # 人物实体，存储角色属性
+│   ├── systems/
+│   │   ├── mbti_traits.py         # MBTI人格系统
+│   │   ├── fate_wheel.py          # 命运轮盘系统
+│   │   ├── investment_system.py   # 投资管理系统
+│   │   └── asset_calculator.py    # 资产计算器
+│   └── database/
+│       └── database.py            # SQLite数据持久化
+│
+├── backend/                        # 🔧 FastAPI后端服务
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── routes.py          # RESTful API路由
+│   │   ├── services/
+│   │   │   └── game_service.py    # 游戏业务逻辑
+│   │   └── models/
+│   │       └── requests.py        # 请求数据模型
+│   └── start_backend_only.py      # 后端启动脚本
+│
+├── frontend/                       # 🎨 Vue.js前端界面
+│   ├── src/
+│   │   ├── views/
+│   │   │   ├── Login.vue          # 登录页面
+│   │   │   ├── CharacterSelect.vue # 角色选择页面
+│   │   │   ├── Home.vue           # 主游戏界面
+│   │   │   ├── Assets.vue         # 资产分析页面
+│   │   │   ├── World.vue          # 沙盘世界页面
+│   │   │   └── Profile.vue        # 个人资料页面
+│   │   ├── components/            # UI组件
+│   │   ├── stores/
+│   │   │   ├── game.js            # 游戏状态管理(Pinia)
+│   │   │   └── theme.js           # 主题管理
+│   │   └── router/
+│   │       └── index.js           # 路由配置
+│   └── package.json               # 前端依赖配置
+│
+├── echopolis.db                    # 💾 SQLite数据库文件
+├── config.json                     # ⚙️ 配置文件(DeepSeek API Key)
+├── requirements.txt                # 📦 Python依赖
+├── start.py                        # 🚀 一键启动脚本
+└── README.md                       # 📖 项目文档
 ```
 
+**目录说明：**
+
+- **core/** - 核心游戏逻辑，独立于前后端，可复用
+  - `ai/` - AI引擎，与DeepSeek API交互
+  - `avatar/` - AI化身管理，处理角色生命周期
+  - `entities/` - 游戏实体，如人物、大脑等
+  - `systems/` - 各种游戏系统（MBTI、投资、资产等）
+  - `database/` - 数据持久化层
+
+- **backend/** - 后端API服务
+  - `api/routes.py` - 所有API端点定义
+  - `services/` - 业务逻辑层
+  - `models/` - 数据模型定义
+
+- **frontend/** - 前端用户界面
+  - `views/` - 页面组件
+  - `stores/` - 状态管理(Pinia)
+  - `router/` - 路由配置
+
 ### 2. 技术栈
-- **AI引擎**: DeepSeek API
-- **后端**: Python 3.8+, FastAPI, SQLite
-- **前端**: Vue 3, Vite, Pinia, Axios
-- **数据库**: SQLite (账户隔离)
-- **架构**: 模块化设计，AI驱动的决策系统
+
+**后端技术：**
+- **语言**: Python 3.8+
+- **Web框架**: FastAPI (高性能异步框架)
+- **AI引擎**: DeepSeek API (大语言模型)
+- **数据库**: SQLite (轻量级关系数据库)
+- **HTTP客户端**: Requests (API调用)
+
+**前端技术：**
+- **框架**: Vue 3 (组合式API)
+- **构建工具**: Vite (快速开发服务器)
+- **状态管理**: Pinia (Vue官方状态库)
+- **HTTP客户端**: Axios (异步请求)
+- **路由**: Vue Router (单页应用路由)
+
+**架构特点：**
+- **前后端分离**: RESTful API通信
+- **模块化设计**: 核心逻辑独立可复用
+- **AI驱动**: DeepSeek提供真实智能决策
+- **数据持久化**: SQLite存储用户数据
+- **实时同步**: 所有操作立即保存
+
+### 3. 数据流
+```
+用户操作 → 前端(Vue) → API请求(Axios) → 后端(FastAPI) 
+    ↓
+核心引擎(core/) → AI决策(DeepSeek) → 数据库(SQLite)
+    ↓
+API响应 → 前端更新 → 状态管理(Pinia) → 界面刷新
+```
 
 ## 七、 核心机制
 
@@ -255,11 +331,81 @@ EchoPolis/
 - **上下文感知**: 考虑当前财务状况、健康状态、历史决策
 - **动态学习**: 根据玩家反馈调整决策权重
 
+**核心代码示例：**
+```python
+# AI决策引擎 - core/ai/deepseek_engine.py
+class DeepSeekEngine:
+    def make_decision(self, context: Dict) -> Dict:
+        """AI做出投资决策"""
+        prompt = f"""
+        你是{context['mbti']}人格，现金{context['cash']:,}CP
+        
+        情况：{context['situation']}
+        选项：{context['options']}
+        
+        请决策并返回JSON格式：
+        {{
+            "chosen_option": "选择的选项",
+            "ai_thoughts": "决策思考过程",
+            "investment": {{
+                "name": "投资项目名",
+                "amount": 金额,
+                "duration": 期限(月),
+                "type": "SHORT_TERM/MEDIUM_TERM/LONG_TERM"
+            }}
+        }}
+        """
+        
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            json={
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.7
+            }
+        )
+        
+        return self._parse_ai_response(response.json())
+```
+
 ### 2. 信任度机制
 - **初始信任**: 50/100
 - **信任增长**: 好建议被采纳且结果良好 (+2~5)
 - **信任下降**: 坏建议导致损失 (-5~10)
 - **影响权重**: 高信任度时AI更重视玩家建议
+
+**核心代码示例：**
+```python
+# 决策大脑 - core/entities/brain.py
+class Brain:
+    def process_decision(self, situation: str, options: List[str], 
+                        player_echo: Optional[str] = None) -> Dict:
+        """处理决策并保存投资"""
+        # AI决策
+        decision = self._ai_decision(situation, options, player_echo)
+        
+        # 保存投资到数据库
+        if decision.get('investment'):
+            inv = decision['investment']
+            db.save_investment(
+                username=self.person.username,
+                session_id=self.person.session_id,
+                name=inv['name'],
+                amount=inv['amount'],
+                investment_type=inv['type'],
+                remaining_months=inv['duration'],
+                return_rate=0.08,
+                ai_thoughts=decision['ai_thoughts']
+            )
+            
+            # 扣除现金
+            self.person.update_attributes({
+                'credits': -inv['amount']
+            })
+        
+        return decision
+```
 
 ### 3. 财务系统
 - **资产构成**: 总资产 = 现金 + 投资资产
@@ -269,11 +415,92 @@ EchoPolis/
 - **实时同步**: 所有操作立即保存到数据库
 - **多渠道投资**: 首页AI投资、沙盘世界操作均可投资
 
+**核心代码示例：**
+```python
+# 时间推进 - backend/app/api/routes.py
+@router.post("/time/advance")
+async def advance_time(data: dict):
+    """推进1个月，更新投资"""
+    session_id = data['session_id']
+    
+    with sqlite3.connect(db_path, timeout=10.0) as conn:
+        cursor = conn.cursor()
+        
+        # 更新投资剩余月数
+        cursor.execute('''
+            UPDATE investments 
+            SET remaining_months = remaining_months - 1
+            WHERE session_id = ? AND remaining_months > 0
+        ''', (session_id,))
+        
+        # 处理到期投资
+        cursor.execute('''
+            SELECT name, amount, return_rate
+            FROM investments
+            WHERE session_id = ? AND remaining_months = 0
+        ''', (session_id,))
+        
+        total_return = 0
+        for inv in cursor.fetchall():
+            # 计算收益
+            total_return += int(inv[1] * (1 + inv[2]))
+        
+        # 更新现金
+        cursor.execute('''
+            UPDATE users 
+            SET credits = credits + ?
+            WHERE id = ?
+        ''', (total_return, session_id))
+        
+        conn.commit()
+    
+    return {"success": True, "total_return": total_return}
+```
+
 ### 4. 人格影响
 - **决策风格**: 不同MBTI类型有不同的风险偏好
 - **思考模式**: 逻辑型vs情感型的决策差异
 - **压力反应**: 高压力时的决策倾向变化
 - **社交影响**: 外向型更容易受他人建议影响
+
+**核心代码示例：**
+```javascript
+// 前端状态管理 - frontend/src/stores/game.js
+export const useGameStore = defineStore('game', {
+  state: () => ({
+    avatar: null,
+    assets: { total: 0, cash: 0, investments: [] },
+    aiReflection: '正在思考...',
+    currentSituation: '',
+    situationOptions: []
+  }),
+  
+  actions: {
+    async loadAvatar() {
+      const char = JSON.parse(localStorage.getItem('currentCharacter'))
+      const res = await axios.get('/api/avatar/status', {
+        params: { session_id: char.id }
+      })
+      
+      this.avatar = res.data
+      this.assets.total = res.data.total_assets
+      this.assets.cash = res.data.cash
+    },
+    
+    async aiInvest() {
+      const res = await axios.post('/api/ai/invest', {
+        session_id: this.avatar.session_id,
+        cash: this.assets.cash,
+        mbti: this.avatar.mbti_type
+      })
+      
+      if (res.data.success) {
+        await this.loadAvatar() // 刷新数据
+      }
+    }
+  }
+})
+```
 
 
 ## 八、 项目进度
