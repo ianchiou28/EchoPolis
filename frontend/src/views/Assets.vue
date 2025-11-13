@@ -2,7 +2,10 @@
   <div class="assets-page">
     <div class="page-header">
       <h1>📊 资产分析</h1>
-      <button class="back-btn" @click="$router.push('/')">返回首页</button>
+      <div class="header-actions">
+        <button class="refresh-btn" @click="loadInvestments">🔄 刷新</button>
+        <button class="back-btn" @click="$router.push('/home')">返回首页</button>
+      </div>
     </div>
 
     <div class="summary-cards">
@@ -71,7 +74,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '../stores/game'
 import axios from 'axios'
 
@@ -104,7 +107,17 @@ const getTermLabel = (term) => {
 
 const loadInvestments = async () => {
   try {
-    const res = await axios.get('/api/investments')
+    const currentCharacter = localStorage.getItem('currentCharacter')
+    if (!currentCharacter) {
+      console.log('未选择角色')
+      return
+    }
+    
+    const char = JSON.parse(currentCharacter)
+    const res = await axios.get('/api/investments', {
+      params: { session_id: char.id }
+    })
+    
     investments.value = res.data.map(inv => ({
       ...inv,
       current_value: inv.amount + (inv.profit || 0),
@@ -119,6 +132,10 @@ const loadInvestments = async () => {
 
 onMounted(() => {
   loadInvestments()
+  // 每30秒自动刷新
+  const interval = setInterval(loadInvestments, 30000)
+  // 组件销毁时清除定时器
+  onUnmounted(() => clearInterval(interval))
 })
 </script>
 
@@ -142,7 +159,12 @@ onMounted(() => {
   text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
 }
 
-.back-btn {
+.header-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.back-btn, .refresh-btn {
   padding: 12px 24px;
   border: none;
   border-radius: 20px;
@@ -153,9 +175,20 @@ onMounted(() => {
   transition: all 0.3s ease;
 }
 
-.back-btn:hover {
+.refresh-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.back-btn:hover, .refresh-btn:hover {
   background: white;
+  color: #ff9a9e;
   transform: translateY(-2px);
+}
+
+.refresh-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  color: white;
 }
 
 .summary-cards {

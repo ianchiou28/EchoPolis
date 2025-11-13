@@ -2,7 +2,7 @@
   <div class="profile-page">
     <div class="page-header">
       <h1>👤 我的</h1>
-      <button class="back-btn" @click="$router.push('/')">返回首页</button>
+      <button class="back-btn" @click="$router.push('/home')">返回首页</button>
     </div>
 
     <div class="profile-container">

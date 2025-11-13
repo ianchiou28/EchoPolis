@@ -2,7 +2,7 @@
   <div class="world-page">
     <div class="page-header">
       <h1>🌆 沙盘世界</h1>
-      <button class="back-btn" @click="$router.push('/')">返回首页</button>
+      <button class="back-btn" @click="$router.push('/home')">返回首页</button>
     </div>
 
     <div class="world-container">
@@ -75,6 +75,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 const selectedBuilding = ref(null)
@@ -146,10 +147,33 @@ const selectBuilding = (building) => {
   selectedBuilding.value = building
 }
 
-const performAction = (action) => {
-  console.log('执行操作:', action)
-  // TODO: 调用API执行操作
-  alert(`执行: ${action.name}`)
+const performAction = async (action) => {
+  try {
+    const currentCharacter = localStorage.getItem('currentCharacter')
+    if (!currentCharacter) {
+      alert('请先选择角色')
+      return
+    }
+    const char = JSON.parse(currentCharacter)
+    
+    const res = await axios.post('/api/world/action', {
+      action_name: action.name,
+      price: action.price,
+      building: selectedBuilding.value,
+      session_id: char.id
+    })
+    
+    if (res.data.success) {
+      alert(`✅ 操作成功\n\n${res.data.message}\n\n🤖 AI评价:\n${res.data.ai_comment}\n\n💰 剩余现金: ￥${formatNumber(res.data.new_balance)}\n📈 总资产: ￥${formatNumber(res.data.total_assets)}`)
+      selectedBuilding.value = null
+    } else {
+      alert(`🤖 AI审查结果\n\n${res.data.message}\n\n${res.data.ai_advice}`)
+    }
+  } catch (error) {
+    console.error('执行操作失败:', error)
+    console.error('错误详情:', error.response?.data)
+    alert(`操作失败: ${error.response?.data?.detail || error.message}`)
+  }
 }
 
 const formatNumber = (num) => {

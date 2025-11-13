@@ -11,17 +11,38 @@ export const useGameStore = defineStore('game', {
     },
     trustLevel: 50,
     wealthLevel: '贫困',
-    lifeStage: '起步期'
+    lifeStage: '起步期',
+    aiReflection: '正在思考当前的财务状况...',
+    aiMonologue: '我需要更谨慎地规划未来的投资方向。',
+    aiResponse: '',
+    currentSituation: '',
+    situationOptions: []
   }),
 
   actions: {
     async loadAvatar() {
       try {
-        const res = await axios.get('/api/avatar/status')
+        const currentCharacter = localStorage.getItem('currentCharacter')
+        console.log('[Game Store] currentCharacter:', currentCharacter)
+        
+        if (!currentCharacter) {
+          console.log('[Game Store] 未选择角色')
+          return
+        }
+        
+        const char = JSON.parse(currentCharacter)
+        console.log('[Game Store] 角色数据:', char)
+        console.log('[Game Store] session_id:', char.id)
+        
+        const res = await axios.get('/api/avatar/status', {
+          params: { session_id: char.id }
+        })
+        console.log('[Game Store] API响应:', res.data)
+        
         this.avatar = res.data
         this.updateAssets()
       } catch (error) {
-        console.error('加载化身失败:', error)
+        console.error('[Game Store] 加载化身失败:', error)
       }
     },
 

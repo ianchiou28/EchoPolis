@@ -1,7 +1,17 @@
+# Web框架
 fastapi>=0.104.0
-uvicorn>=0.24.0
+uvicorn[standard]>=0.24.0
 pydantic>=2.0.0
 python-multipart>=0.0.6
-requests>=2.25.0
-openai>=1.0.0
-sqlalchemy>=2.0.0
+
+# HTTP请求
+requests>=2.31.0
+
+# 数据库
+# SQLite是Python内置的，不需要额外安装
+
+# AI相关（可选，如果使用OpenAI兼容接口）
+# openai>=1.0.0
+
+# 其他工具
+python-dotenv>=1.0.0

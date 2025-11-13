@@ -139,19 +139,19 @@ class EchopolisDatabase:
             return result and result[0] == password
     
     def save_user(self, username: str, session_id: str, name: str, mbti: str, fate: str, credits: int):
-        """保存用户信息（一个账户只能有一套人格）"""
+        """保存用户信息（一个账户可以有多个角色）"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            # 检查是否已存在用户记录
-            cursor.execute('SELECT id FROM users WHERE username = ?', (username,))
+            # 检查session_id是否已存在
+            cursor.execute('SELECT id FROM users WHERE session_id = ?', (session_id,))
             existing = cursor.fetchone()
             
             if existing:
                 # 更新现有记录
                 cursor.execute('''
                     UPDATE users SET credits = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE username = ?
-                ''', (credits, username))
+                    WHERE session_id = ?
+                ''', (credits, session_id))
             else:
                 # 创建新记录
                 cursor.execute('''
