@@ -1,119 +1,78 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-// 设置API基础URL
-axios.defaults.baseURL = 'http://127.0.0.1:8000'
-
 export const useGameStore = defineStore('game', {
   state: () => ({
-    user: null,
     avatar: null,
-    mbtiTypes: {},
-    sessionId: null
+    assets: {
+      total: 0,
+      cash: 0,
+      investments: []
+    },
+    trustLevel: 50,
+    wealthLevel: '贫困',
+    lifeStage: '起步期',
+    aiReflection: '正在思考当前的财务状况...',
+    aiMonologue: '我需要更谨慎地规划未来的投资方向。',
+    aiResponse: '',
+    currentSituation: '',
+    situationOptions: []
   }),
 
   actions: {
-    setUser(username) {
-      this.user = username
-      this.sessionId = username
-    },
-    
-    generateSessionId() {
-      this.sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-      return this.sessionId
-    },
-
-    reset() {
-      this.user = null
-      this.avatar = null
-      this.sessionId = null
-    },
-
-    async loadMBTITypes() {
+    async loadAvatar() {
       try {
-        const response = await axios.get('/api/mbti-types')
-        this.mbtiTypes = response.data
-      } catch (error) {
-        console.error('Failed to load MBTI types:', error)
-        // Fallback to default types
-        this.mbtiTypes = {
-          'INTP': { description: '逻辑学家 - 创新的发明家' },
-          'ENTJ': { description: '指挥官 - 大胆的领导者' },
-          'ISFJ': { description: '守护者 - 温暖的保护者' },
-          'ESFP': { description: '表演者 - 自发的娱乐者' }
-        }
-      }
-    },
-
-    async createAvatar(name, mbti) {
-      try {
-        const sessionId = this.user
-        this.sessionId = sessionId
-        const response = await axios.post('/api/create-avatar', {
-          name,
-          mbti,
-          session_id: sessionId
-        })
+        const currentCharacter = localStorage.getItem('currentCharacter')
+        console.log('[Game Store] currentCharacter:', currentCharacter)
         
-        if (response.data.success) {
-          this.avatar = response.data.avatar
-          return response.data.avatar
-        }
-      } catch (error) {
-        console.error('Failed to create avatar:', error)
-        throw error
-      }
-    },
-
-    async generateSituation(context = '') {
-      try {
-        const sessionId = this.user || this.sessionId
-        const response = await axios.post('/api/generate-situation', {
-          session_id: sessionId,
-          context
-        })
-        return response.data
-      } catch (error) {
-        console.error('Failed to generate situation:', error)
-        throw error
-      }
-    },
-
-    async sendEcho(echoText) {
-      try {
-        const sessionId = this.user || this.sessionId
-        const response = await axios.post('/api/echo', {
-          session_id: sessionId,
-          echo_text: echoText
-        })
-        
-        if (response.data.avatar) {
-          this.avatar = { ...this.avatar, ...response.data.avatar }
+        if (!currentCharacter) {
+          console.log('[Game Store] 未选择角色')
+          return
         }
         
-        return response.data
+        const char = JSON.parse(currentCharacter)
+        console.log('[Game Store] 角色数据:', char)
+        console.log('[Game Store] session_id:', char.id)
+        
+        const res = await axios.get('/api/avatar/status', {
+          params: { session_id: char.id }
+        })
+        console.log('[Game Store] API响应:', res.data)
+        
+        this.avatar = res.data
+        this.updateAssets()
       } catch (error) {
-        console.error('Failed to send echo:', error)
-        throw error
+        console.error('[Game Store] 加载化身失败:', error)
       }
     },
 
-    async autoDecision() {
-      try {
-        const sessionId = this.user || this.sessionId
-        const response = await axios.post('/api/auto-decision', {
-          session_id: sessionId
-        })
-        
-        if (response.data.avatar) {
-          this.avatar = { ...this.avatar, ...response.data.avatar }
-        }
-        
-        return response.data
-      } catch (error) {
-        console.error('Failed to auto decision:', error)
-        throw error
+    updateAssets() {
+      if (this.avatar) {
+        this.assets.total = this.avatar.total_assets
+        this.assets.cash = this.avatar.cash
+        this.trustLevel = this.avatar.trust_level
+        this.calculateWealthLevel()
+        this.calculateLifeStage()
       }
+    },
+
+    calculateWealthLevel() {
+      const total = this.assets.total
+      if (total < 50000) this.wealthLevel = '贫困'
+      else if (total < 200000) this.wealthLevel = '温饱'
+      else if (total < 500000) this.wealthLevel = '小康'
+      else if (total < 1000000) this.wealthLevel = '富裕'
+      else if (total < 5000000) this.wealthLevel = '富豪'
+      else this.wealthLevel = '巨富'
+    },
+
+    calculateLifeStage() {
+      if (!this.avatar) return
+      const month = this.avatar.current_month
+      if (month <= 12) this.lifeStage = '起步期'
+      else if (month <= 36) this.lifeStage = '成长期'
+      else if (month <= 60) this.lifeStage = '稳定期'
+      else this.lifeStage = '成熟期'
     }
   }
 })

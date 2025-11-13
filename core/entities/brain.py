@@ -69,9 +69,43 @@ class Brain:
             
             self.person.update_attributes(attribute_changes)
             
-            # 处理投资（AI已经处理过了，这里不重复）
-            # if 'investment' in decision and decision['investment']:
-            #     pass  # AI决策中已经处理了投资
+            # 保存投资到数据库
+            if 'investment' in decision and decision['investment']:
+                inv = decision['investment']
+                try:
+                    from ..database import db
+                    # 获取session_id和username
+                    session_id = getattr(self.person, 'session_id', None)
+                    username = getattr(self.person, 'username', None)
+                    
+                    if session_id and username:
+                        # 映射投资类型
+                        type_map = {
+                            'SHORT_TERM': '短期',
+                            'MEDIUM_TERM': '中期',
+                            'LONG_TERM': '长期'
+                        }
+                        inv_type = type_map.get(inv.get('type', 'SHORT_TERM'), '短期')
+                        
+                        # 计算月收益（如果有）
+                        monthly_return = inv.get('monthly_return', 0)
+                        return_rate = inv.get('return_rate', 0.05)
+                        
+                        db.save_investment(
+                            username=username,
+                            session_id=session_id,
+                            name=inv.get('name', '投资项目'),
+                            amount=inv.get('amount', 0),
+                            investment_type=inv_type,
+                            remaining_months=inv.get('duration', 3),
+                            monthly_return=monthly_return,
+                            return_rate=return_rate,
+                            created_round=current_round,
+                            ai_thoughts=decision.get('ai_thoughts', '')
+                        )
+                        print(f"[投资记录] 已保存: {inv.get('name')} - {inv.get('amount')}CP")
+                except Exception as e:
+                    print(f"[投资记录] 保存失败: {e}")
             
             return {
                 **decision,
