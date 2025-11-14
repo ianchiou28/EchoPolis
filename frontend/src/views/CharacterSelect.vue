@@ -2,14 +2,14 @@
   <div class="character-page">
     <div class="page-header">
       <h1>👥 选择角色</h1>
-      <button class="logout-btn" @click="logout">退出登录</button>
+      <button class="logout-btn btn btn-ghost" @click="logout">退出登录</button>
     </div>
 
     <div class="characters-list">
       <div 
         v-for="char in characters" 
         :key="char.id"
-        class="character-card"
+        class="character-card card glass"
         @click="selectCharacter(char)"
       >
         <div class="char-avatar">{{ char.name.charAt(0) }}</div>
@@ -20,7 +20,7 @@
         </div>
       </div>
 
-      <div class="character-card create-new" @click="showCreateModal = true">
+      <div class="character-card create-new card" @click="showCreateModal = true">
         <div class="create-icon">➕</div>
         <div class="create-text">创建新角色</div>
       </div>
@@ -28,12 +28,12 @@
 
     <!-- 创建角色弹窗 -->
     <div v-if="showCreateModal" class="modal" @click="showCreateModal = false">
-      <div class="modal-content" @click.stop>
+      <div class="modal-content card glass" @click.stop>
         <h2>创建新角色</h2>
         
         <div class="form-group">
           <label>角色名称</label>
-          <input v-model="newCharName" type="text" placeholder="输入角色名称" />
+          <input v-model="newCharName" type="text" class="input" placeholder="输入角色名称" />
         </div>
 
         <div class="form-group">
@@ -42,7 +42,7 @@
             <div 
               v-for="mbti in mbtiTypes" 
               :key="mbti.type"
-              class="mbti-option"
+              class="mbti-option card"
               :class="{ active: newCharMBTI === mbti.type }"
               @click="newCharMBTI = mbti.type"
             >
@@ -54,10 +54,10 @@
 
         <div class="form-group">
           <label>🎲 命运轮盘</label>
-          <button class="spin-btn" @click="spinWheel" :disabled="hasSpun">
+          <button class="spin-btn btn btn-primary" @click="spinWheel" :disabled="hasSpun">
             {{ hasSpun ? '✅ 已转动' : '🎲 转动轮盘' }}
           </button>
-          <div v-if="selectedFate" class="fate-result">
+          <div v-if="selectedFate" class="fate-result card">
             <div class="fate-title">{{ selectedFate.name }}</div>
             <div class="fate-desc">{{ selectedFate.description }}</div>
             <div class="fate-money">初始资金: ¥{{ formatNumber(selectedFate.initial_money) }}</div>
@@ -65,8 +65,8 @@
         </div>
 
         <div class="modal-actions">
-          <button @click="createCharacter" :disabled="!canCreate">创建角色</button>
-          <button class="cancel-btn" @click="showCreateModal = false">取消</button>
+          <button class="btn btn-primary" @click="createCharacter" :disabled="!canCreate">创建角色</button>
+          <button class="btn btn-ghost" @click="showCreateModal = false">取消</button>
         </div>
       </div>
     </div>
@@ -195,7 +195,7 @@ onMounted(() => {
   width: 100%;
   min-height: 100vh;
   padding: 40px;
-  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  background: var(--bg-gradient);
 }
 
 .page-header {
@@ -206,19 +206,9 @@ onMounted(() => {
 }
 
 .page-header h1 {
-  color: white;
+  color: var(--text);
   font-size: 36px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-.logout-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.9);
-  color: #ff9a9e;
-  font-weight: bold;
-  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
 .characters-list {
@@ -228,26 +218,21 @@ onMounted(() => {
 }
 
 .character-card {
-  background: rgba(255,255,255,0.95);
   padding: 30px;
-  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--dur-med) var(--ease-standard);
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.character-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-}
+.character-card:hover { transform: translateY(-5px); }
 
 .char-avatar {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -255,197 +240,40 @@ onMounted(() => {
   font-weight: bold;
   color: white;
   margin-bottom: 15px;
+  box-shadow: 0 8px 24px var(--primary-glow);
 }
 
-.char-info {
-  text-align: center;
-}
+.char-info { text-align: center; }
 
-.char-name {
-  font-size: 20px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 5px;
-}
+.char-name { font-size: 20px; font-weight: bold; color: var(--text); margin-bottom: 5px; }
+.char-mbti { font-size: 14px; color: var(--primary-400); margin-bottom: 10px; }
+.char-assets { font-size: 16px; color: var(--muted); }
 
-.char-mbti {
-  font-size: 14px;
-  color: #ff9a9e;
-  margin-bottom: 10px;
-}
+.create-new { border: 1px dashed var(--primary-400); background: var(--surface); }
+.create-icon { font-size: 48px; color: var(--primary-400); margin-bottom: 10px; }
+.create-text { font-size: 16px; color: var(--primary-400); font-weight: bold; }
 
-.char-assets {
-  font-size: 16px;
-  color: #666;
-}
+.modal-content h2 { margin-bottom: 30px; color: var(--text); }
 
-.create-new {
-  border: 2px dashed #ff9a9e;
-  background: rgba(255,255,255,0.5);
-}
+.form-group { margin-bottom: 25px; }
+.form-group label { display: block; margin-bottom: 10px; font-weight: bold; color: var(--text); }
 
-.create-icon {
-  font-size: 48px;
-  color: #ff9a9e;
-  margin-bottom: 10px;
-}
+.mbti-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 
-.create-text {
-  font-size: 16px;
-  color: #ff9a9e;
-  font-weight: bold;
-}
+.mbti-option { padding: 15px 10px; border: 1px solid var(--border); border-radius: var(--radius-md); text-align: center; cursor: pointer; transition: all var(--dur-fast) var(--ease-standard); background: var(--surface); }
+.mbti-option:hover { border-color: var(--highlight); }
+.mbti-option.active { border-color: color-mix(in srgb, var(--primary-500) 35%, var(--border)); background: color-mix(in srgb, var(--primary-500) 10%, var(--surface)); }
 
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
+.mbti-type { font-weight: bold; color: var(--text); margin-bottom: 5px; }
+.mbti-name { font-size: 12px; color: var(--muted); }
 
-.modal-content {
-  background: white;
-  border-radius: 20px;
-  padding: 40px;
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-}
+.spin-btn { width: 100%; margin-bottom: 15px; }
 
-.modal-content h2 {
-  margin-bottom: 30px;
-  color: #333;
-}
+.fate-result { background: var(--surface); padding: 20px; border-radius: var(--radius-md); border: 1px solid var(--border); }
+.fate-title { font-size: 20px; font-weight: bold; color: var(--primary-400); margin-bottom: 10px; }
+.fate-desc { color: var(--muted); margin-bottom: 10px; }
+.fate-money { font-size: 18px; font-weight: bold; color: var(--text); }
 
-.form-group {
-  margin-bottom: 25px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 10px;
-  font-weight: bold;
-  color: #333;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 12px;
-  border: 2px solid #f0f0f0;
-  border-radius: 10px;
-  font-size: 14px;
-}
-
-.mbti-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.mbti-option {
-  padding: 15px 10px;
-  border: 2px solid #f0f0f0;
-  border-radius: 10px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.mbti-option:hover {
-  border-color: #ff9a9e;
-}
-
-.mbti-option.active {
-  border-color: #ff9a9e;
-  background: rgba(255,154,158,0.1);
-}
-
-.mbti-type {
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 5px;
-}
-
-.mbti-name {
-  font-size: 12px;
-  color: #666;
-}
-
-.spin-btn {
-  width: 100%;
-  padding: 15px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  margin-bottom: 15px;
-  transition: all 0.3s ease;
-}
-
-.spin-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.fate-result {
-  background: rgba(255,154,158,0.1);
-  padding: 20px;
-  border-radius: 10px;
-  border: 2px solid #ff9a9e;
-}
-
-.fate-title {
-  font-size: 20px;
-  font-weight: bold;
-  color: #ff9a9e;
-  margin-bottom: 10px;
-}
-
-.fate-desc {
-  color: #666;
-  margin-bottom: 10px;
-}
-
-.fate-money {
-  font-size: 18px;
-  font-weight: bold;
-  color: #333;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 30px;
-}
-
-.modal-actions button {
-  flex: 1;
-  padding: 15px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-.modal-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancel-btn {
-  background: #f0f0f0 !important;
-  color: #666 !important;
-}
+.modal-actions { display: flex; gap: 10px; margin-top: 30px; }
+.modal-actions .btn { flex: 1; }
 </style>

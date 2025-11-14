@@ -4,12 +4,12 @@
     <div class="header-info">
       <div class="nickname">{{ avatar?.name || '加载中...' }}</div>
       <div class="mbti-tag">{{ avatar?.mbti_type || 'INTJ' }}</div>
-      <button class="theme-btn" @click="showThemeSelector = !showThemeSelector">🎨</button>
+      <button class="theme-btn btn btn-ghost" @click="showThemeSelector = !showThemeSelector">🎨</button>
     </div>
 
     <!-- 主题选择器 -->
-    <div v-if="showThemeSelector" class="theme-selector">
-      <div 
+    <div v-if="showThemeSelector" class="theme-selector card glass">
+      <div
         v-for="(theme, key) in themeStore.themes" 
         :key="key"
         class="theme-option"
@@ -22,50 +22,50 @@
 
     <!-- 右上角：财富等级和信任值 -->
     <div class="top-right-info">
-      <div class="wealth-level">
+      <div class="wealth-level card glass">
         <span class="label">财富等级</span>
         <span class="value">{{ wealthLevel }}</span>
       </div>
-      <div class="trust-level">
+      <div class="trust-level card glass">
         <span class="label">信任值</span>
         <span class="value">{{ trustLevel }}/100</span>
       </div>
-      <button class="nav-btn" @click="$router.push('/assets')">📊 资产分析</button>
-      <button class="nav-btn" @click="$router.push('/world')">🌆 沙盘世界</button>
-      <button class="nav-btn" @click="$router.push('/profile')">👤 我的</button>
-      <button class="nav-btn" @click="$router.push('/character-select')">🔄 切换角色</button>
+      <button class="nav-btn btn btn-ghost" @click="$router.push('/assets')">📊 资产分析</button>
+      <button class="nav-btn btn btn-ghost" @click="$router.push('/world')">🌆 沙盘世界</button>
+      <button class="nav-btn btn btn-ghost" @click="$router.push('/profile')">👤 我的</button>
+      <button class="nav-btn btn btn-ghost" @click="$router.push('/character-select')">🔄 切换角色</button>
     </div>
 
     <!-- 主体区域 -->
     <div class="main-content">
       <!-- 左侧信息面板 -->
       <div class="left-panel">
-        <div class="info-card">
+        <div class="info-card card glass">
           <div class="card-title">💰 总资产</div>
           <div class="card-value">¥{{ formatNumber(assets.total) }}</div>
           <div class="card-sub">现金: ¥{{ formatNumber(assets.cash) }}</div>
           <div class="card-sub" v-if="avatar?.invested_assets">投资: ¥{{ formatNumber(avatar.invested_assets) }}</div>
         </div>
 
-        <div class="info-card">
+        <div class="info-card card glass">
           <div class="card-title">📈 动态收益</div>
           <div class="card-value">+¥{{ formatNumber(monthlyIncome) }}</div>
           <div class="card-sub">本月预计收益</div>
         </div>
 
-        <div class="info-card">
+        <div class="info-card card glass">
           <div class="card-title">📊 持有标的</div>
           <div class="card-value">{{ investments.length }}个</div>
           <div class="card-sub">投资项目</div>
         </div>
 
-        <div class="info-card">
+        <div class="info-card card glass">
           <div class="card-title">🎯 人生阶段</div>
           <div class="card-value">{{ lifeStage }}</div>
           <div class="card-sub">第{{ avatar?.current_month || 0 }}个月</div>
         </div>
 
-        <div class="info-card reflection-card">
+        <div class="info-card reflection-card card glass">
           <div class="card-title">🧠 AI反思</div>
           <div class="reflection-text">{{ aiReflection }}</div>
         </div>
@@ -83,7 +83,7 @@
           </div>
         </div>
 
-        <div class="ai-dialogue">
+        <div class="ai-dialogue card glass">
           <div class="dialogue-header">AI内心独白</div>
           <div class="dialogue-content">
             <p class="asset-summary">📊 资产总计: ¥{{ formatNumber(assets.total) }}</p>
@@ -92,7 +92,7 @@
           </div>
         </div>
 
-        <div v-if="currentSituation" class="situation-box">
+        <div v-if="currentSituation" class="situation-box card glass">
           <div class="situation-header">🎯 当前情况</div>
           <div class="situation-content">{{ currentSituation }}</div>
           <div v-if="situationOptions.length > 0" class="situation-options">
@@ -103,7 +103,7 @@
           </div>
         </div>
 
-        <div v-if="aiResponse" class="ai-response">
+        <div v-if="aiResponse" class="ai-response card glass">
           <div class="response-header">🤖 AI回应</div>
           <div class="response-content">{{ aiResponse }}</div>
         </div>
@@ -112,12 +112,13 @@
           <input 
             v-model="userInput" 
             type="text" 
+            class="input"
             placeholder="对AI说点什么..."
             @keyup.enter="sendMessage"
           />
-          <button @click="sendMessage">发送</button>
-          <button class="time-btn" @click="advanceTime">⏩ 推进1个月</button>
-          <button class="invest-btn" @click="aiInvest">💰 AI投资</button>
+          <button class="btn btn-primary" @click="sendMessage">发送</button>
+          <button class="btn btn-soft time-btn" @click="advanceTime">⏩ 推进1个月</button>
+          <button class="btn btn-primary invest-btn" @click="aiInvest">💰 AI投资</button>
         </div>
       </div>
     </div>
@@ -206,7 +207,7 @@ const aiInvest = async () => {
     
     if (res.data.success) {
       const inv = res.data.investment
-      alert(`💰 AI投资决策\n\n💼 项目: ${inv.name}\n💵 金额: ￥${formatNumber(inv.amount)}\n⏱️ 期限: ${inv.duration}个月\n📈 预期收益率: ${(inv.return_rate * 100).toFixed(1)}%\n\n🤖 AI思考: ${res.data.ai_thoughts}`)
+      alert(`💰 AI投资决策\n\n🗂 项目: ${inv.name}\n💵 金额: ￥${formatNumber(inv.amount)}\n⏱ 期限: ${inv.duration}个月\n📈 预期收益率: ${(inv.return_rate * 100).toFixed(1)}%\n\n🤖 AI思考: ${res.data.ai_thoughts}`)
       gameStore.loadAvatar()
     } else {
       alert(`🤔 ${res.data.message}\n\n${res.data.ai_thoughts}`)
@@ -240,8 +241,8 @@ const advanceTime = async () => {
       gameStore.situationOptions = res.data.options || []
       
       // 显示提示
-      alert(`⏰ 时间推进1个月\n\n💰 现金: ￥${formatNumber(res.data.new_cash)}\n📈 总资产: ￥${formatNumber(res.data.total_assets)}\n💵 月收入: ￥${formatNumber(res.data.monthly_income)}`)
-      
+      alert(`⏰ 时间推进1个月\n\n💵 现金: ￥${formatNumber(res.data.new_cash)}\n📊 总资产: ￥${formatNumber(res.data.total_assets)}\n💰 月收入: ￥${formatNumber(res.data.monthly_income)}`)
+
       // 刷新数据
       gameStore.loadAvatar()
     }
@@ -277,28 +278,15 @@ onMounted(() => {
 .theme-btn {
   width: 40px;
   height: 40px;
-  border: none;
   border-radius: 50%;
-  background: rgba(255,255,255,0.9);
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.theme-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
 
 .theme-selector {
   position: absolute;
   top: 70px;
   left: 20px;
-  background: rgba(255,255,255,0.95);
+  /* use card visuals */
   padding: 15px;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -307,37 +295,42 @@ onMounted(() => {
 
 .theme-option {
   padding: 10px 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--dur-fast) var(--ease-standard);
   font-weight: bold;
-  color: #666;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .theme-option:hover {
-  background: rgba(255,154,158,0.2);
-  color: #ff9a9e;
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: var(--highlight);
 }
 
 .theme-option.active {
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-  color: white;
+  background: color-mix(in srgb, var(--primary-500) 12%, transparent);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--primary-500) 35%, transparent);
 }
 
 .nickname {
   font-size: 24px;
   font-weight: bold;
-  color: white;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
 .mbti-tag {
-  background: rgba(255,255,255,0.9);
+  background: var(--surface-2);
   padding: 6px 16px;
   border-radius: 20px;
   font-weight: bold;
-  color: #ff9a9e;
+  color: var(--primary-400);
   font-size: 14px;
+  border: 1px solid var(--border);
 }
 
 .top-right-info {
@@ -345,48 +338,28 @@ onMounted(() => {
   top: 20px;
   right: 20px;
   display: flex;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
-}
-
-.nav-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.9);
-  color: #ff9a9e;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.nav-btn:hover {
-  background: white;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 }
 
 .wealth-level, .trust-level {
-  background: rgba(255,255,255,0.95);
-  padding: 12px 20px;
-  border-radius: 12px;
+  /* card visual already on element */
+  padding: 10px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .wealth-level .label, .trust-level .label {
   font-size: 12px;
-  color: #666;
+  color: var(--muted);
   margin-bottom: 4px;
 }
 
 .wealth-level .value, .trust-level .value {
   font-size: 18px;
   font-weight: bold;
-  color: #ff9a9e;
+  color: var(--primary-400);
 }
 
 .main-content {
@@ -404,38 +377,36 @@ onMounted(() => {
 }
 
 .info-card {
-  background: rgba(255,255,255,0.95);
+  /* card class applied */
   padding: 20px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .card-title {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   margin-bottom: 8px;
 }
 
 .card-value {
   font-size: 24px;
   font-weight: bold;
-  color: #333;
+  color: var(--text);
   margin-bottom: 4px;
 }
 
 .card-sub {
   font-size: 12px;
-  color: #999;
+  color: var(--subtle);
 }
 
 .reflection-card {
-  background: linear-gradient(135deg, rgba(102,126,234,0.1) 0%, rgba(118,75,162,0.1) 100%);
-  border: 2px solid rgba(102,126,234,0.3);
+  border: 1px solid color-mix(in srgb, var(--primary-500) 30%, var(--border));
+  background: color-mix(in srgb, var(--primary-500) 8%, var(--surface));
 }
 
 .reflection-text {
   font-size: 13px;
-  color: #666;
+  color: var(--muted);
   line-height: 1.6;
   font-style: italic;
   margin-top: 10px;
@@ -458,25 +429,26 @@ onMounted(() => {
 .robot {
   width: 150px;
   height: 150px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
   border-radius: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
+  transition: all var(--dur-med) var(--ease-standard);
+  border: 1px solid var(--border);
 }
 
 .robot:hover {
-  transform: scale(1.05);
+  transform: translateY(-2px);
 }
 
 .robot.happy {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(135deg, var(--primary-400), var(--success));
 }
 
 .robot.sad {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(135deg, var(--info), var(--primary-400));
 }
 
 .robot-face {
@@ -494,13 +466,8 @@ onMounted(() => {
   top: 30px;
 }
 
-.eye.left {
-  left: 20px;
-}
-
-.eye.right {
-  right: 20px;
-}
+.eye.left { left: 20px; }
+.eye.right { right: 20px; }
 
 .mouth {
   width: 40px;
@@ -514,41 +481,30 @@ onMounted(() => {
   transform: translateX(-50%);
 }
 
-.robot.happy .mouth {
-  border-radius: 0 0 40px 40px;
-}
-
-.robot.sad .mouth {
-  border-radius: 40px 40px 0 0;
-  border-top: 3px solid white;
-  border-bottom: none;
-}
+.robot.happy .mouth { border-radius: 0 0 40px 40px; }
+.robot.sad .mouth { border-radius: 40px 40px 0 0; border-top: 3px solid white; border-bottom: none; }
 
 .ai-dialogue {
-  background: rgba(255,255,255,0.95);
   padding: 25px;
-  border-radius: 20px;
   width: 600px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
 }
 
 .ai-response {
-  background: linear-gradient(135deg, rgba(255,154,158,0.1) 0%, rgba(254,207,239,0.1) 100%);
   padding: 20px;
-  border-radius: 20px;
   width: 600px;
-  border: 2px solid rgba(255,154,158,0.3);
+  border: 1px solid color-mix(in srgb, var(--primary-500) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary-500) 8%, var(--surface));
 }
 
 .response-header {
   font-size: 14px;
   font-weight: bold;
-  color: #ff9a9e;
+  color: var(--primary-400);
   margin-bottom: 10px;
 }
 
 .response-content {
-  color: #333;
+  color: var(--text);
   line-height: 1.6;
   font-size: 15px;
 }
@@ -556,7 +512,7 @@ onMounted(() => {
 .dialogue-header {
   font-size: 16px;
   font-weight: bold;
-  color: #ff9a9e;
+  color: var(--primary-400);
   margin-bottom: 15px;
   text-align: center;
 }
@@ -564,22 +520,12 @@ onMounted(() => {
 .dialogue-content p {
   margin: 10px 0;
   line-height: 1.6;
-  color: #333;
+  color: var(--text);
 }
 
-.asset-summary {
-  font-weight: bold;
-  color: #ff9a9e;
-}
-
-.reflection {
-  font-style: italic;
-  color: #666;
-}
-
-.monologue {
-  color: #333;
-}
+.asset-summary { font-weight: bold; color: var(--primary-400); }
+.reflection { font-style: italic; color: var(--muted); }
+.monologue { color: var(--text); }
 
 .input-area {
   display: flex;
@@ -589,83 +535,50 @@ onMounted(() => {
 
 .input-area input {
   flex: 1;
-  padding: 15px 20px;
-  border: none;
-  border-radius: 25px;
-  font-size: 14px;
-  background: rgba(255,255,255,0.95);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  outline: none;
 }
 
-.input-area button {
-  padding: 15px 30px;
-  border: none;
-  border-radius: 25px;
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
-}
-
-.input-area button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.3);
-}
-
-.time-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-}
-
-.invest-btn {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
-}
+.time-btn { }
+.invest-btn { }
 
 .situation-box {
-  background: rgba(255,255,255,0.95);
   padding: 25px;
-  border-radius: 20px;
   width: 600px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-  border: 2px solid #667eea;
+  border: 1px solid color-mix(in srgb, var(--primary-500) 35%, var(--border));
 }
 
 .situation-header {
   font-size: 16px;
   font-weight: bold;
-  color: #667eea;
+  color: var(--primary-400);
   margin-bottom: 15px;
   text-align: center;
 }
 
 .situation-content {
-  color: #333;
+  color: var(--text);
   line-height: 1.8;
   margin-bottom: 15px;
   font-size: 15px;
 }
 
 .situation-options {
-  background: rgba(102,126,234,0.05);
+  background: var(--surface);
   padding: 15px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
 }
 
 .option-title {
   font-weight: bold;
-  color: #667eea;
+  color: var(--primary-400);
   margin-bottom: 10px;
 }
 
 .option-item {
   padding: 8px 0;
-  color: #666;
-  border-bottom: 1px solid rgba(102,126,234,0.1);
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
 }
 
-.option-item:last-child {
-  border-bottom: none;
-}
+.option-item:last-child { border-bottom: none; }
 </style>

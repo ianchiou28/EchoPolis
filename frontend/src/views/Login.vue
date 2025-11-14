@@ -4,20 +4,20 @@
       <h1>🌆 EchoPolis</h1>
       <p class="subtitle">回声都市 - 你的财富人生沙盘</p>
 
-      <div v-if="!showRegister" class="form-box">
+      <div v-if="!showRegister" class="form-box card glass">
         <h2>登录</h2>
-        <input v-model="username" type="text" placeholder="用户名" />
-        <input v-model="password" type="password" placeholder="密码" @keyup.enter="login" />
-        <button @click="login">登录</button>
+        <input v-model="username" type="text" class="input" placeholder="用户名" />
+        <input v-model="password" type="password" class="input" placeholder="密码" @keyup.enter="login" />
+        <button class="btn btn-primary" @click="login">登录</button>
         <p class="switch-text">还没有账号？<span @click="showRegister = true">立即注册</span></p>
       </div>
 
-      <div v-else class="form-box">
+      <div v-else class="form-box card glass">
         <h2>注册</h2>
-        <input v-model="username" type="text" placeholder="用户名" />
-        <input v-model="password" type="password" placeholder="密码" />
-        <input v-model="confirmPassword" type="password" placeholder="确认密码" @keyup.enter="register" />
-        <button @click="register">注册</button>
+        <input v-model="username" type="text" class="input" placeholder="用户名" />
+        <input v-model="password" type="password" class="input" placeholder="密码" />
+        <input v-model="confirmPassword" type="password" class="input" placeholder="确认密码" @keyup.enter="register" />
+        <button class="btn btn-primary" @click="register">注册</button>
         <p class="switch-text">已有账号？<span @click="showRegister = false">立即登录</span></p>
       </div>
     </div>
@@ -94,7 +94,7 @@ const register = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  background: var(--bg-gradient);
 }
 
 .login-container {
@@ -103,77 +103,50 @@ const register = async () => {
 
 h1 {
   font-size: 48px;
-  color: white;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
   margin-bottom: 10px;
 }
 
 .subtitle {
-  color: white;
+  color: var(--text);
+  opacity: 0.9;
   font-size: 18px;
   margin-bottom: 40px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .form-box {
-  background: rgba(255,255,255,0.95);
   padding: 40px;
-  border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  border-radius: var(--radius-lg);
   min-width: 350px;
 }
 
 .form-box h2 {
   margin-bottom: 30px;
-  color: #333;
+  color: var(--text);
 }
 
-.form-box input {
+.form-box .input {
   width: 100%;
-  padding: 15px;
   margin-bottom: 15px;
-  border: 2px solid #f0f0f0;
-  border-radius: 10px;
-  font-size: 14px;
-  outline: none;
-  transition: all 0.3s ease;
 }
 
-.form-box input:focus {
-  border-color: #ff9a9e;
-}
-
-.form-box button {
+.form-box .btn {
   width: 100%;
-  padding: 15px;
-  border: none;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.form-box button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.2);
 }
 
 .switch-text {
   margin-top: 20px;
-  color: #666;
+  color: var(--muted);
   font-size: 14px;
 }
 
 .switch-text span {
-  color: #ff9a9e;
+  color: var(--primary-400);
   cursor: pointer;
   font-weight: bold;
 }
 
-.switch-text span:hover {
-  text-decoration: underline;
-}
+.switch-text span:hover { text-decoration: underline; }
 </style>

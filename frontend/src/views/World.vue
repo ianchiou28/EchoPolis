@@ -2,53 +2,53 @@
   <div class="world-page">
     <div class="page-header">
       <h1>🌆 沙盘世界</h1>
-      <button class="back-btn" @click="$router.push('/home')">返回首页</button>
+      <button class="back-btn btn btn-ghost" @click="$router.push('/home')">返回首页</button>
     </div>
 
     <div class="world-container">
-      <div class="city-map">
+      <div class="city-map card glass">
         <!-- 银行 -->
-        <div class="building bank" @click="selectBuilding('bank')">
+        <div class="building card" @click="selectBuilding('bank')">
           <div class="building-icon">🏦</div>
           <div class="building-name">银行</div>
         </div>
 
         <!-- 证券交易所 -->
-        <div class="building stock" @click="selectBuilding('stock')">
+        <div class="building card" @click="selectBuilding('stock')">
           <div class="building-icon">📈</div>
           <div class="building-name">交易所</div>
         </div>
 
         <!-- 房地产中心 -->
-        <div class="building realestate" @click="selectBuilding('realestate')">
+        <div class="building card" @click="selectBuilding('realestate')">
           <div class="building-icon">🏢</div>
           <div class="building-name">房产中心</div>
         </div>
 
         <!-- 商业区 -->
-        <div class="building business" @click="selectBuilding('business')">
+        <div class="building card" @click="selectBuilding('business')">
           <div class="building-icon">🏪</div>
           <div class="building-name">商业区</div>
         </div>
 
         <!-- 教育机构 -->
-        <div class="building education" @click="selectBuilding('education')">
+        <div class="building card" @click="selectBuilding('education')">
           <div class="building-icon">🎓</div>
           <div class="building-name">教育机构</div>
         </div>
 
         <!-- 政府 -->
-        <div class="building government" @click="selectBuilding('government')">
+        <div class="building card" @click="selectBuilding('government')">
           <div class="building-icon">🏛️</div>
           <div class="building-name">政府</div>
         </div>
       </div>
 
       <!-- 详情面板 -->
-      <div v-if="selectedBuilding" class="detail-panel">
+      <div v-if="selectedBuilding" class="detail-panel card glass">
         <div class="panel-header">
           <h2>{{ buildingInfo[selectedBuilding].icon }} {{ buildingInfo[selectedBuilding].name }}</h2>
-          <button class="close-btn" @click="selectedBuilding = null">✕</button>
+          <button class="close-btn btn btn-ghost" @click="selectedBuilding = null">✕</button>
         </div>
         
         <div class="panel-content">
@@ -58,7 +58,7 @@
             <div 
               v-for="action in buildingInfo[selectedBuilding].actions" 
               :key="action.id"
-              class="action-card"
+              class="action-card card"
               @click="performAction(action)"
             >
               <div class="action-name">{{ action.name }}</div>
@@ -86,9 +86,9 @@ const buildingInfo = {
     icon: '🏦',
     description: '办理贷款、存款、理财等金融业务',
     actions: [
-      { id: 1, name: '申请贷款', price: 0, desc: '获得资金支持，需按月还款' },
-      { id: 2, name: '定期存款', price: 10000, desc: '稳定收益，年化3%' },
-      { id: 3, name: '购买理财', price: 50000, desc: '中等风险，年化6%' }
+      { id: 1, name: '申请贷款', price: 0, desc: '获得资金支持，需要按月还款' },
+      { id: 2, name: '定期存款', price: 10000, desc: '稳定收益，年利3%' },
+      { id: 3, name: '购买理财', price: 50000, desc: '中等风险，年利6%' }
     ]
   },
   stock: {
@@ -96,7 +96,7 @@ const buildingInfo = {
     icon: '📈',
     description: '买卖股票、基金等金融产品',
     actions: [
-      { id: 1, name: '科技股基金', price: 30000, desc: '高风险高收益，预期年化15%' },
+      { id: 1, name: '科技股基金', price: 30000, desc: '高风险高回报，预期年化15%' },
       { id: 2, name: '蓝筹股组合', price: 50000, desc: '稳健投资，预期年化8%' },
       { id: 3, name: '指数基金', price: 20000, desc: '跟踪市场，预期年化10%' }
     ]
@@ -167,7 +167,7 @@ const performAction = async (action) => {
       alert(`✅ 操作成功\n\n${res.data.message}\n\n🤖 AI评价:\n${res.data.ai_comment}\n\n💰 剩余现金: ￥${formatNumber(res.data.new_balance)}\n📈 总资产: ￥${formatNumber(res.data.total_assets)}`)
       selectedBuilding.value = null
     } else {
-      alert(`🤖 AI审查结果\n\n${res.data.message}\n\n${res.data.ai_advice}`)
+      alert(`🤖 AI审核结果\n\n${res.data.message}\n\n${res.data.ai_advice}`)
     }
   } catch (error) {
     console.error('执行操作失败:', error)
@@ -196,25 +196,9 @@ const formatNumber = (num) => {
 }
 
 .page-header h1 {
-  color: white;
+  color: var(--text);
   font-size: 32px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-}
-
-.back-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.9);
-  color: #ff9a9e;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.back-btn:hover {
-  background: white;
-  transform: translateY(-2px);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
 .world-container {
@@ -224,32 +208,30 @@ const formatNumber = (num) => {
 
 .city-map {
   flex: 1;
-  background: rgba(255,255,255,0.95);
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   padding: 40px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 30px;
   min-height: 600px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
 }
 
 .building {
-  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
-  border-radius: 16px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 60%, transparent), var(--surface));
+  border-radius: var(--radius-md);
   padding: 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transition: all var(--dur-med) var(--ease-standard);
 }
 
 .building:hover {
   transform: translateY(-5px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--highlight);
 }
 
 .building-icon {
@@ -260,17 +242,14 @@ const formatNumber = (num) => {
 .building-name {
   font-size: 18px;
   font-weight: bold;
-  color: #333;
+  color: var(--text);
 }
 
 .detail-panel {
   width: 400px;
-  background: rgba(255,255,255,0.95);
-  border-radius: 20px;
-  padding: 25px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
   max-height: 600px;
   overflow-y: auto;
+  padding: 25px;
 }
 
 .panel-header {
@@ -279,32 +258,18 @@ const formatNumber = (num) => {
   align-items: center;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .panel-header h2 {
   font-size: 24px;
-  color: #333;
+  color: var(--text);
 }
 
-.close-btn {
-  width: 30px;
-  height: 30px;
-  border: none;
-  border-radius: 50%;
-  background: #f0f0f0;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.3s ease;
-}
-
-.close-btn:hover {
-  background: #ff9a9e;
-  color: white;
-}
+.close-btn { }
 
 .description {
-  color: #666;
+  color: var(--muted);
   margin-bottom: 20px;
   line-height: 1.6;
 }
@@ -316,35 +281,33 @@ const formatNumber = (num) => {
 }
 
 .action-card {
-  background: linear-gradient(135deg, #fff 0%, #f8f9fa 100%);
   padding: 20px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  transition: all var(--dur-fast) var(--ease-standard);
+  border: 1px solid var(--border);
 }
 
 .action-card:hover {
-  border-color: #ff9a9e;
+  border-color: color-mix(in srgb, var(--primary-500) 35%, var(--border));
   transform: translateX(5px);
 }
 
 .action-name {
   font-size: 16px;
   font-weight: bold;
-  color: #333;
+  color: var(--text);
   margin-bottom: 8px;
 }
 
 .action-price {
   font-size: 14px;
-  color: #ff9a9e;
+  color: var(--primary-400);
   font-weight: bold;
   margin-bottom: 8px;
 }
 
 .action-desc {
   font-size: 12px;
-  color: #666;
+  color: var(--muted);
 }
 </style>

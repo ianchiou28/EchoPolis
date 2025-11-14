@@ -128,7 +128,7 @@ cd ..
 
 **一键启动（推荐）**
 ```bash
-python start_full.py
+python start.py
 ```
 
 **分别启动**
