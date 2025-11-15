@@ -553,7 +553,7 @@ export const useGameStore = defineStore('game', {
 - **MIT License**
 
 ## 版权说明
-- **该项目由FinAI团队制作，制作者为南京大学学生，将该项目作为工商银行工行杯项目代码实现的一部分**
+- **该项目由FinAI团队制作，制作者为南京大学学生团队**
 
 ---
 
