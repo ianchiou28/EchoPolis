@@ -3,40 +3,40 @@
     <div class="page-header">
       <h1>📊 资产分析</h1>
       <div class="header-actions">
-        <button class="refresh-btn" @click="loadInvestments">🔄 刷新</button>
-        <button class="back-btn" @click="$router.push('/home')">返回首页</button>
+        <button class="refresh-btn btn btn-soft" @click="loadInvestments">🔄 刷新</button>
+        <button class="back-btn btn btn-ghost" @click="$router.push('/home')">返回首页</button>
       </div>
     </div>
 
     <div class="summary-cards">
-      <div class="summary-card">
+      <div class="summary-card card glass">
         <div class="card-label">总资产</div>
         <div class="card-value">¥{{ formatNumber(totalAssets) }}</div>
       </div>
-      <div class="summary-card">
+      <div class="summary-card card glass">
         <div class="card-label">总收益</div>
-        <div class="card-value" :class="totalProfit >= 0 ? 'profit' : 'loss'">
+        <div class="card-value" :class="totalProfit >= 0 ? 'text-profit' : 'text-loss'">
           {{ totalProfit >= 0 ? '+' : '' }}¥{{ formatNumber(totalProfit) }}
         </div>
       </div>
-      <div class="summary-card">
+      <div class="summary-card card glass">
         <div class="card-label">收益率</div>
-        <div class="card-value" :class="totalReturn >= 0 ? 'profit' : 'loss'">
+        <div class="card-value" :class="totalReturn >= 0 ? 'text-profit' : 'text-loss'">
           {{ totalReturn >= 0 ? '+' : '' }}{{ totalReturn.toFixed(2) }}%
         </div>
       </div>
     </div>
 
-    <div class="assets-table">
-      <table>
+    <div class="assets-table table-wrapper">
+      <table class="table">
         <thead>
           <tr>
             <th>资产名称</th>
             <th>类型</th>
-            <th>买入价格</th>
-            <th>当前价值</th>
-            <th>收益</th>
-            <th>收益率</th>
+            <th class="num">买入价格</th>
+            <th class="num">当前价值</th>
+            <th class="num">收益</th>
+            <th class="num">收益率</th>
             <th>期限</th>
             <th>状态</th>
           </tr>
@@ -45,21 +45,21 @@
           <tr v-for="asset in investments" :key="asset.id">
             <td class="asset-name">{{ asset.name }}</td>
             <td>
-              <span class="type-badge" :class="asset.term">
+              <span class="type-badge badge" :class="asset.term">
                 {{ getTermLabel(asset.term) }}
               </span>
             </td>
-            <td>¥{{ formatNumber(asset.amount) }}</td>
-            <td>¥{{ formatNumber(asset.current_value) }}</td>
-            <td :class="asset.profit >= 0 ? 'profit' : 'loss'">
+            <td class="num">¥{{ formatNumber(asset.amount) }}</td>
+            <td class="num">¥{{ formatNumber(asset.current_value) }}</td>
+            <td class="num" :class="asset.profit >= 0 ? 'text-profit' : 'text-loss'">
               {{ asset.profit >= 0 ? '+' : '' }}¥{{ formatNumber(asset.profit) }}
             </td>
-            <td :class="asset.return_rate >= 0 ? 'profit' : 'loss'">
+            <td class="num" :class="asset.return_rate >= 0 ? 'text-profit' : 'text-loss'">
               {{ asset.return_rate >= 0 ? '+' : '' }}{{ asset.return_rate.toFixed(2) }}%
             </td>
             <td>{{ asset.duration }}个月</td>
             <td>
-              <span class="status-badge" :class="asset.status">
+              <span class="status-badge badge" :class="asset.status">
                 {{ asset.status === 'active' ? '持有中' : '已结束' }}
               </span>
             </td>
@@ -75,10 +75,8 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useGameStore } from '../stores/game'
 import axios from 'axios'
 
-const gameStore = useGameStore()
 const investments = ref([])
 
 const totalAssets = computed(() => {
@@ -154,41 +152,14 @@ onMounted(() => {
 }
 
 .page-header h1 {
-  color: white;
+  color: var(--text);
   font-size: 32px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
 .header-actions {
   display: flex;
   gap: 10px;
-}
-
-.back-btn, .refresh-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.9);
-  color: #ff9a9e;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.refresh-btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
-.back-btn:hover, .refresh-btn:hover {
-  background: white;
-  color: #ff9a9e;
-  transform: translateY(-2px);
-}
-
-.refresh-btn:hover {
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-  color: white;
 }
 
 .summary-cards {
@@ -199,120 +170,40 @@ onMounted(() => {
 
 .summary-card {
   flex: 1;
-  background: rgba(255,255,255,0.95);
   padding: 25px;
-  border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .card-label {
   font-size: 14px;
-  color: #666;
+  color: var(--muted);
   margin-bottom: 8px;
 }
 
 .card-value {
   font-size: 28px;
   font-weight: bold;
-  color: #333;
-}
-
-.card-value.profit {
-  color: #10b981;
-}
-
-.card-value.loss {
-  color: #ef4444;
+  color: var(--text);
 }
 
 .assets-table {
-  background: rgba(255,255,255,0.95);
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  overflow-x: auto;
+  border-radius: var(--radius-lg);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+.table th, .table td { white-space: nowrap; }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
 
-thead {
-  background: #f8f9fa;
-}
+.asset-name { font-weight: bold; color: var(--text); }
 
-th {
-  padding: 15px;
-  text-align: left;
-  font-weight: bold;
-  color: #333;
-  border-bottom: 2px solid #e5e7eb;
-}
+.type-badge.short { background: #dbeafe33; color: #93c5fd; border-color: #60a5fa55; }
+.type-badge.medium { background: #fef3c733; color: #fbbf24; border-color: #f59e0b55; }
+.type-badge.long { background: #dcfce733; color: #34d399; border-color: #10b98155; }
 
-td {
-  padding: 15px;
-  border-bottom: 1px solid #e5e7eb;
-  color: #666;
-}
-
-.asset-name {
-  font-weight: bold;
-  color: #333;
-}
-
-.type-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.type-badge.short {
-  background: #dbeafe;
-  color: #1e40af;
-}
-
-.type-badge.medium {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.type-badge.long {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-badge {
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-.status-badge.active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-badge.completed {
-  background: #f3f4f6;
-  color: #6b7280;
-}
-
-.profit {
-  color: #10b981;
-  font-weight: bold;
-}
-
-.loss {
-  color: #ef4444;
-  font-weight: bold;
-}
+.status-badge.active { background: #dcfce733; color: #16a34a; border-color: #22c55e55; }
+.status-badge.completed { background: #f3f4f633; color: #9ca3af; border-color: #6b728055; }
 
 .empty {
   text-align: center;
-  color: #999;
+  color: var(--muted);
   padding: 40px;
 }
 </style>

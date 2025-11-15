@@ -4,14 +4,19 @@
   box-sizing: border-box;
 }
 
+html, body {
+  min-height: 100%;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
-  background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-gradient);
   min-height: 100vh;
-  color: #333;
+  color: var(--text);
 }
 
 #app {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
 }

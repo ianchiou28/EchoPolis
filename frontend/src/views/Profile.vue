@@ -2,12 +2,12 @@
   <div class="profile-page">
     <div class="page-header">
       <h1>👤 我的</h1>
-      <button class="back-btn" @click="$router.push('/home')">返回首页</button>
+      <button class="back-btn btn btn-ghost" @click="$router.push('/home')">返回首页</button>
     </div>
 
     <div class="profile-container">
       <!-- 用户信息卡片 -->
-      <div class="user-card">
+      <div class="user-card card glass">
         <div class="avatar-circle">{{ avatar?.name?.charAt(0) || 'U' }}</div>
         <div class="user-info">
           <div class="username">{{ avatar?.name || '用户' }}</div>
@@ -21,7 +21,7 @@
 
       <!-- 设置列表 -->
       <div class="settings-list">
-        <div class="setting-section">
+        <div class="setting-section card glass">
           <div class="section-title">游戏设置</div>
           
           <div class="setting-item" @click="showThemeModal = true">
@@ -55,9 +55,9 @@
           </div>
         </div>
 
-        <div class="setting-section">
-          <div class="section-title">账户管理</div>
-          
+        <div class="setting-section card glass">
+          <div class="section-title">账号管理</div>
+
           <div class="setting-item" @click="resetGame">
             <div class="item-left">
               <span class="item-icon">🔄</span>
@@ -83,7 +83,7 @@
           </div>
         </div>
 
-        <div class="setting-section">
+        <div class="setting-section card glass">
           <div class="section-title">关于</div>
           
           <div class="setting-item">
@@ -107,17 +107,17 @@
 
     <!-- 主题选择弹窗 -->
     <div v-if="showThemeModal" class="modal" @click="showThemeModal = false">
-      <div class="modal-content" @click.stop>
+      <div class="modal-content card glass" @click.stop>
         <h3>选择主题</h3>
         <div class="theme-options">
           <div 
             v-for="(theme, key) in themeStore.themes" 
             :key="key"
-            class="theme-option"
+            class="theme-option card"
             :class="{ active: themeStore.currentTheme === key }"
             @click="selectTheme(key)"
           >
-            <div class="theme-preview" :style="{ background: theme.background }"></div>
+            <div class="theme-preview" :data-theme="key"></div>
             <div class="theme-name">{{ theme.name }}</div>
           </div>
         </div>
@@ -166,14 +166,11 @@ const resetGame = () => {
 
 const exportData = () => {
   console.log('导出数据')
-  // TODO: 导出游戏数据
   alert('数据导出功能开发中...')
 }
 
 const logout = () => {
   if (confirm('确定要退出登录吗？')) {
-    console.log('退出登录')
-    // TODO: 清除登录状态
     router.push('/login')
   }
 }
@@ -198,26 +195,12 @@ const showHelp = () => {
 }
 
 .page-header h1 {
-  color: white;
+  color: var(--text);
   font-size: 32px;
-  text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
 }
 
-.back-btn {
-  padding: 12px 24px;
-  border: none;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.9);
-  color: #ff9a9e;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.back-btn:hover {
-  background: white;
-  transform: translateY(-2px);
-}
+.back-btn { }
 
 .profile-container {
   max-width: 800px;
@@ -225,219 +208,63 @@ const showHelp = () => {
 }
 
 .user-card {
-  background: rgba(255,255,255,0.95);
-  border-radius: 20px;
+  border-radius: var(--radius-lg);
   padding: 30px;
   display: flex;
   align-items: center;
   gap: 25px;
   margin-bottom: 30px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
 }
 
 .avatar-circle {
   width: 80px;
   height: 80px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 36px;
   font-weight: bold;
   color: white;
+  box-shadow: 0 8px 24px var(--primary-glow);
 }
 
-.user-info {
-  flex: 1;
-}
+.user-info { flex: 1; }
 
-.username {
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 8px;
-}
+.username { font-size: 24px; font-weight: bold; color: var(--text); margin-bottom: 8px; }
+.mbti { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
 
-.mbti {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 12px;
-}
+.stats { display: flex; gap: 20px; font-size: 14px; color: var(--primary-400); font-weight: bold; }
 
-.stats {
-  display: flex;
-  gap: 20px;
-  font-size: 14px;
-  color: #ff9a9e;
-  font-weight: bold;
-}
+.settings-list { display: flex; flex-direction: column; gap: 20px; }
 
-.settings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+.setting-section { border-radius: var(--radius-lg); padding: 20px; }
 
-.setting-section {
-  background: rgba(255,255,255,0.95);
-  border-radius: 20px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+.section-title { font-size: 14px; color: var(--muted); font-weight: bold; margin-bottom: 15px; padding-left: 10px; }
 
-.section-title {
-  font-size: 14px;
-  color: #999;
-  font-weight: bold;
-  margin-bottom: 15px;
-  padding-left: 10px;
-}
+.setting-item { display: flex; justify-content: space-between; align-items: center; padding: 15px 10px; border-bottom: 1px solid var(--border); cursor: pointer; transition: all var(--dur-fast) var(--ease-standard); }
+.setting-item:last-child { border-bottom: none; }
+.setting-item:hover { background: var(--surface); border-radius: var(--radius-md); }
 
-.setting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 10px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
+.item-left { display: flex; align-items: center; gap: 15px; }
+.item-icon { font-size: 24px; }
+.item-name { font-size: 16px; color: var(--text); }
+.item-value { font-size: 14px; color: var(--muted); }
 
-.setting-item:last-child {
-  border-bottom: none;
-}
+.switch { position: relative; width: 50px; height: 26px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3d3d3d; transition: 0.4s; border-radius: 26px; }
+.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%; }
+input:checked + .slider { background: linear-gradient(180deg, var(--primary-500), var(--primary-600)); }
+input:checked + .slider:before { transform: translateX(24px); }
 
-.setting-item:hover {
-  background: rgba(255,154,158,0.05);
-  border-radius: 10px;
-}
+.modal-content h3 { font-size: 24px; color: var(--text); margin-bottom: 20px; text-align: center; }
 
-.item-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.item-icon {
-  font-size: 24px;
-}
-
-.item-name {
-  font-size: 16px;
-  color: #333;
-}
-
-.item-value {
-  font-size: 14px;
-  color: #999;
-}
-
-.switch {
-  position: relative;
-  width: 50px;
-  height: 26px;
-}
-
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc;
-  transition: 0.4s;
-  border-radius: 26px;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 20px;
-  width: 20px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.4s;
-  border-radius: 50%;
-}
-
-input:checked + .slider {
-  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
-}
-
-input:checked + .slider:before {
-  transform: translateX(24px);
-}
-
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 20px;
-  padding: 30px;
-  max-width: 500px;
-  width: 90%;
-}
-
-.modal-content h3 {
-  font-size: 24px;
-  color: #333;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.theme-options {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
-}
-
-.theme-option {
-  padding: 15px;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-  text-align: center;
-}
-
-.theme-option:hover {
-  border-color: #ff9a9e;
-}
-
-.theme-option.active {
-  border-color: #ff9a9e;
-  background: rgba(255,154,158,0.1);
-}
-
-.theme-preview {
-  height: 60px;
-  border-radius: 8px;
-  margin-bottom: 10px;
-}
-
-.theme-name {
-  font-size: 14px;
-  font-weight: bold;
-  color: #333;
-}
+.theme-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+.theme-option { padding: 15px; border-radius: var(--radius-md); cursor: pointer; transition: all var(--dur-fast) var(--ease-standard); border: 1px solid var(--border); text-align: center; background: var(--surface); }
+.theme-option:hover { border-color: var(--highlight); }
+.theme-option.active { border-color: color-mix(in srgb, var(--primary-500) 35%, var(--border)); background: color-mix(in srgb, var(--primary-500) 10%, var(--surface)); }
+.theme-preview { height: 60px; border-radius: 8px; margin-bottom: 10px; background: var(--bg-gradient); }
+.theme-name { font-size: 14px; font-weight: bold; color: var(--text); }
 </style>
