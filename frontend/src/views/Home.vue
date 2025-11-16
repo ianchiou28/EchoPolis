@@ -1,584 +1,1930 @@
 <template>
-  <div class="home-page">
-    <!-- 左上角：昵称+人格标签 -->
-    <div class="header-info">
-      <div class="nickname">{{ avatar?.name || '加载中...' }}</div>
-      <div class="mbti-tag">{{ avatar?.mbti_type || 'INTJ' }}</div>
-      <button class="theme-btn btn btn-ghost" @click="showThemeSelector = !showThemeSelector">🎨</button>
-    </div>
+  <div class="home-container">
+    <!-- 飘字组件 -->
+    <FloatingText ref="floatingTextRef" />
+    
+    <!-- Canvas城市背景 -->
+    <CityCanvasEnhanced 
+      :districts="districts" 
+      :selected-district-id="activeZone"
+      @district-click="handleDistrictClick" 
+    />
 
-    <!-- 主题选择器 -->
-    <div v-if="showThemeSelector" class="theme-selector card glass">
-      <div
-        v-for="(theme, key) in themeStore.themes" 
-        :key="key"
-        class="theme-option"
-        :class="{ active: themeStore.currentTheme === key }"
-        @click="selectTheme(key)"
-      >
-        {{ theme.name }}
-      </div>
-    </div>
-
-    <!-- 右上角：财富等级和信任值 -->
-    <div class="top-right-info">
-      <div class="wealth-level card glass">
-        <span class="label">财富等级</span>
-        <span class="value">{{ wealthLevel }}</span>
-      </div>
-      <div class="trust-level card glass">
-        <span class="label">信任值</span>
-        <span class="value">{{ trustLevel }}/100</span>
-      </div>
-      <button class="nav-btn btn btn-ghost" @click="$router.push('/assets')">📊 资产分析</button>
-      <button class="nav-btn btn btn-ghost" @click="$router.push('/world')">🌆 沙盘世界</button>
-      <button class="nav-btn btn btn-ghost" @click="$router.push('/profile')">👤 我的</button>
-      <button class="nav-btn btn btn-ghost" @click="$router.push('/character-select')">🔄 切换角色</button>
-    </div>
-
-    <!-- 主体区域 -->
-    <div class="main-content">
-      <!-- 左侧信息面板 -->
-      <div class="left-panel">
-        <div class="info-card card glass">
-          <div class="card-title">💰 总资产</div>
-          <div class="card-value">¥{{ formatNumber(assets.total) }}</div>
-          <div class="card-sub">现金: ¥{{ formatNumber(assets.cash) }}</div>
-          <div class="card-sub" v-if="avatar?.invested_assets">投资: ¥{{ formatNumber(avatar.invested_assets) }}</div>
+    <!-- 左侧角色面板 -->
+    <aside class="left-panel glass-panel">
+      <div class="avatar-section">
+        <div class="avatar-portrait">
+          <div class="face-outline">
+            <div class="eye left" />
+            <div class="eye right" />
+            <div class="mouth" />
+          </div>
         </div>
-
-        <div class="info-card card glass">
-          <div class="card-title">📈 动态收益</div>
-          <div class="card-value">+¥{{ formatNumber(monthlyIncome) }}</div>
-          <div class="card-sub">本月预计收益</div>
-        </div>
-
-        <div class="info-card card glass">
-          <div class="card-title">📊 持有标的</div>
-          <div class="card-value">{{ investments.length }}个</div>
-          <div class="card-sub">投资项目</div>
-        </div>
-
-        <div class="info-card card glass">
-          <div class="card-title">🎯 人生阶段</div>
-          <div class="card-value">{{ lifeStage }}</div>
-          <div class="card-sub">第{{ avatar?.current_month || 0 }}个月</div>
-        </div>
-
-        <div class="info-card reflection-card card glass">
-          <div class="card-title">🧠 AI反思</div>
-          <div class="reflection-text">{{ aiReflection }}</div>
+        <div class="avatar-info">
+          <h2>{{ avatar?.name || 'Echo' }}</h2>
+          <p class="mbti">{{ avatar?.mbti_type || 'INTJ' }}</p>
+          <p class="month">第 {{ currentMonthDisplay }} 月</p>
         </div>
       </div>
 
-      <!-- 中间：AI机器人交互区 -->
-      <div class="center-area">
-        <div class="robot-container">
-          <div class="robot" :class="robotMood">
-            <div class="robot-face">
-              <div class="eye left"></div>
-              <div class="eye right"></div>
-              <div class="mouth"></div>
+      <div class="stats-grid">
+        <div class="stat-item" v-for="stat in coreStats" :key="stat.label">
+          <div class="stat-label">{{ stat.label }}</div>
+          <div class="stat-value">{{ stat.value }}</div>
+        </div>
+      </div>
+
+      <div class="trust-section">
+        <div class="trust-header">
+          <span>🤝 信任度</span>
+          <span class="trust-value">{{ trustLevel }}%</span>
+        </div>
+        <div class="trust-bar">
+          <div class="trust-fill" :style="{ width: trustLevel + '%' }"></div>
+        </div>
+      </div>
+
+      <!-- AI意识回响区域 -->
+      <div class="ai-echo-section">
+        <div class="echo-header">
+          <span class="echo-icon">🧠</span>
+          <h3>意识回响</h3>
+        </div>
+        <div class="echo-messages" ref="echoMessagesRef">
+          <transition-group name="message-fade" tag="div">
+            <div 
+              v-for="msg in recentChatMessages" 
+              :key="msg.timestamp"
+              :class="['echo-message', msg.role]">
+              <div v-if="msg.role === 'user'" class="user-message">
+                <div class="message-content">{{ msg.text }}</div>
+              </div>
+              <div v-else class="ai-message">
+                <div class="ai-response">
+                  <div class="response-label">🤖 回应</div>
+                  <div class="response-text">{{ msg.text }}</div>
+                </div>
+                <div v-if="msg.reflection" class="ai-reflection">
+                  <div class="reflection-label">💭 反思</div>
+                  <div class="reflection-text">{{ msg.reflection }}</div>
+                </div>
+                <div v-if="msg.monologue" class="ai-monologue">
+                  <div class="monologue-label">🌌 独白</div>
+                  <div class="monologue-text">{{ msg.monologue }}</div>
+                </div>
+              </div>
             </div>
+          </transition-group>
+          <div v-if="gameStore.isChatting" class="typing-indicator">
+            <span></span><span></span><span></span>
           </div>
         </div>
+      </div>
+    </aside>
 
-        <div class="ai-dialogue card glass">
-          <div class="dialogue-header">AI内心独白</div>
-          <div class="dialogue-content">
-            <p class="asset-summary">📊 资产总计: ¥{{ formatNumber(assets.total) }}</p>
-            <p class="reflection">{{ aiReflection }}</p>
-            <p class="monologue">{{ aiMonologue }}</p>
+    <!-- 右侧投资数据看板 -->
+    <aside class="right-panel">
+      <InvestmentDashboard
+        :total-assets="assets.total"
+        :cash="assets.cash"
+        :invested="avatar?.invested_assets || 0"
+        :investments="assets.investments"
+        :monthly-income="monthlyIncome"
+      />
+    </aside>
+
+    <!-- 中央任务面板 -->
+    <div class="center-mission-panel glass-panel" :class="{ 'panel-collapsed': isPanelCollapsed }">
+      <button class="panel-toggle" @click="isPanelCollapsed = !isPanelCollapsed">
+        {{ isPanelCollapsed ? '📋 展开任务' : '✕ 收起' }}
+      </button>
+      
+      <div class="panel-content" v-show="!isPanelCollapsed">
+        <header class="mission-header">
+          <div>
+            <p class="eyebrow">MISSION LOG</p>
+            <h3>{{ currentSituation?.title || '选择城区开始冒险' }}</h3>
+          </div>
+          <button 
+            class="btn primary"
+            :disabled="gameStore.isAiInvesting" 
+            @click="handleAiInvest">
+            {{ gameStore.isAiInvesting ? 'AI 思考中…' : '🤖 AI 投资建议' }}
+          </button>
+        </header>
+
+      <p class="story-text">{{ currentSituation?.description || '城市正等待你的指令。' }}</p>
+
+      <!-- AI思考过程 -->
+      <div class="ai-thoughts" v-if="currentSituation?.ai_thoughts">
+        <div class="thoughts-header">
+          <span class="icon">🤔</span>
+          <strong>AI 的思考</strong>
+        </div>
+        <p>{{ currentSituation.ai_thoughts }}</p>
+      </div>
+
+      <!-- 决策影响展示 -->
+      <div class="decision-impact" v-if="lastDecisionImpact">
+        <div class="impact-grid">
+          <div class="impact-item" v-if="lastDecisionImpact.cash_change">
+            <span class="icon">💰</span>
+            <span :class="['value', lastDecisionImpact.cash_change > 0 ? 'positive' : 'negative']">
+              {{ lastDecisionImpact.cash_change > 0 ? '+' : '' }}{{ formatNumber(lastDecisionImpact.cash_change) }}
+            </span>
+          </div>
+          <div class="impact-item" v-if="lastDecisionImpact.happiness_change">
+            <span class="icon">😊</span>
+            <span :class="['value', lastDecisionImpact.happiness_change > 0 ? 'positive' : 'negative']">
+              {{ lastDecisionImpact.happiness_change > 0 ? '+' : '' }}{{ lastDecisionImpact.happiness_change }}
+            </span>
+          </div>
+          <div class="impact-item" v-if="lastDecisionImpact.health_change">
+            <span class="icon">❤️</span>
+            <span :class="['value', lastDecisionImpact.health_change > 0 ? 'positive' : 'negative']">
+              {{ lastDecisionImpact.health_change > 0 ? '+' : '' }}{{ lastDecisionImpact.health_change }}
+            </span>
           </div>
         </div>
+      </div>
 
-        <div v-if="currentSituation" class="situation-box card glass">
-          <div class="situation-header">🎯 当前情况</div>
-          <div class="situation-content">{{ currentSituation }}</div>
-          <div v-if="situationOptions.length > 0" class="situation-options">
-            <div class="option-title">选项：</div>
-            <div v-for="(opt, idx) in situationOptions" :key="idx" class="option-item">
-              {{ idx + 1 }}. {{ opt }}
-            </div>
-          </div>
+      <!-- 选项选择 -->
+      <div class="options-grid" v-if="situationOptions?.length">
+        <div 
+          v-for="(option, idx) in situationOptions" 
+          :key="idx"
+          @click="handleSelectOption(idx)"
+          :class="['option-card', { 'selected': selectedOption === idx }]">
+          <span class="chip">选项 {{ idx + 1 }}</span>
+          <p>{{ option }}</p>
         </div>
+      </div>
 
-        <div v-if="aiResponse" class="ai-response card glass">
-          <div class="response-header">🤖 AI回应</div>
-          <div class="response-content">{{ aiResponse }}</div>
+      <!-- 意识回响输入区 -->
+      <div class="echo-zone">
+        <div class="echo-types">
+          <button 
+            v-for="type in echoTypes" 
+            :key="type.value"
+            @click="echoType = type.value"
+            :class="['btn', 'soft', 'small', { 'active': echoType === type.value }]">
+            {{ type.icon }} {{ type.label }}
+          </button>
         </div>
+        <div class="echo-input-group">
+          <textarea 
+            v-model="echoText" 
+            placeholder="输入你的建议影响AI决策..."
+            rows="2"
+            class="echo-textarea"></textarea>
+        </div>
+      </div>
+      </div>
+    </div>
 
-        <div class="input-area">
+    <!-- 底部AI对话框 -->
+    <div class="bottom-chat-panel glass-panel">
+      <div class="chat-status" v-if="gameStore.isChatting">
+        <span class="pulse-dot"></span>
+        <span class="status-text">AI正在思考...</span>
+      </div>
+      <form class="chat-form" @submit.prevent="sendChat">
+        <div class="input-wrapper">
+          <span class="input-icon">🧠</span>
           <input 
-            v-model="userInput" 
+            v-model="chatText" 
             type="text" 
-            class="input"
-            placeholder="对AI说点什么..."
-            @keyup.enter="sendMessage"
+            placeholder="向AI城市发送意识回响..." 
+            class="chat-input"
+            :disabled="gameStore.isChatting"
           />
-          <button class="btn btn-primary" @click="sendMessage">发送</button>
-          <button class="btn btn-soft time-btn" @click="advanceTime">⏩ 推进1个月</button>
-          <button class="btn btn-primary invest-btn" @click="aiInvest">💰 AI投资</button>
         </div>
-      </div>
+        <button 
+          class="btn-send" 
+          type="submit"
+          :disabled="gameStore.isChatting || !chatText.trim()">
+          <span class="send-icon">{{ gameStore.isChatting ? '⏳' : '⚡' }}</span>
+          <span class="send-text">{{ gameStore.isChatting ? '思考中' : '发送' }}</span>
+        </button>
+      </form>
     </div>
+
+    <!-- 顶部控制按钮 -->
+    <div class="top-controls">
+      <button 
+        class="btn ghost" 
+        :disabled="gameStore.isAdvancingMonth" 
+        @click="handleAdvance">
+        {{ gameStore.isAdvancingMonth ? '推进中…' : '⏭️ 推进一月' }}
+      </button>
+      <button class="btn primary" @click="$router.push('/world')">
+        🌍 沙盘世界
+      </button>
+      <button class="btn primary" @click="$router.push('/assets')">
+        📊 资产分析
+      </button>
+      <button class="btn ghost" @click="showCharacterSelect = true">
+        🎭 切换角色
+      </button>
+      <button class="btn ghost" @click="themeStore.toggleTheme()">
+        {{ themeStore.isDark ? '☀️' : '🌙' }} 切换主题
+      </button>
+      <button class="btn ghost" @click="showSettings = true">
+        ⚙️ 设置
+      </button>
+    </div>
+
+    <!-- 角色选择弹窗 -->
+    <Teleport to="body">
+      <transition name="modal">
+        <div v-if="showCharacterSelect" class="modal-overlay" @click="showCharacterSelect = false">
+          <div class="character-modal glass-panel-enhanced" @click.stop>
+            <div class="modal-header">
+              <h2>🎭 切换角色</h2>
+              <button class="btn-close" @click="showCharacterSelect = false">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="modal-hint">选择其他角色继续冒险</p>
+              <div class="characters-grid">
+                <div 
+                  v-for="char in availableCharacters" 
+                  :key="char.id"
+                  @click="switchCharacter(char)"
+                  :class="['character-card', { active: char.id === currentCharacterId }]">
+                  <div class="character-avatar">
+                    <div class="avatar-icon">{{ (char.mbti || char.mbti_type || 'IN').substring(0, 2) }}</div>
+                  </div>
+                  <div class="character-info">
+                    <h4>{{ char.name }}</h4>
+                    <p class="mbti">{{ char.mbti || char.mbti_type || 'INTJ' }}</p>
+                    <p class="assets">总资产: ¥{{ formatNumber(char.assets || 0) }}</p>
+                  </div>
+                  <div v-if="char.id === currentCharacterId" class="active-badge">当前</div>
+                </div>
+              </div>
+              <button class="btn primary full" @click="$router.push('/character-select')">
+                ➕ 创建新角色
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
+    <!-- 设置弹窗 -->
+    <Teleport to="body">
+      <transition name="modal">
+        <div v-if="showSettings" class="modal-overlay" @click="showSettings = false">
+          <div class="settings-modal glass-panel-enhanced" @click.stop>
+            <div class="modal-header">
+              <h2>⚙️ 游戏设置</h2>
+              <button class="btn-close" @click="showSettings = false">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="settings-section">
+                <h3>🎨 主题设置</h3>
+                <div class="setting-item">
+                  <span>深色模式</span>
+                  <button 
+                    @click="themeStore.toggleTheme()"
+                    :class="['toggle-btn', { active: themeStore.isDark }]">
+                    <span class="toggle-slider"></span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <h3>🔊 音效设置</h3>
+                <div class="setting-item">
+                  <span>背景音乐</span>
+                  <button 
+                    @click="toggleMusic"
+                    :class="['toggle-btn', { active: musicEnabled }]">
+                    <span class="toggle-slider"></span>
+                  </button>
+                </div>
+                <div class="setting-item">
+                  <span>音效</span>
+                  <button 
+                    @click="toggleSound"
+                    :class="['toggle-btn', { active: soundEnabled }]">
+                    <span class="toggle-slider"></span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <h3>👤 账号管理</h3>
+                <div class="setting-item">
+                  <span>用户名</span>
+                  <span class="setting-value">{{ username }}</span>
+                </div>
+                <button class="btn ghost full" @click="handleLogout">
+                  🚪 退出登录
+                </button>
+              </div>
+
+              <div class="settings-section">
+                <h3>ℹ️ 关于</h3>
+                <p class="about-text">EchoPolis v1.0.0</p>
+                <p class="about-text">一款AI驱动的金融模拟游戏</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import CityCanvasEnhanced from '../components/home/CityCanvasEnhanced.vue'
+import InvestmentDashboard from '../components/InvestmentDashboard.vue'
+import FloatingText from '../components/FloatingText.vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
-import axios from 'axios'
 
 const gameStore = useGameStore()
 const themeStore = useThemeStore()
-const userInput = ref('')
-const showThemeSelector = ref(false)
+const floatingTextRef = ref(null)
+
+const chatText = ref('')
+const echoText = ref('')
+const echoType = ref('advisory')
+const selectedOption = ref(null)
+const lastDecisionImpact = ref(null)
+const isPanelCollapsed = ref(false)
+const showCharacterSelect = ref(false)
+const showSettings = ref(false)
+const availableCharacters = ref([])
+const musicEnabled = ref(false)
+const soundEnabled = ref(true)
+
+const username = computed(() => localStorage.getItem('username') || '玩家')
+const currentCharacterId = computed(() => {
+  try {
+    const char = JSON.parse(localStorage.getItem('currentCharacter') || '{}')
+    return char.id
+  } catch {
+    return null
+  }
+})
+
+const echoTypes = [
+  { value: 'inspirational', label: '启发', icon: '💡' },
+  { value: 'advisory', label: '建议', icon: '📋' },
+  { value: 'directive', label: '指令', icon: '⚡' },
+  { value: 'emotional', label: '情感', icon: '❤️' }
+]
 
 const avatar = computed(() => gameStore.avatar)
-const assets = computed(() => gameStore.assets)
-const trustLevel = computed(() => gameStore.trustLevel)
-const wealthLevel = computed(() => gameStore.wealthLevel)
-const lifeStage = computed(() => gameStore.lifeStage)
-const aiReflection = computed(() => gameStore.aiReflection)
-const aiMonologue = computed(() => gameStore.aiMonologue)
-const aiResponse = computed(() => gameStore.aiResponse)
+const assets = computed(() => ({
+  total: gameStore.assets?.total ?? 0,
+  cash: gameStore.assets?.cash ?? 0,
+  investments: Array.isArray(gameStore.assets?.investments) ? gameStore.assets.investments : []
+}))
+const districts = computed(() => gameStore.districts)
 const currentSituation = computed(() => gameStore.currentSituation)
 const situationOptions = computed(() => gameStore.situationOptions)
-const investments = computed(() => gameStore.assets.investments || [])
-const monthlyIncome = computed(() => {
-  return investments.value.reduce((sum, inv) => sum + (inv.monthly_return || 0), 0)
+const activeZone = computed(() => gameStore.selectedDistrictId)
+const trustLevel = computed(() => gameStore.trustLevel || 50)
+
+const monthlyIncome = computed(() => 
+  assets.value.investments.reduce((sum, inv) => sum + (inv.monthly_return || 0), 0)
+)
+
+const currentMonthDisplay = computed(() => avatar.value?.current_month ?? 0)
+
+const coreStats = computed(() => [
+  { label: '总资产', value: `¥${formatNumber(assets.value.total)}` },
+  { label: '现金', value: `¥${formatNumber(assets.value.cash)}` },
+  { label: '投资', value: `¥${formatNumber(avatar.value?.invested_assets || 0)}` },
+  { label: '被动收入', value: `+¥${formatNumber(monthlyIncome.value)}/月` }
+])
+
+const recentChatMessages = computed(() => {
+  return (gameStore.chatMessages || []).slice(-6) // 只显示最近6条
 })
 
-const robotMood = computed(() => {
-  if (assets.value.total > 1000000) return 'happy'
-  if (assets.value.total < 50000) return 'sad'
-  return 'neutral'
+const echoMessagesRef = ref(null)
+
+// 自动滚动到最新消息
+watch(() => gameStore.chatMessages?.length, () => {
+  nextTick(() => {
+    if (echoMessagesRef.value) {
+      echoMessagesRef.value.scrollTop = echoMessagesRef.value.scrollHeight
+    }
+  })
 })
 
-const formatNumber = (num) => {
-  return num?.toLocaleString('zh-CN') || '0'
-}
+const formatNumber = (num) => Number(num || 0).toLocaleString('zh-CN')
 
-const sendMessage = async () => {
-  console.log('sendMessage 被调用, 输入:', userInput.value)
-  if (!userInput.value.trim()) {
-    console.log('输入为空')
-    return
-  }
-  const message = userInput.value
-  userInput.value = ''
-  gameStore.aiResponse = '正在思考...'
-  
-  console.log('发送消息:', message)
+const handleAdvance = async () => {
   try {
-    const res = await axios.post('/api/ai/chat', { message })
-    console.log('AI响应:', res.data)
-    gameStore.aiResponse = res.data.response
-    gameStore.aiReflection = res.data.reflection
-    gameStore.aiMonologue = res.data.monologue
-  } catch (error) {
-    console.error('发送消息失败:', error)
-    gameStore.aiResponse = '发送失败: ' + error.message
-  }
-}
-
-const selectTheme = (key) => {
-  themeStore.setTheme(key)
-  showThemeSelector.value = false
-}
-
-const aiInvest = async () => {
-  try {
-    const currentCharacter = localStorage.getItem('currentCharacter')
-    if (!currentCharacter) {
-      alert('请先选择角色')
-      return
-    }
+    // 记录推进前的资产
+    const prevCash = assets.value.cash
+    const prevHealth = avatar.value?.health || 0
+    const prevHappiness = avatar.value?.happiness || 0
     
-    const char = JSON.parse(currentCharacter)
-    const res = await axios.post('/api/ai/invest', {
-      session_id: char.id,
-      name: avatar.value?.name,
-      mbti: avatar.value?.mbti_type,
-      cash: assets.value.cash
-    })
+    const echo = echoText.value.trim() || null
+    await gameStore.advanceMonth(echo)
     
-    if (res.data.success) {
-      const inv = res.data.investment
-      alert(`💰 AI投资决策\n\n🗂 项目: ${inv.name}\n💵 金额: ￥${formatNumber(inv.amount)}\n⏱ 期限: ${inv.duration}个月\n📈 预期收益率: ${(inv.return_rate * 100).toFixed(1)}%\n\n🤖 AI思考: ${res.data.ai_thoughts}`)
-      gameStore.loadAvatar()
-    } else {
-      alert(`🤔 ${res.data.message}\n\n${res.data.ai_thoughts}`)
-    }
-  } catch (error) {
-    console.error('AI投资失败:', error)
-    alert('AI投资失败: ' + error.message)
-  }
-}
-
-const advanceTime = async () => {
-  try {
-    const currentCharacter = localStorage.getItem('currentCharacter')
-    if (!currentCharacter) {
-      alert('请先选择角色')
-      return
-    }
+    // 等待DOM更新
+    await nextTick()
     
-    const char = JSON.parse(currentCharacter)
-    const res = await axios.post('/api/time/advance', {
-      session_id: char.id,
-      name: avatar.value?.name,
-      mbti: avatar.value?.mbti_type,
-      cash: assets.value.cash,
-      total_assets: assets.value.total
-    })
-    
-    if (res.data.success) {
-      // 更新情况显示
-      gameStore.currentSituation = res.data.situation
-      gameStore.situationOptions = res.data.options || []
+    // 显示变化飘字
+    if (floatingTextRef.value) {
+      const centerX = window.innerWidth / 2
+      const centerY = window.innerHeight / 2
       
-      // 显示提示
-      alert(`⏰ 时间推进1个月\n\n💵 现金: ￥${formatNumber(res.data.new_cash)}\n📊 总资产: ￥${formatNumber(res.data.total_assets)}\n💰 月收入: ￥${formatNumber(res.data.monthly_income)}`)
-
-      // 刷新数据
-      gameStore.loadAvatar()
+      const impact = gameStore.currentSituation?.decision_impact
+      if (impact) {
+        let offsetY = 0
+        
+        if (impact.cash_change) {
+          const type = impact.cash_change > 0 ? 'positive' : 'negative'
+          const prefix = impact.cash_change > 0 ? '+' : ''
+          floatingTextRef.value.addFloatingText(
+            `${prefix}${formatNumber(impact.cash_change)} 💰`,
+            centerX - 100,
+            centerY + offsetY,
+            type
+          )
+          offsetY += 40
+        }
+        
+        if (impact.health_change) {
+          const type = impact.health_change > 0 ? 'positive' : 'negative'
+          const prefix = impact.health_change > 0 ? '+' : ''
+          floatingTextRef.value.addFloatingText(
+            `${prefix}${impact.health_change} ❤️`,
+            centerX + 50,
+            centerY + offsetY,
+            type
+          )
+          offsetY += 40
+        }
+        
+        if (impact.happiness_change) {
+          const type = impact.happiness_change > 0 ? 'positive' : 'negative'
+          const prefix = impact.happiness_change > 0 ? '+' : ''
+          floatingTextRef.value.addFloatingText(
+            `${prefix}${impact.happiness_change} 😊`,
+            centerX - 50,
+            centerY + offsetY,
+            type
+          )
+        }
+      }
+    }
+    
+    echoText.value = ''
+    selectedOption.value = null
+    
+    if (gameStore.currentSituation?.decision_impact) {
+      lastDecisionImpact.value = gameStore.currentSituation.decision_impact
+      setTimeout(() => {
+        lastDecisionImpact.value = null
+      }, 5000)
     }
   } catch (error) {
-    console.error('时间推进失败:', error)
-    alert('时间推进失败: ' + error.message)
+    alert(error.message)
   }
 }
 
-onMounted(() => {
-  gameStore.loadAvatar()
+const handleSelectOption = (index) => {
+  selectedOption.value = index
+}
+
+const handleDistrictClick = (district) => {
+  gameStore.exploreDistrict(district.id)
+}
+
+const handleAiInvest = async () => {
+  try {
+    await gameStore.requestAiInvestment()
+  } catch (error) {
+    alert(error.message)
+  }
+}
+
+const sendChat = async () => {
+  const text = chatText.value.trim()
+  if (!text) return
+  
+  chatText.value = ''
+  await gameStore.talkToAI(text)
+}
+
+const switchCharacter = async (character) => {
+  try {
+    console.log('切换角色:', character)
+    // 保存当前角色信息
+    const characterData = {
+      id: character.id,
+      name: character.name,
+      mbti: character.mbti,
+      assets: character.assets
+    }
+    localStorage.setItem('currentCharacter', JSON.stringify(characterData))
+    localStorage.setItem('session_id', character.id)
+    
+    showCharacterSelect.value = false
+    
+    // 重新加载数据
+    await gameStore.loadAvatar()
+    
+    // 刷新页面以确保所有数据更新
+    location.reload()
+  } catch (error) {
+    console.error('切换角色失败:', error)
+    alert('切换角色失败: ' + error.message)
+  }
+}
+
+const loadAvailableCharacters = async () => {
+  try {
+    const username = localStorage.getItem('username')
+    if (!username) return
+    
+    const response = await fetch(`/api/characters/${username}`)
+    if (!response.ok) {
+      console.error('加载角色列表失败:', response.status)
+      return
+    }
+    const data = await response.json()
+    availableCharacters.value = data || []
+    console.log('加载角色列表成功:', data)
+  } catch (error) {
+    console.error('加载角色列表失败:', error)
+  }
+}
+
+const toggleMusic = () => {
+  musicEnabled.value = !musicEnabled.value
+  localStorage.setItem('musicEnabled', musicEnabled.value)
+}
+
+const toggleSound = () => {
+  soundEnabled.value = !soundEnabled.value
+  localStorage.setItem('soundEnabled', soundEnabled.value)
+}
+
+const handleLogout = () => {
+  if (confirm('确定要退出登录吗？')) {
+    // 清理所有登录相关信息
+    localStorage.removeItem('username')
+    localStorage.removeItem('currentCharacter')
+    localStorage.removeItem('session_id')
+    localStorage.removeItem('musicEnabled')
+    localStorage.removeItem('soundEnabled')
+    
+    // 跳转到登录页
+    location.href = '/login'
+  }
+}
+
+onMounted(async () => {
+  console.log('[Home] 组件挂载')
   themeStore.applyTheme()
+  
+  // 加载音效设置
+  musicEnabled.value = localStorage.getItem('musicEnabled') === 'true'
+  soundEnabled.value = localStorage.getItem('soundEnabled') !== 'false'
+  
+  // 加载游戏数据
+  await gameStore.bootstrapHome()
+  
+  // 加载角色列表
+  await loadAvailableCharacters()
+  
+  console.log('[Home] 加载完成')
 })
 </script>
 
 <style scoped>
-.home-page {
-  width: 100%;
+.home-container {
+  position: relative;
+  width: 100vw;
   height: 100vh;
-  padding: 20px;
-  position: relative;
+  overflow: hidden;
+  background: #030712;
 }
 
-.header-info {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
+.glass-panel {
+  background: rgba(10,14,39,0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(2,6,23,0.8);
 }
 
-.theme-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-}
-
-.theme-selector {
-  position: absolute;
-  top: 70px;
-  left: 20px;
-  /* use card visuals */
-  padding: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 100;
-}
-
-.theme-option {
-  padding: 10px 20px;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition: all var(--dur-fast) var(--ease-standard);
-  font-weight: bold;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.theme-option:hover {
-  background: var(--surface-2);
-  color: var(--text);
-  border-color: var(--highlight);
-}
-
-.theme-option.active {
-  background: color-mix(in srgb, var(--primary-500) 12%, transparent);
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--primary-500) 35%, transparent);
-}
-
-.nickname {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--text);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-.mbti-tag {
-  background: var(--surface-2);
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-weight: bold;
-  color: var(--primary-400);
-  font-size: 14px;
-  border: 1px solid var(--border);
-}
-
-.top-right-info {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.wealth-level, .trust-level {
-  /* card visual already on element */
-  padding: 10px 16px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.wealth-level .label, .trust-level .label {
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 4px;
-}
-
-.wealth-level .value, .trust-level .value {
-  font-size: 18px;
-  font-weight: bold;
-  color: var(--primary-400);
-}
-
-.main-content {
-  display: flex;
-  gap: 30px;
-  height: calc(100vh - 80px);
-  margin-top: 60px;
-}
-
+/* 左侧面板 */
 .left-panel {
+  position: absolute;
+  left: 24px;
+  top: 80px;
   width: 280px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.info-card {
-  /* card class applied */
   padding: 20px;
+  z-index: 10;
 }
 
-.card-title {
-  font-size: 14px;
-  color: var(--muted);
-  margin-bottom: 8px;
-}
-
-.card-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-
-.card-sub {
-  font-size: 12px;
-  color: var(--subtle);
-}
-
-.reflection-card {
-  border: 1px solid color-mix(in srgb, var(--primary-500) 30%, var(--border));
-  background: color-mix(in srgb, var(--primary-500) 8%, var(--surface));
-}
-
-.reflection-text {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.6;
-  font-style: italic;
-  margin-top: 10px;
-}
-
-.center-area {
-  flex: 1;
+.avatar-section {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 30px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.robot-container {
-  display: flex;
-  justify-content: center;
+.avatar-portrait {
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
 }
 
-.robot {
-  width: 150px;
-  height: 150px;
-  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
-  border-radius: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-  transition: all var(--dur-med) var(--ease-standard);
-  border: 1px solid var(--border);
-}
-
-.robot:hover {
-  transform: translateY(-2px);
-}
-
-.robot.happy {
-  background: linear-gradient(135deg, var(--primary-400), var(--success));
-}
-
-.robot.sad {
-  background: linear-gradient(135deg, var(--info), var(--primary-400));
-}
-
-.robot-face {
+.face-outline {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #feb48c, #f59e7b);
+  border: 3px solid rgba(255,255,255,0.3);
   position: relative;
-  width: 100px;
-  height: 100px;
 }
 
 .eye {
-  width: 20px;
-  height: 20px;
-  background: white;
-  border-radius: 50%;
   position: absolute;
   top: 30px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0f172a;
 }
 
-.eye.left { left: 20px; }
-.eye.right { right: 20px; }
+.eye.left { left: 22px; }
+.eye.right { right: 22px; }
 
 .mouth {
-  width: 40px;
-  height: 20px;
-  border: 3px solid white;
-  border-top: none;
-  border-radius: 0 0 40px 40px;
   position: absolute;
-  bottom: 20px;
+  bottom: 22px;
   left: 50%;
   transform: translateX(-50%);
+  width: 30px;
+  height: 8px;
+  border-radius: 0 0 15px 15px;
+  background: rgba(15,23,42,0.6);
 }
 
-.robot.happy .mouth { border-radius: 0 0 40px 40px; }
-.robot.sad .mouth { border-radius: 40px 40px 0 0; border-top: 3px solid white; border-bottom: none; }
+.avatar-info h2 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
 
-.ai-dialogue {
-  padding: 25px;
-  width: 600px;
+.avatar-info .mbti {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(59,130,246,1);
+  font-weight: 600;
+}
+
+.avatar-info .month {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(15,23,42,0.6);
+  border: 1px solid rgba(148,163,184,0.2);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 4px;
+}
+
+.stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.trust-section {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(59,130,246,0.1);
+}
+
+.trust-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trust-value {
+  color: rgba(59,130,246,1);
+}
+
+.trust-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(15,23,42,0.8);
+  overflow: hidden;
+}
+
+.trust-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* AI意识回响区域 */
+.ai-echo-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  height: 320px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(59,130,246,0.15));
+  border: 1px solid rgba(139,92,246,0.3);
+  overflow: hidden;
+}
+
+.echo-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(10,14,39,0.6);
+  border-bottom: 1px solid rgba(139,92,246,0.3);
+}
+
+.echo-icon {
+  font-size: 20px;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { 
+    filter: drop-shadow(0 0 4px rgba(139,92,246,0.6));
+    transform: scale(1);
+  }
+  50% { 
+    filter: drop-shadow(0 0 8px rgba(139,92,246,0.9));
+    transform: scale(1.1);
+  }
+}
+
+.echo-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+}
+
+.echo-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.echo-messages::-webkit-scrollbar {
+  width: 4px;
+}
+
+.echo-messages::-webkit-scrollbar-track {
+  background: rgba(15,23,42,0.5);
+}
+
+.echo-messages::-webkit-scrollbar-thumb {
+  background: rgba(139,92,246,0.5);
+  border-radius: 2px;
+}
+
+.echo-message {
+  animation: message-slide-in 0.3s ease-out;
+}
+
+@keyframes message-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.message-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.message-fade-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.message-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+/* 用户消息 */
+.user-message {
+  align-self: flex-end;
+  max-width: 80%;
+}
+
+.user-message .message-content {
+  background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(99,102,241,0.3));
+  border: 1px solid rgba(59,130,246,0.4);
+  padding: 8px 12px;
+  border-radius: 12px 12px 2px 12px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* AI消息 */
+.ai-message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 90%;
 }
 
 .ai-response {
-  padding: 20px;
-  width: 600px;
-  border: 1px solid color-mix(in srgb, var(--primary-500) 35%, var(--border));
-  background: color-mix(in srgb, var(--primary-500) 8%, var(--surface));
+  background: linear-gradient(135deg, rgba(139,92,246,0.25), rgba(168,85,247,0.25));
+  border: 1px solid rgba(139,92,246,0.4);
+  border-radius: 12px 12px 12px 2px;
+  padding: 10px;
+  box-shadow: 0 2px 10px rgba(139,92,246,0.3);
 }
 
-.response-header {
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--primary-400);
-  margin-bottom: 10px;
+.response-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(168,85,247,1);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
-.response-content {
+.response-text {
+  font-size: 13px;
   color: var(--text);
   line-height: 1.6;
-  font-size: 15px;
 }
 
-.dialogue-header {
-  font-size: 16px;
-  font-weight: bold;
-  color: var(--primary-400);
-  margin-bottom: 15px;
-  text-align: center;
+.ai-reflection {
+  background: rgba(20,184,166,0.2);
+  border-left: 3px solid rgba(20,184,166,0.6);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-left: 12px;
 }
 
-.dialogue-content p {
-  margin: 10px 0;
-  line-height: 1.6;
-  color: var(--text);
+.reflection-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(20,184,166,1);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
 }
 
-.asset-summary { font-weight: bold; color: var(--primary-400); }
-.reflection { font-style: italic; color: var(--muted); }
-.monologue { color: var(--text); }
+.reflection-text {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  line-height: 1.5;
+  font-style: italic;
+}
 
-.input-area {
+.ai-monologue {
+  background: rgba(236,72,153,0.15);
+  border-left: 3px solid rgba(236,72,153,0.5);
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-left: 12px;
+}
+
+.monologue-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(236,72,153,1);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.monologue-text {
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+  line-height: 1.4;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+/* 打字中指示器 */
+.typing-indicator {
   display: flex;
-  gap: 10px;
-  width: 600px;
+  gap: 4px;
+  padding: 8px 12px;
+  background: rgba(139,92,246,0.2);
+  border-radius: 12px;
+  width: fit-content;
 }
 
-.input-area input {
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(139,92,246,0.8);
+  animation: typing-bounce 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-8px);
+    opacity: 1;
+  }
+}
+
+/* 右侧面板 */
+.right-panel {
+  position: absolute;
+  right: 24px;
+  top: 80px;
+  width: 340px;
+  height: calc(100vh - 240px);
+  z-index: 10;
+}
+
+/* 中央任务面板 - 移到底部 */
+.center-mission-panel {
+  position: absolute;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, 92vw);
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 24px;
+  z-index: 15;
+  transition: all 0.3s ease;
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.6);
+}
+
+.center-mission-panel.panel-collapsed {
+  width: auto;
+  max-height: none;
+  padding: 0;
+  background: transparent !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  bottom: 90px;
+}
+
+.panel-toggle {
+  position: relative;
+  z-index: 10;
+  padding: 12px 32px;
+  border-radius: 24px;
+  background: rgba(10,14,39,0.95);
+  border: 1px solid rgba(59,130,246,0.4);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.panel-toggle:hover {
+  border-color: rgba(59,130,246,0.8);
+  box-shadow: 0 4px 30px rgba(59,130,246,0.4);
+  transform: translateY(-2px);
+}
+
+.panel-content {
+  margin-top: 12px;
+}
+
+.center-mission-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.center-mission-panel::-webkit-scrollbar-track {
+  background: rgba(15,23,42,0.5);
+  border-radius: 4px;
+}
+
+.center-mission-panel::-webkit-scrollbar-thumb {
+  background: rgba(59,130,246,0.5);
+  border-radius: 4px;
+}
+
+.mission-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(59,130,246,0.8);
+  margin-bottom: 4px;
+}
+
+.mission-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.story-text {
+  line-height: 1.7;
+  color: rgba(255,255,255,0.85);
+  margin-bottom: 20px;
+}
+
+.ai-thoughts {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(99,102,241,0.15);
+  border: 1px solid rgba(99,102,241,0.4);
+}
+
+.thoughts-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: rgb(167,139,250);
+}
+
+.decision-impact {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(16,185,129,0.15);
+  border: 1px solid rgba(16,185,129,0.4);
+  animation: slideIn 0.5s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 12px;
+}
+
+.impact-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.impact-item .value.positive { color: #10b981; }
+.impact-item .value.negative { color: #ef4444; }
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.option-card {
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.3);
+  background: rgba(15,23,42,0.6);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.option-card:hover {
+  border-color: rgba(59,130,246,0.6);
+  background: rgba(59,130,246,0.15);
+  transform: translateY(-2px);
+}
+
+.option-card.selected {
+  border-color: rgb(59,130,246);
+  background: rgba(59,130,246,0.3);
+  box-shadow: 0 0 20px rgba(59,130,246,0.4);
+}
+
+.chip {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(59,130,246,0.3);
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.echo-zone {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(15,23,42,0.8);
+  border: 1px solid rgba(59,130,246,0.4);
+}
+
+.echo-types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.btn.small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.btn.active {
+  background: rgba(59,130,246,0.4);
+  border-color: rgb(59,130,246);
+  box-shadow: 0 0 12px rgba(59,130,246,0.5);
+}
+
+.echo-textarea {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(15,23,42,0.7);
+  border: 1px solid rgba(148,163,184,0.3);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+}
+
+.echo-textarea:focus {
+  outline: none;
+  border-color: rgb(59,130,246);
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.3);
+}
+
+/* 底部对话框 - 高级设计 */
+.bottom-chat-panel {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(720px, 90vw);
+  padding: 0;
+  z-index: 10;
+  background: linear-gradient(135deg, rgba(10,14,39,0.95), rgba(30,27,75,0.95));
+  border: 1px solid rgba(139,92,246,0.4);
+  box-shadow: 0 8px 32px rgba(139,92,246,0.3), 0 0 60px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+.chat-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(139,92,246,0.2), rgba(168,85,247,0.2));
+  border-bottom: 1px solid rgba(139,92,246,0.3);
+  animation: status-pulse 2s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(168,85,247,1);
+  box-shadow: 0 0 10px rgba(168,85,247,0.8);
+  animation: pulse-scale 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.status-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(168,85,247,1);
+  letter-spacing: 0.5px;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0;
+  padding: 12px;
+}
+
+.input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 18px;
+  opacity: 0.7;
+  pointer-events: none;
+  animation: icon-float 3s ease-in-out infinite;
+}
+
+@keyframes icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+.chat-input {
+  flex: 1;
+  padding: 14px 16px 14px 46px;
+  border-radius: 12px 0 0 12px;
+  background: rgba(15,23,42,0.9);
+  border: 1px solid rgba(139,92,246,0.3);
+  border-right: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.chat-input:focus {
+  outline: none;
+  background: rgba(20,20,50,0.95);
+  border-color: rgba(139,92,246,0.6);
+  box-shadow: inset 0 0 20px rgba(139,92,246,0.1);
+}
+
+.chat-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-send {
+  padding: 14px 24px;
+  border-radius: 0 12px 12px 0;
+  background: linear-gradient(135deg, rgba(139,92,246,0.8), rgba(168,85,247,0.8));
+  border: 1px solid rgba(139,92,246,0.6);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-send::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-send:hover:not(:disabled)::before {
+  left: 100%;
+}
+
+.btn-send:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139,92,246,1), rgba(168,85,247,1));
+  box-shadow: 0 0 20px rgba(139,92,246,0.6);
+  transform: translateY(-1px);
+}
+
+.btn-send:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(100,100,120,0.5);
+}
+
+.send-icon {
+  font-size: 16px;
+}
+
+.btn-send:disabled .send-icon {
+  animation: icon-rotate 2s linear infinite;
+}
+
+@keyframes icon-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.send-text {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+/* 顶部控制 */
+.top-controls {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  gap: 12px;
+  z-index: 20;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+}
+
+.btn.primary:hover:not(:disabled) {
+  box-shadow: 0 0 20px rgba(59,130,246,0.6);
+  transform: translateY(-2px);
+}
+
+.btn.ghost {
+  background: rgba(15,23,42,0.8);
+  border: 1px solid rgba(59,130,246,0.5);
+  color: var(--text);
+}
+
+.btn.ghost:hover:not(:disabled) {
+  background: rgba(59,130,246,0.2);
+  border-color: rgb(59,130,246);
+}
+
+.btn.full {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.soft {
+  background: rgba(148,163,184,0.1);
+  border: 1px solid rgba(148,163,184,0.3);
+  color: var(--text);
+}
+
+/* 弹窗样式 - 统一风格 */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+  animation: overlay-fade-in 0.3s ease-out;
+}
+
+@keyframes overlay-fade-in {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(20px);
+  }
+}
+
+.character-modal,
+.settings-modal {
+  width: min(700px, 90vw);
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.95) 100%);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 20px;
+  box-shadow: 
+    0 25px 60px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(59,130,246,0.2),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 40px rgba(59,130,246,0.15);
+  position: relative;
+  overflow-y: auto;
+  animation: modal-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 32px 24px;
+  border-bottom: 1px solid rgba(59,130,246,0.2);
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(59,130,246,0.08) 0%, transparent 100%);
+}
+
+.modal-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.6), transparent);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 8px rgba(59,130,246,0.3);
+}
+
+.btn-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(148,163,184,0.3);
+  background: rgba(15,23,42,0.8);
+  color: rgba(148,163,184,0.9);
+  font-size: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-close::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, rgba(239,68,68,0.3), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-close:hover {
+  border-color: rgba(239,68,68,0.6);
+  color: rgb(248,113,113);
+  transform: rotate(90deg) scale(1.1);
+  box-shadow: 0 0 20px rgba(239,68,68,0.4);
+}
+
+.btn-close:hover::before {
+  opacity: 1;
+}
+
+.modal-body {
+  padding: 28px 32px 32px;
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  z-index: 2;
+}
+
+.modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: rgba(15,23,42,0.5);
+  border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(59,130,246,0.6), rgba(139,92,246,0.6));
+  border-radius: 4px;
+  border: 2px solid rgba(15,23,42,0.5);
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(59,130,246,0.8), rgba(139,92,246,0.8));
+}
+
+.modal-hint {
+  margin: 0 0 24px 0;
+  color: rgba(148,163,184,0.9);
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 12px 16px;
+  background: rgba(59,130,246,0.08);
+  border-left: 3px solid rgba(59,130,246,0.5);
+  border-radius: 0 8px 8px 0;
+}
+
+/* 角色选择 */
+.characters-grid {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.character-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.7));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148,163,184,0.2);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.character-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(139,92,246,0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.character-card:hover {
+  border-color: rgba(59,130,246,0.5);
+  transform: translateY(-4px);
+  box-shadow: 
+    0 12px 32px rgba(0,0,0,0.3),
+    0 0 30px rgba(59,130,246,0.2);
+}
+
+.character-card:hover::before {
+  opacity: 1;
+}
+
+.character-card.active {
+  background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+  border-color: rgba(59,130,246,0.6);
+  box-shadow: 
+    0 8px 24px rgba(59,130,246,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.1),
+    0 0 40px rgba(59,130,246,0.2);
+}
+
+.character-card.active::before {
+  opacity: 0.5;
+}
+
+.character-avatar {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+
+.avatar-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6, #ec4899);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: white;
+  box-shadow: 
+    0 6px 20px rgba(59,130,246,0.4),
+    0 0 0 3px rgba(59,130,246,0.2),
+    inset 0 2px 0 rgba(255,255,255,0.2);
+  position: relative;
+}
+
+.avatar-icon::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  opacity: 0.3;
+  filter: blur(8px);
+  z-index: -1;
+  animation: pulse-ring 3s ease-in-out infinite;
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.05);
+  }
+}
+
+.character-info {
   flex: 1;
 }
 
-.time-btn { }
-.invest-btn { }
-
-.situation-box {
-  padding: 25px;
-  width: 600px;
-  border: 1px solid color-mix(in srgb, var(--primary-500) 35%, var(--border));
-}
-
-.situation-header {
+.character-info h4 {
+  margin: 0 0 4px 0;
   font-size: 16px;
-  font-weight: bold;
-  color: var(--primary-400);
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.situation-content {
+  font-weight: 600;
   color: var(--text);
-  line-height: 1.8;
-  margin-bottom: 15px;
+}
+
+.character-info .mbti {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: rgba(59,130,246,0.8);
+  font-weight: 600;
+}
+
+.character-info .background {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(148,163,184,0.8);
+  line-height: 1.5;
+}
+
+.character-info .age,
+.character-info .assets {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(148,163,184,0.8);
+}
+
+/* 当前角色徽章 */
+.active-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 5px 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  box-shadow: 
+    0 4px 12px rgba(59,130,246,0.5),
+    0 0 20px rgba(59,130,246,0.3);
+  z-index: 3;
+  animation: badge-glow 2s ease-in-out infinite;
+}
+
+@keyframes badge-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 12px rgba(59,130,246,0.5),
+      0 0 20px rgba(59,130,246,0.3);
+  }
+  50% {
+    box-shadow: 
+      0 4px 16px rgba(59,130,246,0.7),
+      0 0 30px rgba(59,130,246,0.5);
+  }
+}
+
+/* 设置面板样式 */
+.settings-section {
+  margin-bottom: 28px;
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  margin: 0 0 18px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.3px;
+  position: relative;
+  padding-bottom: 10px;
+}
+
+.settings-section h3::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 50px;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.8), transparent);
+  border-radius: 2px;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(148,163,184,0.1);
+  transition: all 0.2s ease;
+}
+
+.setting-item:hover {
+  padding-left: 8px;
+  border-bottom-color: rgba(59,130,246,0.2);
+}
+
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-item > span:first-child {
   font-size: 15px;
+  font-weight: 500;
+  color: var(--text);
 }
 
-.situation-options {
-  background: var(--surface);
-  padding: 15px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
+.setting-value {
+  font-size: 14px;
+  color: rgba(148,163,184,0.8);
+  font-weight: 600;
 }
 
-.option-title {
-  font-weight: bold;
-  color: var(--primary-400);
-  margin-bottom: 10px;
+.about-text {
+  margin: 8px 0;
+  font-size: 14px;
+  color: rgba(148,163,184,0.8);
+  line-height: 1.5;
 }
 
-.option-item {
-  padding: 8px 0;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
+/* Toggle开关样式 */
+.toggle-btn {
+  position: relative;
+  width: 54px;
+  height: 30px;
+  border-radius: 15px;
+  background: rgba(148,163,184,0.3);
+  border: 1px solid rgba(148,163,184,0.2);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.option-item:last-child { border-bottom: none; }
+.toggle-btn.active {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-color: rgba(59,130,246,0.5);
+  box-shadow: 
+    0 0 20px rgba(59,130,246,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.2);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff, #f1f5f9);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 2px 8px rgba(0,0,0,0.3),
+    0 0 0 1px rgba(255,255,255,0.5);
+}
+
+.toggle-btn.active .toggle-slider {
+  transform: translateX(24px);
+  box-shadow: 
+    0 2px 12px rgba(59,130,246,0.5),
+    0 0 0 1px rgba(255,255,255,0.8);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ffffff, #f1f5f9);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 2px 8px rgba(0,0,0,0.3),
+    0 0 0 1px rgba(255,255,255,0.5);
+}
+
+.toggle-btn.active .toggle-slider {
+  transform: translateX(24px);
+}
+
+.about-text {
+  margin: 8px 0;
+  color: rgba(148,163,184,0.8);
+  font-size: 14px;
+}
+
+/* 弹窗动画 */
+.modal-enter-active,
+@keyframes modal-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9) translateY(20px);
+  }
+  60% {
+    transform: scale(1.02) translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.character-modal.modal-enter-active,
+.settings-modal.modal-enter-active {
+  animation: modal-pop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
 </style>

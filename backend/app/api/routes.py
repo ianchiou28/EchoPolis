@@ -2,7 +2,16 @@
 API路由定义
 """
 from fastapi import APIRouter, HTTPException
-from app.models.requests import CreateAvatarRequest, GenerateSituationRequest, EchoRequest, AutoDecisionRequest
+from app.models.requests import (
+    CreateAvatarRequest,
+    GenerateSituationRequest,
+    EchoRequest,
+    AutoDecisionRequest,
+    SessionStartRequest,
+    SessionAdvanceRequest,
+    SessionFinishRequest,
+    AIChatRequest,
+)
 from app.models.auth import LoginRequest, RegisterRequest, AuthResponse
 from app.services.game_service import GameService
 import sys
@@ -39,7 +48,7 @@ async def create_avatar(request: CreateAvatarRequest):
 @router.post("/generate-situation")
 async def generate_situation(request: GenerateSituationRequest):
     try:
-        return await game_service.generate_situation(request.session_id, request.context)
+        return await game_service.generate_situation(request.session_id, request.context or "")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -198,7 +207,7 @@ async def get_investments(session_id: str = None):
         with sqlite3.connect(game_service.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT username FROM users WHERE id = ?
+                SELECT username FROM users WHERE session_id = ?
             ''', (session_id,))
             user_row = cursor.fetchone()
             
@@ -242,113 +251,15 @@ async def get_investments(session_id: str = None):
         return []
 
 @router.post("/ai/chat")
-async def ai_chat(message: dict):
+async def ai_chat(request: AIChatRequest):
     try:
-        import json
-        import os
-        
-        user_message = message.get("message", "")
-        print(f"[AI Chat] 收到消息: {user_message}")
-        
-        # 加载API key
-        config_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config.json')
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            api_key = config.get('deepseek_api_key')
-        
-        if not api_key:
-            raise Exception("API key not found")
-        
-        # 构建对话提示
-        prompt = f"""你是一个INTJ人格的AI化身，正在一个金融模拟游戏中生活。
-玩家对你说：{user_message}
-
-请用以下格式回复：
-回应：[直接回复玩家的话]
-反思：[对当前财务状况的分析]
-独白：[你的内心想法]"""
-        
-        print(f"[AI Chat] 调用DeepSeek API...")
-        response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 300
-            },
-            timeout=30
-        )
-        
-        print(f"[AI Chat] API响应状态: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            print(f"[AI Chat] 完整响应: {result}")
-            ai_text = result["choices"][0]["message"]["content"]
-            print(f"[AI Chat] AI回复: {ai_text}")
-            
-            # 解析回复
-            lines = ai_text.split('\n')
-            response_text = ""
-            reflection_text = ""
-            monologue_text = ""
-            
-            for line in lines:
-                if '回应：' in line or '回应:' in line:
-                    response_text = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                elif '反思：' in line or '反思:' in line:
-                    reflection_text = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                elif '独白：' in line or '独白:' in line:
-                    monologue_text = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-            
-            return {
-                "response": response_text or ai_text,
-                "reflection": reflection_text or "正在分析当前的财务状况...",
-                "monologue": monologue_text or "我需要更谨慎地规划未来。"
-            }
-        else:
-            error_msg = f"API错误 {response.status_code}: {response.text}"
-            print(f"[AI Chat] {error_msg}")
-            print(f"[AI Chat] 使用模拟AI回复")
-            
-            # 模拟AI回复
-            responses = {
-                "default": {
-                    "response": f"我听到你说“{user_message}”。作为INTJ，我会理性分析这个建议。",
-                    "reflection": "当前资产配置还算合理，但需要注意流动性风险。我应该保留至少30%的现金应对突发情况。",
-                    "monologue": "长期来看，稳健的投资策略比激进的风险更重要。我需要建立一个长期的财富积累计划。"
-                }
-            }
-            
-            # 根据关键词匹配不同回复
-            if "投资" in user_message or "买" in user_message:
-                return {
-                    "response": f"关于“{user_message}”，我认为需要谨慎评估。任何投资都应该在充分研究后再决定。",
-                    "reflection": "投资决策不能冲动，需要考虑风险收益比、流动性和长期目标。",
-                    "monologue": "我不会让情绪左右投资决策。每一笔投资都应该符合我的整体财务规划。"
-                }
-            elif "风险" in user_message:
-                return {
-                    "response": f"你提到了风险，这很重要。我会把风险控制放在首位。",
-                    "reflection": "风险管理是财富积累的基础。我需要建立多元化的投资组合。",
-                    "monologue": "不把鸡蛋放在一个篮子里，这是最基本的原则。"
-                }
-            else:
-                return responses["default"]
+        if not request.message:
+            raise HTTPException(status_code=400, detail="message required")
+        return await game_service.ai_chat(request.message, session_id=request.session_id)
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"[AI Chat] 错误: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "response": "抱歉，我现在有点困惑...",
-            "reflection": "需要一些时间整理思绪",
-            "monologue": f"系统错误: {str(e)}"
-        }
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/characters/{username}")
 async def get_characters(username: str):
@@ -361,13 +272,13 @@ async def get_characters(username: str):
         with sqlite3.connect(game_service.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, name, mbti, credits FROM users WHERE username = ?
+                SELECT session_id, name, mbti, credits FROM users WHERE username = ?
             ''', (username,))
             
             characters = []
             for row in cursor.fetchall():
                 characters.append({
-                    "id": row[0],
+                    "id": row[0],  # session_id作为id返回
                     "name": row[1],
                     "mbti": row[2],
                     "assets": row[3]
@@ -813,4 +724,60 @@ async def world_action(action: dict):
     except Exception as e:
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/session/start")
+async def session_start(req: SessionStartRequest):
+    """统一的会话启动接口：创建角色+会话+首月快照"""
+    try:
+      return game_service.start_session(req.username, req.name, req.mbti)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/session/state")
+async def session_state(session_id: str):
+    try:
+      return game_service.get_session_state(session_id)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/session/advance")
+async def session_advance(req: SessionAdvanceRequest):
+    try:
+      return game_service.advance_session(req.session_id, req.echo_text)
+    except Exception as e:
+      print(f"[session_advance] error: {e}")
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/session/finish")
+async def session_finish(req: SessionFinishRequest):
+    try:
+      return game_service.finish_session(req.session_id)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/session/timeline")
+async def session_timeline(session_id: str, limit: int = 36):
+    try:
+      if not game_service.db:
+        raise Exception("数据库未初始化")
+      return game_service.db.get_session_timeline(session_id, limit)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.get('/city/state')
+async def city_state(session_id: str):
+    try:
+        return game_service.get_city_snapshot(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post('/city/district/{district_id}')
+async def city_district_event(district_id: str, payload: dict):
+    session_id = payload.get('session_id')
+    if not session_id:
+        raise HTTPException(status_code=400, detail='session_id required')
+    try:
+        return game_service.generate_district_event(session_id, district_id, payload.get('context'))
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
