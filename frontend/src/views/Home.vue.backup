@@ -1,0 +1,696 @@
+<template>
+  <GameLayout layout="free">
+    <template #top-right>
+      <div class="command-bar">
+        <button class="btn ghost" :disabled="gameStore.isAdvancingMonth" @click="handleAdvance">
+          {{ gameStore.isAdvancingMonth ? '推进中…' : '推进一月' }}
+        </button>
+        <button class="btn primary" @click="$router.push('/world')">进入城市</button>
+      </div>
+    </template>
+    <template #canvas>
+      <section class="city-stage" @mousemove="onParallax" @mouseleave="resetParallax">
+        <div class="city-sky" :style="parallaxStyles.sky" />
+        <div class="city-grid" :style="parallaxStyles.grid" />
+        <div class="city-layer city-layer--far" :style="parallaxStyles.far" />
+        <div class="city-layer city-layer--mid" :style="parallaxStyles.mid" />
+        <div class="city-layer city-layer--front" :style="parallaxStyles.front" />
+        <div class="district-pin"
+
+        <div class="district-marker"
+             v-for="district in districts"
+             :style="pinStyle(district)"
+             @click="handleZoneSelect(district)">
+          <span class="pin-glow" />
+          <span class="pin-icon">{{ district.icon }}</span>
+          <div class="pin-info">
+            <strong>{{ district.name }}</strong>
+          <div class="marker-info">
+            <p>{{ district.name }}</p>
+            <small>{{ district.tagline }}</small>
+        <aside class="hud-panel hud-panel--left">
+          <div class="avatar-card">
+            <div class="avatar-portrait">
+              <div class="face-outline">
+                <div class="eye left" />
+                <div class="eye right" />
+                <div class="brow brow-left" />
+                <div class="brow brow-right" />
+                <div class="mouth" />
+              </div>
+              <div class="halo" />
+            </div>
+            <div class="avatar-meta">
+              <p class="eyebrow">城市角色</p>
+              <h2>{{ avatar?.name || 'Echo' }}</h2>
+              <p class="subtitle">{{ avatar?.mbti_type || 'INTJ' }} · 第 {{ currentMonthDisplay }} 月</p>
+            </div>
+          </div>
+          <div class="stat-grid">
+          </div>
+              <p>{{ stat.label }}</p>
+            <h3>AI 城市低语</h3>
+            <p>{{ aiReflection }}</p>
+          </div>
+          <div class="time-chip">
+
+        <section class="mission-console floating-panel floating-panel--right">
+          <header>
+          <div class="ai-note">
+              <p class="eyebrow">MISSION LOG</p>
+              <h3>{{ currentSituation?.title || '选择一个城区唤醒事件' }}</h3>
+            </div>
+        </aside>
+        <aside class="hud-panel hud-panel--right">
+          <section class="mission-board">
+            <header>
+              <div>
+                <p class="eyebrow">MISSION LOG</p>
+                <h3>{{ currentSituation?.title || '选择城区唤醒事件' }}</h3>
+              </div>
+              <button class="btn soft" :disabled="gameStore.isAiInvesting" @click="handleAiInvest">
+                {{ gameStore.isAiInvesting ? 'AI 思考中…' : '求助 AI 投资' }}
+              </button>
+            </header>
+            <p class="story-text">{{ currentSituation?.description || '城市正等待你的指令。' }}</p>
+            
+            <!-- AI思考过程 -->
+            <div class="ai-thoughts" v-if="currentSituation?.ai_thoughts">
+              <div class="thoughts-header">
+                <span class="icon">🤔</span>
+                <strong>AI 的思考</strong>
+              </div>
+              <p>{{ currentSituation.ai_thoughts }}</p>
+            </div>
+
+            <!-- 决策影响展示 -->
+            <div class="decision-impact" v-if="lastDecisionImpact">
+              <div class="impact-grid">
+                <div class="impact-item" v-if="lastDecisionImpact.cash_change">
+                  <span class="icon">💰</span>
+                  <span :class="['value', lastDecisionImpact.cash_change > 0 ? 'positive' : 'negative']">
+                    {{ lastDecisionImpact.cash_change > 0 ? '+' : '' }}{{ formatNumber(lastDecisionImpact.cash_change) }}
+                  </span>
+                </div>
+                <div class="impact-item" v-if="lastDecisionImpact.happiness_change">
+                  <span class="icon">😊</span>
+                  <span :class="['value', lastDecisionImpact.happiness_change > 0 ? 'positive' : 'negative']">
+                    {{ lastDecisionImpact.happiness_change > 0 ? '+' : '' }}{{ lastDecisionImpact.happiness_change }}
+                  </span>
+                </div>
+                <div class="impact-item" v-if="lastDecisionImpact.health_change">
+                  <span class="icon">❤️</span>
+                  <span :class="['value', lastDecisionImpact.health_change > 0 ? 'positive' : 'negative']">
+                    {{ lastDecisionImpact.health_change > 0 ? '+' : '' }}{{ lastDecisionImpact.health_change }}
+                  </span>
+                </div>
+                <div class="impact-item" v-if="lastDecisionImpact.trust_change">
+                  <span class="icon">🤝</span>
+                  <span :class="['value', lastDecisionImpact.trust_change > 0 ? 'positive' : 'negative']">
+                    {{ lastDecisionImpact.trust_change > 0 ? '+' : '' }}{{ lastDecisionImpact.trust_change }}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 选项选择 -->
+            <div class="options" v-if="situationOptions?.length">
+              <article 
+                v-for="(option, idx) in situationOptions" 
+                :key="idx"
+                @click="handleSelectOption(idx)"
+                :class="['option-card', { 'selected': selectedOption === idx }]">
+                <span class="chip">选项 {{ idx + 1 }}</span>
+                <p>{{ option }}</p>
+              </article>
+            </div>
+
+            <!-- 意识回响输入区 -->
+            <div class="echo-zone">
+              <div class="echo-types">
+                <button 
+                  v-for="type in echoTypes" 
+                  :key="type.value"
+                  @click="echoType = type.value"
+                  :class="['btn', 'soft', { 'active': echoType === type.value }]">
+                  {{ type.icon }} {{ type.label }}
+                </button>
+              </div>
+              <div class="echo-input-group">
+                <textarea 
+                  v-model="echoText" 
+                  placeholder="输入你的建议影响AI决策..."
+                  rows="3"
+                  class="echo-textarea"></textarea>
+                <button 
+                  class="btn primary" 
+                  @click="handleSendEcho"
+                  :disabled="!echoText.trim() || isSendingEcho">
+                  {{ isSendingEcho ? '发送中...' : '发送建议' }}
+                </button>
+              </div>
+            </div>
+          </section>
+          <section class="district-stack">
+            <header>
+              <p class="eyebrow">城市概览</p>
+              <h3>区块脉冲</h3>
+            </header>
+            <div class="district-cards">
+              <article v-for="district in districts" :key="district.id" :class="['district-card', { 'is-active': activeZone === district.id }]">
+                <div class="card-top">
+                  <span>{{ district.name }}</span>
+                  <small>Lv.{{ district.unlock_level || 1 }}</small>
+                </div>
+                <div class="bars" v-for="field in ['influence','heat','prosperity']" :key="field">
+                  <label>{{ labelMap[field] }}</label>
+                  <progress :value="district[field] || 0" max="1" />
+                </div>
+              </article>
+              </div>
+          </section>
+        </aside>
+        <div class="event-stack">
+          <article v-for="evt in cityEvents.slice(0,4)" :key="evt.id" class="event-item" :class="evt.type">
+            <span class="tag">{{ labelOf(evt.districtId) }}</span>
+            <div>
+              <strong>{{ evt.title }}</strong>
+              <p>{{ evt.description }}</p>
+            </div>
+          </article>
+        </div>
+        <form class="chat-tape" @submit.prevent="sendChat">
+          <input v-model="chatText" type="text" placeholder="输入内容，与 AI 城市对话..." />
+          <button class="btn primary" :disabled="gameStore.isChatting">
+            {{ gameStore.isChatting ? '发送中…' : '发送' }}
+          </button>
+        </form>
+      </section>
+          <strong>第 {{ currentYearDisplay }} 年 · 第 {{ currentMonthDisplay }} 月</strong>
+        </div>
+        <button class="btn" @click="$router.push('/world')">前往城市大地图</button>
+      </div>
+    </template>
+
+    <template #chat>
+      <form class="chat-dock floating" @submit.prevent="sendChat">
+        <input v-model="chatText" type="text" placeholder="输入内容，与 AI 城市对话..." />
+        <button class="btn primary" :disabled="gameStore.isChatting">{{ gameStore.isChatting ? '发送中…' : '发送' }}</button>
+      </form>
+    </template>
+  </GameLayout>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, watch } from 'vue'
+import GameLayout from '../components/GameLayout.vue'
+import CityCanvasEnhanced from '../components/home/CityCanvasEnhanced.vue'
+import InvestmentDashboard from '../components/InvestmentDashboard.vue'
+import { useGameStore } from '../stores/game'
+import { useThemeStore } from '../stores/theme'
+
+const gameStore = useGameStore()
+const themeStore = useThemeStore()
+const parallax = ref({ x: 0, y: 0 })
+const chatText = ref('')
+const chatScroll = ref(null)
+
+// 意识回响相关
+const echoText = ref('')
+const echoType = ref('advisory')
+const selectedOption = ref(null)
+const isSendingEcho = ref(false)
+const lastDecisionImpact = ref(null)
+
+const echoTypes = [
+  { value: 'inspirational', label: '启发', icon: '💡' },
+  { value: 'advisory', label: '建议', icon: '📋' },
+  { value: 'directive', label: '指令', icon: '⚡' },
+  { value: 'emotional', label: '情感', icon: '❤️' }
+]
+
+const avatar = computed(() => gameStore.avatar)
+const assets = computed(() => ({
+  total: gameStore.assets?.total ?? 0,
+  cash: gameStore.assets?.cash ?? 0,
+  investments: Array.isArray(gameStore.assets?.investments) ? gameStore.assets.investments : []
+}))
+const districts = computed(() => gameStore.districts)
+const cityEvents = computed(() => gameStore.cityEvents || [])
+const chatMessages = computed(() => gameStore.chatMessages)
+const lifeStage = computed(() => gameStore.lifeStage)
+const aiReflection = computed(() => gameStore.aiReflection)
+const currentSituation = computed(() => gameStore.currentSituation)
+const situationOptions = computed(() => gameStore.situationOptions)
+const activeZone = computed(() => gameStore.selectedDistrictId)
+
+const monthlyIncome = computed(() => assets.value.investments.reduce((sum, inv) => sum + (inv.monthly_return || 0), 0))
+const currentMonthDisplay = computed(() => avatar.value?.current_month ?? 0)
+const currentYearDisplay = computed(() => (
+  avatar.value?.current_month != null ? Math.floor(avatar.value.current_month / 12) + 1 : 1
+))
+
+const coreStats = computed(() => [
+  { label: '总资产', value: `¥${formatNumber(assets.value.total)}`, accent: 'up' },
+  { label: '现金', value: `¥${formatNumber(assets.value.cash)}`, accent: 'neutral' },
+  { label: '投资', value: `¥${formatNumber(avatar.value?.invested_assets || 0)}`, accent: 'neutral' },
+  { label: '被动收入/月', value: `+¥${formatNumber(monthlyIncome.value)}`, accent: 'up' }
+])
+
+const labelMap = { influence: '影响力', heat: '热度', prosperity: '繁荣' }
+
+const parallaxStyles = computed(() => {
+  const { x, y } = parallax.value
+  const make = (mult) => ({ transform: `translate3d(${x * mult}px, ${y * mult}px, 0)` })
+  return {
+    sky: make(10),
+    grid: make(15),
+    far: make(20),
+    mid: make(30),
+    front: make(40)
+  }
+const pinStyle = (district) => {
+
+const formatNumber = (num) => Number(num || 0).toLocaleString('zh-CN')
+const labelOf = (id) => ({
+  finance: '金融高塔',
+  tech: '未来科创区',
+  housing: '新星住区',
+  learning: '知识穹顶',
+  leisure: '文娱街区',
+  green: '绿色能源港'
+}[id] || '未知区')
+const markerStyle = (district) => {
+  const x = district.coords?.x ?? 50
+  const y = district.coords?.y ?? 50
+  return { transform: `translate(-50%, -50%) translate(${x}%, ${y}%)` }
+}
+
+const handleAdvance = async () => {
+  try {
+    // 如果有输入的回响文本,传递给推进月份
+    const echo = echoText.value.trim() || null
+    await gameStore.advanceMonth(echo)
+    
+    // 清空输入
+    echoText.value = ''
+    selectedOption.value = null
+    
+    // 保存决策影响用于展示
+    if (gameStore.currentSituation?.decision_impact) {
+      lastDecisionImpact.value = gameStore.currentSituation.decision_impact
+      // 3秒后清除影响展示
+      setTimeout(() => {
+        lastDecisionImpact.value = null
+      }, 5000)
+    }
+  } catch (error) {
+    alert(error.message)
+  }
+}
+
+const handleSelectOption = (index) => {
+  selectedOption.value = index
+}
+
+const handleSendEcho = async () => {
+  if (!echoText.value.trim()) return
+  
+  isSendingEcho.value = true
+  try {
+    await gameStore.sendEcho(echoText.value, echoType.value)
+    // 发送成功后可以选择清空或保留
+    // echoText.value = ''
+  } catch (error) {
+    alert('发送建议失败: ' + error.message)
+  } finally {
+    isSendingEcho.value = false
+  }
+}
+
+const handleZoneSelect = (district) => {
+  gameStore.exploreDistrict(district.id)
+}
+
+const handleAiInvest = async () => {
+  try {
+    await gameStore.requestAiInvestment()
+  } catch (error) {
+    alert(error.message)
+  }
+}
+
+const sendChat = async () => {
+  const text = chatText.value
+  chatText.value = ''
+  await gameStore.talkToAI(text)
+}
+
+const onParallax = (event) => {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const offsetX = (event.clientX - centerX) / rect.width
+  const offsetY = (event.clientY - centerY) / rect.height
+  parallax.value = { x: offsetX, y: offsetY }
+}
+
+const resetParallax = () => {
+  parallax.value = { x: 0, y: 0 }
+}
+
+watch(chatMessages, () => {
+  requestAnimationFrame(() => {
+    if (chatScroll.value) {
+      chatScroll.value.scrollTop = chatScroll.value.scrollHeight
+    }
+  })
+}, { deep: true })
+
+.city-stage {
+  themeStore.applyTheme()
+  width: 100%;
+  height: 100vh;
+</script>
+  background: radial-gradient(circle at 10% 0%, rgba(56,189,248,0.25), transparent 55%),
+              radial-gradient(circle at 80% 20%, rgba(99,102,241,0.18), transparent 60%),
+              linear-gradient(190deg, #030712 0%, #020617 60%, #050b17 100%);
+  display: flex;
+.city-sky, .city-grid, .city-layer {
+}
+.hero-map {
+  position: relative;
+.city-stage::after {
+  content: '';
+  background: linear-gradient(180deg, rgba(4,7,16,0.95), rgba(4,7,16,0.85));
+  border-radius: 32px;
+  background: radial-gradient(circle at 50% 90%, rgba(50,190,255,0.25), transparent 60%);
+  pointer-events: none;
+.map-halo {
+.city-grid {
+  background-image: linear-gradient(rgba(59,130,246,0.08) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(59,130,246,0.08) 1px, transparent 1px);
+  background-size: 140px 140px;
+  opacity: 0.4;
+}
+.city-layer--far { background-image: url('data:image/svg+xml;utf8,<svg .../>'); }
+/* ...similar for mid/front... */
+.hud-panel {
+.map-layer {
+  width: 320px;
+  padding: 20px;
+  border-radius: 22px;
+  background: rgba(4,7,16,0.85);
+  border: 1px solid rgba(59,130,246,0.35);
+  box-shadow: 0 20px 45px rgba(2,6,23,0.75);
+  backdrop-filter: blur(16px);
+}
+.hud-panel--left { top: 80px; left: 50px; }
+.hud-panel--right {
+  top: 80px;
+  right: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.avatar-card {
+  display: flex;
+  gap: 16px;
+  border: 1px solid rgba(148,163,184,0.25);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+.avatar-portrait {
+  width: 96px;
+  height: 96px;
+  position: relative;
+}
+.face-outline {
+  position: absolute;
+  inset: 0;
+  border-radius: 30% 30% 40% 40%;
+  background: linear-gradient(180deg, #feb48c, #f59e7b);
+  border: 2px solid rgba(255,255,255,0.35);
+}
+.face-outline .eye {
+  position: absolute;
+  top: 38px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #0f172a;
+  border: 1px solid rgba(148,163,184,0.3);
+.face-outline .eye.left { left: 28px; }
+.face-outline .eye.right { right: 28px; }
+.face-outline .brow {
+  position: absolute;
+  top: 26px;
+  width: 24px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.7);
+}
+.face-outline .mouth {
+.floating-panel--right-bottom {
+  bottom: 26px;
+  left: 50%;
+  width: 38px;
+  height: 12px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  display: flex;
+  justify-content: space-between;
+.avatar-card .halo {
+  position: absolute;
+  inset: -10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59,130,246,0.6), transparent 60%);
+  filter: blur(8px);
+  border-radius: 14px;
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.mission-board {
+  flex-direction: column;
+}
+.district-stack {
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+.district-card {
+.options article {
+  padding: 12px;
+  border: 1px solid rgba(148,163,184,0.2);
+  border: 1px solid rgba(59,130,246,0.3);
+  background: rgba(2,6,23,0.6);
+.district-card[class*='is-active'] { border-color: var(--primary-400); }
+.card-top { display: flex; justify-content: space-between; }
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.bars progress {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.8);
+}
+.event-stack {
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(59,130,246,0.15);
+}
+
+.city-radar {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.district-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.district-card {
+.chat-tape {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  width: min(960px, 90%);
+.card-head { display: flex; justify-content: space-between; }
+  gap: 12px;
+  padding: 12px 18px;
+  width: 100%;
+  background: rgba(4,7,16,0.85);
+  border: 1px solid rgba(59,130,246,0.35);
+  box-shadow: 0 20px 50px rgba(2,6,23,0.8);
+}
+.chat-tape input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+}
+.chat-tape input:focus {
+  outline: none;
+  display: flex;
+  flex-direction: column;
+  height: 260px;
+}
+
+/* 意识回响和决策影响样式 */
+.ai-thoughts {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(99,102,241,0.1);
+  border: 1px solid rgba(99,102,241,0.3);
+  backdrop-filter: blur(10px);
+}
+.thoughts-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: rgb(167,139,250);
+}
+.decision-impact {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  animation: slideInUp 0.5s ease;
+}
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.impact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+.impact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.impact-item .icon {
+  font-size: 20px;
+}
+.impact-item .value.positive {
+  color: #10b981;
+}
+.impact-item .value.negative {
+  color: #ef4444;
+}
+.option-card {
+  padding: 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+.option-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(59,130,246,0.2), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.option-card:hover::before {
+  opacity: 1;
+}
+.option-card:hover {
+  border-color: rgba(59,130,246,0.6);
+  background: rgba(59,130,246,0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(59,130,246,0.3);
+}
+.option-card.selected {
+  border-color: rgb(59,130,246);
+  background: rgba(59,130,246,0.25);
+  box-shadow: 0 0 20px rgba(59,130,246,0.5), inset 0 0 20px rgba(59,130,246,0.2);
+}
+.option-card .chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(59,130,246,0.2);
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.echo-zone {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(10,14,39,0.7);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(59,130,246,0.3);
+  box-shadow: 0 8px 25px rgba(2,6,23,0.6);
+}
+.echo-types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.echo-types .btn {
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(148,163,184,0.3);
+}
+.echo-types .btn.active {
+  background: rgba(59,130,246,0.3);
+  border-color: rgb(59,130,246);
+  box-shadow: 0 0 15px rgba(59,130,246,0.5);
+  transform: scale(1.05);
+}
+.echo-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.echo-textarea {
+  width: 100%;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(15,23,42,0.6);
+  border: 1px solid rgba(148,163,184,0.3);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  transition: all 0.3s ease;
+}
+.echo-textarea:focus {
+  outline: none;
+  border-color: rgb(59,130,246);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.3);
+  background: rgba(15,23,42,0.8);
+}
+.echo-textarea::placeholder {
+  color: rgba(148,163,184,0.5);
+}
+</style>

@@ -1,59 +1,46 @@
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
+html, body {
+  min-height: 100%;
+}
+
 body {
-  margin: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-gradient);
   min-height: 100vh;
-  font-family: 'Microsoft YaHei', sans-serif;
+  color: var(--text);
 }
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+/* holographic game overlays */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
 }
 
-.card {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 15px;
-  padding: 20px;
-  margin: 10px 0;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+body::before {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(59,130,246,0.15), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(14,165,233,0.18), transparent 50%);
+  filter: blur(30px);
 }
 
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.3s;
+body::after {
+  background:
+    repeating-linear-gradient(90deg, rgba(59,130,246,0.05) 0, rgba(59,130,246,0.05) 1px, transparent 1px, transparent 80px),
+    repeating-linear-gradient(0deg, rgba(15,118,236,0.05) 0, rgba(15,118,236,0.05) 1px, transparent 1px, transparent 80px);
+  opacity: 0.2;
 }
 
-.btn-primary {
-  background: #667eea;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5a6fd8;
-  transform: translateY(-2px);
-}
-
-.input {
+#app {
   width: 100%;
-  padding: 12px;
-  border: 2px solid #e1e5e9;
-  border-radius: 8px;
-  font-size: 14px;
-  margin: 5px 0;
-}
-
-.input:focus {
-  outline: none;
-  border-color: #667eea;
+  min-height: 100vh;
 }
