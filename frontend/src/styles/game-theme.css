@@ -1,602 +1,136 @@
 :root {
   --shell-grid-gap: 16px;
+  --bg-dark: #030712;
+  --bg-panel: rgba(15, 23, 42, 0.75);
+  --border-panel: rgba(59, 130, 246, 0.3);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --accent-primary: #3b82f6;
 }
 
 .game-bg {
   position: fixed;
   inset: 0;
-  background:
-    radial-gradient(circle at 20% -10%, rgba(94,234,212,0.22), transparent 45%),
-    radial-gradient(circle at 80% 0%, rgba(14,165,233,0.25), transparent 50%),
-    linear-gradient(135deg, #040c1a 0%, #0b1220 45%, #030712 100%);
+  background-color: var(--bg-dark);
+  background-image: 
+    linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
   pointer-events: none;
   z-index: -2;
 }
 
-.game-grid-overlay {
-  position: fixed;
-  inset: 0;
-  background:
-    repeating-linear-gradient(0deg, rgba(99,102,241,0.08) 0, rgba(99,102,241,0.08) 1px, transparent 1px, transparent 120px),
-    repeating-linear-gradient(90deg, rgba(14,165,233,0.05) 0, rgba(14,165,233,0.05) 1px, transparent 1px, transparent 120px);
-  mask-image: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.8) 25%, rgba(0,0,0,0.8) 75%, transparent 100%);
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* Holographic highlights */
-.glow-orb {
-  position: absolute;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(45,212,191,0.25), rgba(14,165,233,0));
-  filter: blur(12px);
-  pointer-events: none;
-}
-
-.glow-orb--left {
-  top: 40%;
-  left: -60px;
-}
-
-.glow-orb--right {
-  bottom: 18%;
-  right: -70px;
-}
-
-/* Panel chrome */
-.panel-title {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  color: rgba(148,163,184,0.85);
-}
-
-.panel-frame {
-  border: 1px solid rgba(148,163,184,0.35);
-  border-radius: 18px;
-  padding: 20px;
-  background: linear-gradient(180deg, color-mix(in srgb, rgba(15,23,42,0.95), transparent 20%), rgba(15,23,42,0.85));
-  box-shadow: 0 20px 40px rgba(2,6,23,0.65);
-  position: relative;
-  overflow: hidden;
-}
-
-.panel-frame::before {
+.game-bg::after {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(120deg, rgba(59,130,246,0.45), rgba(16,185,129,0.55));
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  background: radial-gradient(circle at 50% 50%, transparent 0%, var(--bg-dark) 90%);
   pointer-events: none;
-}
-
-/* Neon separators */
-.neon-divider {
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.9), transparent);
-  margin: 12px 0;
-  opacity: 0.5;
-}
-
-/* Gradient text */
-.text-gradient {
-  background: linear-gradient(90deg, #60a5fa, #22d3ee);
-  -webkit-background-clip: text;
-  color: transparent;
-}
-
-/* Game HUD utilities */
-.hud-chip {
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: rgba(15,23,42,0.7);
-  border: 1px solid rgba(148,163,184,0.35);
-  box-shadow: inset 0 0 24px rgba(15,118,236,0.12);
-}
-
-.hud-chip__label {
-  font-size: 11px;
-  color: rgba(148,163,184,0.9);
-  letter-spacing: 0.1em;
-}
-
-.hud-chip__value {
-  font-size: 18px;
-  font-weight: 700;
-  color: #e2e8f0;
-}
-
-/* Buttons with icon glow */
-.btn-holo {
-  position: relative;
-  padding-left: 40px;
-}
-
-.btn-holo::before {
-  content: '';
-  position: absolute;
-  left: 16px;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #60a5fa, #22d3ee);
-  box-shadow: 0 0 12px rgba(59,130,246,0.6);
 }
 
 /* 统一毛玻璃效果 */
 .glass-panel {
-  background: rgba(10,14,39,0.75);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(59,130,246,0.3);
+  background: var(--bg-panel);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-panel);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(2,6,23,0.8);
-  position: relative;
-  overflow: hidden;
-}
-
-.glass-panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
 }
 
 .glass-panel-enhanced {
-  background: rgba(10,14,39,0.85);
-  backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(59,130,246,0.4);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(59, 130, 246, 0.5);
   box-shadow: 
-    0 8px 32px rgba(2,6,23,0.9),
-    inset 0 1px 0 rgba(255,255,255,0.1);
+    0 8px 32px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
-/* 霓虹光晕效果 */
-.neon-glow {
-  box-shadow: 0 0 20px rgba(59,130,246,0.5);
-}
-
-.neon-glow-blue {
-  box-shadow: 0 0 20px rgba(59,130,246,0.6), 0 0 40px rgba(59,130,246,0.3);
-}
-
-.neon-glow-cyan {
-  box-shadow: 0 0 20px rgba(6,182,212,0.6), 0 0 40px rgba(6,182,212,0.3);
-}
-
-.neon-glow-green {
-  box-shadow: 0 0 20px rgba(16,185,129,0.6), 0 0 40px rgba(16,185,129,0.3);
-}
-
-.neon-glow-purple {
-  box-shadow: 0 0 20px rgba(139,92,246,0.6), 0 0 40px rgba(139,92,246,0.3);
-}
-
-.neon-border {
-  border: 1px solid rgba(59,130,246,0.6);
-  box-shadow: 0 0 15px rgba(59,130,246,0.4), inset 0 0 15px rgba(59,130,246,0.2);
-}
-
-/* Animations */
-@keyframes pulse-glow {
-  0% { box-shadow: 0 0 12px rgba(59,130,246,0.4); }
-  50% { box-shadow: 0 0 28px rgba(59,130,246,0.7); }
-  100% { box-shadow: 0 0 12px rgba(59,130,246,0.4); }
-}
-
-@keyframes float-up {
-  0% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-50px);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -1000px 0;
-  }
-  100% {
-    background-position: 1000px 0;
-  }
-}
-
-@keyframes glow-pulse {
-  0%, 100% {
-    opacity: 1;
-    filter: brightness(1);
-  }
-  50% {
-    opacity: 0.8;
-    filter: brightness(1.2);
-  }
-}
-
-.card--pulse {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-.shimmer-effect {
-  position: relative;
-  overflow: hidden;
-}
-
-.shimmer-effect::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255,255,255,0.1),
-    transparent
-  );
-  animation: shimmer 3s infinite;
-}
-
-/* 飘字动画 */
-.floating-text {
-  position: fixed;
-  pointer-events: none;
-  font-weight: 700;
-  font-size: 24px;
-  text-shadow: 0 0 10px currentColor;
-  animation: float-up 2s ease-out forwards;
-  z-index: 9999;
-}
-
-.floating-text.positive {
-  color: #10b981;
-}
-
-.floating-text.negative {
-  color: #ef4444;
-}
-
-.floating-text.neutral {
-  color: #3b82f6;
-}
-
-/* 数字滚动动画 */
-@keyframes count-up {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.count-up {
-  animation: count-up 0.5s ease-out;
-}
-
-/* 脉冲光晕 */
-@keyframes pulse-ring {
-  0% {
-    transform: scale(0.95);
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.95);
-    opacity: 0.7;
-  }
-}
-
-.pulse-ring {
-  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.city-skyline {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-}
-
-.city-skyline::before,
-.city-skyline::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* mid skyline */
-.city-skyline::before {
-  background:
-    linear-gradient(180deg, rgba(2,6,23,0) 0%, rgba(2,6,23,0.65) 60%, rgba(2,6,23,0.9) 100%),
-    url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1200 200\"><path d=\"M0 160 L40 160 L40 110 L80 110 L80 140 L120 140 L120 80 L180 80 L180 160 L240 160 L240 120 L300 120 L300 160 L380 160 L380 70 L420 70 L420 160 L500 160 L500 90 L560 90 L560 160 L640 160 L640 120 L700 120 L700 160 L780 160 L780 60 L820 60 L820 160 L900 160 L900 110 L940 110 L940 160 L1000 160 L1000 80 L1080 80 L1080 160 L1200 160 L1200 200 L0 200 Z\" fill=\"%2308142a\"/></svg>') bottom center / 1200px 200px repeat-x;
-}
-
-/* far skyline */
-.city-skyline::after {
-  background:
-    linear-gradient(180deg, rgba(2,6,23,0) 0%, rgba(2,6,23,0.5) 65%, rgba(2,6,23,0.85) 100%),
-    url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1200 200\"><path d=\"M0 150 L50 150 L50 120 L90 120 L90 150 L140 150 L140 90 L200 90 L200 150 L260 150 L260 110 L320 110 L320 150 L400 150 L400 85 L460 85 L460 150 L540 150 L540 110 L600 110 L600 150 L680 150 L680 80 L740 80 L740 150 L820 150 L820 115 L880 115 L880 150 L960 150 L960 95 L1020 95 L1020 150 L1100 150 L1100 120 L1160 120 L1160 150 L1200 150 L1200 200 L0 200 Z\" fill=\"%2306162b\"/></svg>') bottom center / 1200px 200px repeat-x;
-  transform: translateY(18px) scale(1.02);
-  opacity: 0.8;
-}
-
-/* 高级按钮样式 */
-.btn-cyberpunk {
-  position: relative;
-  padding: 12px 24px;
-  border: none;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: white;
-  font-weight: 600;
-  border-radius: 10px;
+/* 统一按钮样式 */
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.btn-cyberpunk::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255,255,255,0.3),
-    transparent
-  );
-  transition: left 0.5s ease;
-}
-
-.btn-cyberpunk:hover::before {
-  left: 100%;
-}
-
-.btn-cyberpunk:hover {
-  box-shadow: 0 0 20px rgba(59,130,246,0.6);
-  transform: translateY(-2px);
-}
-
-.btn-cyberpunk:active {
-  transform: translateY(0);
-}
-
-/* 全息卡片效果 */
-.holographic-card {
-  position: relative;
-  background: linear-gradient(
-    135deg,
-    rgba(59,130,246,0.1),
-    rgba(139,92,246,0.1)
-  );
-  border: 1px solid rgba(59,130,246,0.3);
-  border-radius: 16px;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.holographic-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    45deg,
-    transparent 30%,
-    rgba(255,255,255,0.1) 50%,
-    transparent 70%
-  );
-  background-size: 200% 200%;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.holographic-card:hover::before {
-  opacity: 1;
-  animation: shimmer 2s linear infinite;
-}
-
-.holographic-card:hover {
-  border-color: rgba(59,130,246,0.6);
-  box-shadow: 0 0 30px rgba(59,130,246,0.4);
-  transform: translateY(-4px);
-}
-
-/* 扫描线效果 */
-.scanline-effect {
-  position: relative;
-}
-
-.scanline-effect::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0,0,0,0.1) 0px,
-    transparent 1px,
-    transparent 2px,
-    rgba(0,0,0,0.1) 3px
-  );
-  pointer-events: none;
-  opacity: 0.3;
-}
-
-/* 数据流效果 */
-@keyframes data-flow {
-  0% {
-    transform: translateY(-100%);
-  }
-  100% {
-    transform: translateY(100%);
-  }
-}
-
-.data-flow {
-  position: absolute;
-  width: 2px;
-  height: 100px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(59,130,246,0.8),
-    transparent
-  );
-  animation: data-flow 3s linear infinite;
-}
-
-/* 进度条样式 */
-.progress-bar-cyber {
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(15,23,42,0.8);
-  overflow: hidden;
-  position: relative;
-}
-
-.progress-bar-cyber::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    90deg,
-    transparent,
-    rgba(255,255,255,0.05) 10px,
-    transparent 20px
-  );
-}
-
-.progress-fill-cyber {
-  height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-  border-radius: 4px;
-  position: relative;
-  transition: width 0.5s ease;
-  box-shadow: 0 0 10px rgba(59,130,246,0.6);
-}
-
-.progress-fill-cyber::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 20px;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255,255,255,0.3)
-  );
-  animation: shimmer 2s linear infinite;
-}
-
-/* 徽章样式 */
-.badge-cyber {
+  transition: all 0.2s;
+  border: 1px solid transparent;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  background: rgba(59,130,246,0.2);
-  border: 1px solid rgba(59,130,246,0.4);
-  color: #60a5fa;
-  box-shadow: 0 0 10px rgba(59,130,246,0.3);
+  justify-content: center;
+  gap: 8px;
 }
 
-.badge-cyber.success {
-  background: rgba(16,185,129,0.2);
-  border-color: rgba(16,185,129,0.4);
-  color: #10b981;
-  box-shadow: 0 0 10px rgba(16,185,129,0.3);
+.btn.primary {
+  background: #fff;
+  color: #000;
+  border: none;
 }
 
-.badge-cyber.warning {
-  background: rgba(251,191,36,0.2);
-  border-color: rgba(251,191,36,0.4);
-  color: #fbbf24;
-  box-shadow: 0 0 10px rgba(251,191,36,0.3);
+.btn.primary:hover {
+  background: #e2e8f0;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
 }
 
-.badge-cyber.danger {
-  background: rgba(239,68,68,0.2);
-  border-color: rgba(239,68,68,0.4);
-  color: #ef4444;
-  box-shadow: 0 0 10px rgba(239,68,68,0.3);
+.btn.primary:disabled {
+  background: #475569;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
-/* 输入框样式 */
-.input-cyber {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: rgba(15,23,42,0.8);
-  border: 1px solid rgba(59,130,246,0.3);
-  color: var(--text);
-  font-family: inherit;
-  font-size: 14px;
-  transition: all 0.3s ease;
+.btn.ghost {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
 }
 
-.input-cyber:focus {
-  outline: none;
-  border-color: rgb(59,130,246);
-  box-shadow: 0 0 0 3px rgba(59,130,246,0.2), 0 0 20px rgba(59,130,246,0.3);
-  background: rgba(15,23,42,0.95);
+.btn.ghost:hover {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.1);
 }
 
-.input-cyber::placeholder {
-  color: rgba(148,163,184,0.5);
+/* 统一页面标题 */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 0 4px;
 }
 
-/* 工具提示 */
-.tooltip-cyber {
-  position: absolute;
-  padding: 8px 12px;
-  background: rgba(10,14,39,0.95);
-  border: 1px solid rgba(59,130,246,0.5);
-  border-radius: 8px;
-  font-size: 12px;
-  color: var(--text);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.8);
-  z-index: 10000;
-  pointer-events: none;
-  white-space: nowrap;
+.page-header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.tooltip-cyber::before {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-top-color: rgba(59,130,246,0.5);
+/* 统一滚动条 */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.5) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.5);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.8);
 }
 

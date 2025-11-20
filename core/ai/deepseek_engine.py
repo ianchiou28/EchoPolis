@@ -400,6 +400,106 @@ class DeepSeekEngine:
         
         return random.choice(situations)
 
+    async def chat(self, message: str, session_id: str = None) -> Dict:
+        """通用聊天接口"""
+        if not self.api_key:
+            return {
+                "response": f"AI核心离线中... (收到: {message})",
+                "reflection": "系统自检中",
+                "monologue": "连接断开"
+            }
+        
+        try:
+            response = requests.post(
+                self.base_url,
+                headers=self.headers,
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [
+                        {"role": "system", "content": "你是一个未来城市'EchoPolis'的中央AI核心。你的名字是ECHO。你冷静、理性，但对人类情感充满好奇。请用简短、富有科技感的语言回答。"},
+                        {"role": "user", "content": message}
+                    ],
+                    "temperature": 0.7,
+                    "max_tokens": 150
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                return {
+                    "response": content,
+                    "reflection": "数据流分析完成",
+                    "monologue": "记录人类交互样本"
+                }
+            else:
+                return {"response": "通讯干扰...", "reflection": "连接不稳定", "monologue": "重试中"}
+                
+        except Exception as e:
+            print(f"[ERROR] Chat API failed: {e}")
+            return {"response": "系统错误", "reflection": "核心异常", "monologue": "需要维护"}
+
+    def generate_district_event(self, context: Dict) -> Dict:
+        """生成区域事件"""
+        if not self.api_key:
+            return None
+            
+        prompt = f"""你是一个未来城市的AI核心。请根据以下区域数据生成一个突发事件：
+区域：{context['name']} ({context['type']})
+当前状态：影响力 {context['influence']:.2f}, 热度 {context['heat']:.2f}, 繁荣度 {context['prosperity']:.2f}
+
+请生成：
+1. 事件描述（50字以内，富有赛博朋克风格）
+2. 3个干预选项（简短有力）
+
+格式要求：
+事件：[描述]
+选项1：[选项内容]
+选项2：[选项内容]
+选项3：[选项内容]"""
+
+        try:
+            response = requests.post(
+                self.base_url,
+                headers=self.headers,
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.8,
+                    "max_tokens": 200
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+                
+                # 解析返回
+                lines = content.strip().split('\n')
+                event_desc = "区域数据波动异常..."
+                options = []
+                
+                for line in lines:
+                    if line.startswith("事件："):
+                        event_desc = line.replace("事件：", "").strip()
+                    elif line.startswith("选项") and "：" in line:
+                        options.append(line.split("：", 1)[1].strip())
+                
+                # 补全选项
+                while len(options) < 3:
+                    options.append("静观其变")
+                    
+                return {
+                    "description": event_desc,
+                    "options": options[:3]
+                }
+            return None
+        except Exception as e:
+            print(f"[ERROR] District event generation failed: {e}")
+            return None
+
 def initialize_deepseek(api_key: str = None):
     """初始化DeepSeek引擎"""
     return DeepSeekEngine(api_key)

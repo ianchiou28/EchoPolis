@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import CharacterSelect from '../views/CharacterSelect.vue'
-import Home from '../views/Home.vue'
+import Home from '../views/HomeNew.vue'
 import Assets from '../views/Assets.vue'
 import World from '../views/World.vue'
 import Profile from '../views/Profile.vue'

@@ -1,8 +1,7 @@
 <template>
   <div class="game-shell" :class="{ 'game-shell--free': layout === 'free' }">
-    <div class="glow-orb glow-orb--left" />
-    <div class="glow-orb glow-orb--right" />
-    <header class="game-shell__top panel-frame">
+    <div class="game-bg"></div>
+    <header class="game-shell__top glass-panel">
       <div class="game-shell__brand">
         <div class="logo-orb" />
         <div class="brand-text">
@@ -16,13 +15,13 @@
     </header>
 
     <main v-if="layout !== 'free'" :class="['game-shell__body', `game-shell__body--${layout}`]">
-      <section class="game-shell__left panel-frame panel-frame--primary">
+      <section class="game-shell__left">
         <slot name="left" />
       </section>
-      <section class="game-shell__center panel-frame">
+      <section class="game-shell__center">
         <slot name="center" />
       </section>
-      <section class="game-shell__right panel-frame">
+      <section class="game-shell__right">
         <slot name="right" />
       </section>
     </main>
@@ -30,7 +29,7 @@
       <slot name="canvas" />
     </main>
     
-    <section v-if="layout !== 'free'" class="game-shell__chat panel-frame">
+    <section v-if="layout !== 'free'" class="game-shell__chat glass-panel">
       <slot name="chat" />
     </section>
   </div>
@@ -50,11 +49,6 @@ const props = defineProps({
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(59,130,246,0.18), transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(16,185,129,0.14), transparent 55%),
-    radial-gradient(circle at 0% 100%, rgba(236,72,153,0.12), transparent 55%),
-    var(--bg-gradient);
 }
 
 .game-shell__top {
@@ -62,8 +56,6 @@ const props = defineProps({
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  background: rgba(15,23,42,0.85);
-  border-bottom: 1px solid rgba(148,163,184,0.2);
   z-index: 1000;
   position: relative;
 }
@@ -148,10 +140,7 @@ const props = defineProps({
 }
 
 .game-shell__center {
-  border: 1px solid rgba(59,130,246,0.3);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(59,130,246,0.2), transparent 60%),
-    linear-gradient(180deg, rgba(15,23,42,0.95), rgba(15,23,42,0.85));
+  /* background handled by glass-panel */
 }
 
 .game-shell__bottom {

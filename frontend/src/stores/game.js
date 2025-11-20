@@ -72,13 +72,19 @@ export const useGameStore = defineStore('game', {
     maxEquity: 0, // for drawdown
     decisionLog: [],
     districts: Object.values(DISTRICT_META),
-    selectedDistrictId: 'finance',
+    selectedDistrictId: null,
     cityEvents: [],
     chatMessages: [],
     isChatting: false,
     isLoadingDistrict: false,
     isAdvancingMonth: false,
-    isAiInvesting: false
+    isAiInvesting: false,
+    macroIndicators: {
+      inflation: 2.4,
+      interest: 4.5,
+      market_idx: 12450,
+      market_trend: 'up'
+    }
   }),
 
   getters: {
@@ -308,26 +314,35 @@ export const useGameStore = defineStore('game', {
 
       this.isLoadingDistrict = true
       try {
-        const res = await axios.post('/api/generate-situation', {
+        // 使用专门的区域事件接口
+        const res = await axios.post(`/api/city/district/${districtId}`, {
           session_id: character.id,
-          context: districtId
+          context: 'exploration'
         })
+        
+        const districtName = this.districts.find(d => d.id === districtId)?.name || '未知城区'
         const payload = {
-          title: `${this.districts.find(d => d.id === districtId)?.name || '未知城区'} · 事件`,
-          description: res.data.situation,
+          title: `${districtName} · 事件`,
+          description: res.data.description || res.data.situation,
           options: res.data.options || []
         }
+        
         this.currentSituation = payload
         this.situationOptions = payload.options
         this.appendCityEvent({
           districtId,
           title: payload.title,
           description: payload.description,
-          type: res.data.ai_generated ? 'ai' : 'story'
+          type: 'story' // 区域事件通常是故事性的
         })
         await this.loadCityState()
       } catch (error) {
         console.error('[Game Store] exploreDistrict 失败:', error)
+        this.currentSituation = {
+          title: '连接中断',
+          description: '无法接入该区域的数据流。',
+          options: ['重试']
+        }
       } finally {
         this.isLoadingDistrict = false
       }
@@ -440,6 +455,7 @@ export const useGameStore = defineStore('game', {
       
       await this.loadAvatar()
       await this.loadCityState()
+      await this.loadMacroIndicators()
       if (!this.currentSituation) {
         await this.generateSituation()
       }
@@ -517,6 +533,37 @@ export const useGameStore = defineStore('game', {
       } catch (error) {
         console.error('[Game Store] 获取时间轴失败:', error)
         return []
+      }
+    },
+
+    async loadMacroIndicators() {
+      try {
+        const res = await axios.get('/api/macro/indicators')
+        if (res.data) {
+          this.macroIndicators = res.data
+        }
+      } catch (error) {
+        console.error('[Game Store] 加载宏观指标失败:', error)
+      }
+    },
+
+    async fetchCharacters(username) {
+      try {
+        const res = await axios.get(`/api/characters/${username}`)
+        return res.data
+      } catch (error) {
+        console.error('[Game Store] 获取角色列表失败:', error)
+        throw error
+      }
+    },
+
+    async createCharacter(payload) {
+      try {
+        const res = await axios.post('/api/characters/create', payload)
+        return res.data
+      } catch (error) {
+        console.error('[Game Store] 创建角色失败:', error)
+        throw error
       }
     }
   }

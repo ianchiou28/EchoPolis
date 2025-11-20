@@ -3,12 +3,8 @@
     <!-- 飘字组件 -->
     <FloatingText ref="floatingTextRef" />
     
-    <!-- Canvas城市背景 -->
-    <CityCanvasEnhanced 
-      :districts="districts" 
-      :selected-district-id="activeZone"
-      @district-click="handleDistrictClick" 
-    />
+    <!-- 俯视城市地图背景 -->
+    <CityTopDown />
 
     <!-- 左侧角色面板 -->
     <aside class="left-panel glass-panel">
@@ -223,123 +219,22 @@
       <button class="btn primary" @click="$router.push('/assets')">
         📊 资产分析
       </button>
-      <button class="btn ghost" @click="showCharacterSelect = true">
+      <button class="btn ghost" @click="$router.push('/character-select')">
         🎭 切换角色
       </button>
       <button class="btn ghost" @click="themeStore.toggleTheme()">
         {{ themeStore.isDark ? '☀️' : '🌙' }} 切换主题
       </button>
-      <button class="btn ghost" @click="showSettings = true">
-        ⚙️ 设置
+      <button class="btn ghost" @click="$router.push('/profile')">
+        🖥️ 系统终端
       </button>
     </div>
-
-    <!-- 角色选择弹窗 -->
-    <Teleport to="body">
-      <transition name="modal">
-        <div v-if="showCharacterSelect" class="modal-overlay" @click="showCharacterSelect = false">
-          <div class="character-modal glass-panel-enhanced" @click.stop>
-            <div class="modal-header">
-              <h2>🎭 切换角色</h2>
-              <button class="btn-close" @click="showCharacterSelect = false">✕</button>
-            </div>
-            <div class="modal-body">
-              <p class="modal-hint">选择其他角色继续冒险</p>
-              <div class="characters-grid">
-                <div 
-                  v-for="char in availableCharacters" 
-                  :key="char.id"
-                  @click="switchCharacter(char)"
-                  :class="['character-card', { active: char.id === currentCharacterId }]">
-                  <div class="character-avatar">
-                    <div class="avatar-icon">{{ (char.mbti || char.mbti_type || 'IN').substring(0, 2) }}</div>
-                  </div>
-                  <div class="character-info">
-                    <h4>{{ char.name }}</h4>
-                    <p class="mbti">{{ char.mbti || char.mbti_type || 'INTJ' }}</p>
-                    <p class="assets">总资产: ¥{{ formatNumber(char.assets || 0) }}</p>
-                  </div>
-                  <div v-if="char.id === currentCharacterId" class="active-badge">当前</div>
-                </div>
-              </div>
-              <button class="btn primary full" @click="$router.push('/character-select')">
-                ➕ 创建新角色
-              </button>
-            </div>
-          </div>
-        </div>
-      </transition>
-    </Teleport>
-
-    <!-- 设置弹窗 -->
-    <Teleport to="body">
-      <transition name="modal">
-        <div v-if="showSettings" class="modal-overlay" @click="showSettings = false">
-          <div class="settings-modal glass-panel-enhanced" @click.stop>
-            <div class="modal-header">
-              <h2>⚙️ 游戏设置</h2>
-              <button class="btn-close" @click="showSettings = false">✕</button>
-            </div>
-            <div class="modal-body">
-              <div class="settings-section">
-                <h3>🎨 主题设置</h3>
-                <div class="setting-item">
-                  <span>深色模式</span>
-                  <button 
-                    @click="themeStore.toggleTheme()"
-                    :class="['toggle-btn', { active: themeStore.isDark }]">
-                    <span class="toggle-slider"></span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <h3>🔊 音效设置</h3>
-                <div class="setting-item">
-                  <span>背景音乐</span>
-                  <button 
-                    @click="toggleMusic"
-                    :class="['toggle-btn', { active: musicEnabled }]">
-                    <span class="toggle-slider"></span>
-                  </button>
-                </div>
-                <div class="setting-item">
-                  <span>音效</span>
-                  <button 
-                    @click="toggleSound"
-                    :class="['toggle-btn', { active: soundEnabled }]">
-                    <span class="toggle-slider"></span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="settings-section">
-                <h3>👤 账号管理</h3>
-                <div class="setting-item">
-                  <span>用户名</span>
-                  <span class="setting-value">{{ username }}</span>
-                </div>
-                <button class="btn ghost full" @click="handleLogout">
-                  🚪 退出登录
-                </button>
-              </div>
-
-              <div class="settings-section">
-                <h3>ℹ️ 关于</h3>
-                <p class="about-text">EchoPolis v1.0.0</p>
-                <p class="about-text">一款AI驱动的金融模拟游戏</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </transition>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import CityCanvasEnhanced from '../components/home/CityCanvasEnhanced.vue'
+import CityTopDown from '../components/home/CityTopDown.vue'
 import InvestmentDashboard from '../components/InvestmentDashboard.vue'
 import FloatingText from '../components/FloatingText.vue'
 import { useGameStore } from '../stores/game'
@@ -355,21 +250,6 @@ const echoType = ref('advisory')
 const selectedOption = ref(null)
 const lastDecisionImpact = ref(null)
 const isPanelCollapsed = ref(false)
-const showCharacterSelect = ref(false)
-const showSettings = ref(false)
-const availableCharacters = ref([])
-const musicEnabled = ref(false)
-const soundEnabled = ref(true)
-
-const username = computed(() => localStorage.getItem('username') || '玩家')
-const currentCharacterId = computed(() => {
-  try {
-    const char = JSON.parse(localStorage.getItem('currentCharacter') || '{}')
-    return char.id
-  } catch {
-    return null
-  }
-})
 
 const echoTypes = [
   { value: 'inspirational', label: '启发', icon: '💡' },
@@ -517,87 +397,12 @@ const sendChat = async () => {
   await gameStore.talkToAI(text)
 }
 
-const switchCharacter = async (character) => {
-  try {
-    console.log('切换角色:', character)
-    // 保存当前角色信息
-    const characterData = {
-      id: character.id,
-      name: character.name,
-      mbti: character.mbti,
-      assets: character.assets
-    }
-    localStorage.setItem('currentCharacter', JSON.stringify(characterData))
-    localStorage.setItem('session_id', character.id)
-    
-    showCharacterSelect.value = false
-    
-    // 重新加载数据
-    await gameStore.loadAvatar()
-    
-    // 刷新页面以确保所有数据更新
-    location.reload()
-  } catch (error) {
-    console.error('切换角色失败:', error)
-    alert('切换角色失败: ' + error.message)
-  }
-}
-
-const loadAvailableCharacters = async () => {
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
-    
-    const response = await fetch(`/api/characters/${username}`)
-    if (!response.ok) {
-      console.error('加载角色列表失败:', response.status)
-      return
-    }
-    const data = await response.json()
-    availableCharacters.value = data || []
-    console.log('加载角色列表成功:', data)
-  } catch (error) {
-    console.error('加载角色列表失败:', error)
-  }
-}
-
-const toggleMusic = () => {
-  musicEnabled.value = !musicEnabled.value
-  localStorage.setItem('musicEnabled', musicEnabled.value)
-}
-
-const toggleSound = () => {
-  soundEnabled.value = !soundEnabled.value
-  localStorage.setItem('soundEnabled', soundEnabled.value)
-}
-
-const handleLogout = () => {
-  if (confirm('确定要退出登录吗？')) {
-    // 清理所有登录相关信息
-    localStorage.removeItem('username')
-    localStorage.removeItem('currentCharacter')
-    localStorage.removeItem('session_id')
-    localStorage.removeItem('musicEnabled')
-    localStorage.removeItem('soundEnabled')
-    
-    // 跳转到登录页
-    location.href = '/login'
-  }
-}
-
 onMounted(async () => {
   console.log('[Home] 组件挂载')
   themeStore.applyTheme()
   
-  // 加载音效设置
-  musicEnabled.value = localStorage.getItem('musicEnabled') === 'true'
-  soundEnabled.value = localStorage.getItem('soundEnabled') !== 'false'
-  
   // 加载游戏数据
   await gameStore.bootstrapHome()
-  
-  // 加载角色列表
-  await loadAvailableCharacters()
   
   console.log('[Home] 加载完成')
 })
@@ -609,15 +414,7 @@ onMounted(async () => {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #030712;
-}
-
-.glass-panel {
-  background: rgba(10,14,39,0.75);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(59,130,246,0.3);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(2,6,23,0.8);
+  background: var(--bg-dark);
 }
 
 /* 左侧面板 */
@@ -1405,51 +1202,14 @@ onMounted(async () => {
   z-index: 20;
 }
 
-.btn {
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-}
-
-.btn.primary {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  color: white;
-  border: none;
-}
-
-.btn.primary:hover:not(:disabled) {
-  box-shadow: 0 0 20px rgba(59,130,246,0.6);
-  transform: translateY(-2px);
-}
-
-.btn.ghost {
-  background: rgba(15,23,42,0.8);
-  border: 1px solid rgba(59,130,246,0.5);
-  color: var(--text);
-}
-
-.btn.ghost:hover:not(:disabled) {
-  background: rgba(59,130,246,0.2);
-  border-color: rgb(59,130,246);
-}
-
 .btn.full {
   width: 100%;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .btn.soft {
   background: rgba(148,163,184,0.1);
   border: 1px solid rgba(148,163,184,0.3);
-  color: var(--text);
+  color: var(--text-primary);
 }
 
 /* 弹窗样式 - 统一风格 */
@@ -1908,7 +1668,6 @@ onMounted(async () => {
 }
 
 /* 弹窗动画 */
-.modal-enter-active,
 @keyframes modal-pop {
   0% {
     opacity: 0;

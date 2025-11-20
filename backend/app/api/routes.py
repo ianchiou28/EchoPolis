@@ -781,3 +781,10 @@ async def city_district_event(district_id: str, payload: dict):
         return game_service.generate_district_event(session_id, district_id, payload.get('context'))
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/macro/indicators")
+async def get_macro_indicators():
+    try:
+        return game_service.get_macro_indicators()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

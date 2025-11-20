@@ -1,5 +1,5 @@
 <template>
-  <div class="city-map card glass">
+  <div class="city-map glass-panel">
     <div class="map-header">
       <div class="map-title">Echo City Grid</div>
       <div class="map-sub">选择一个城区，触发对应的金融事件</div>
@@ -42,8 +42,6 @@ const districts = [
   display: flex;
   flex-direction: column;
   gap: 18px;
-  background: rgba(6,12,24,0.78);
-  border: 1px solid rgba(96,165,250,0.15);
 }
 
 .map-header {

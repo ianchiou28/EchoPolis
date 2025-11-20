@@ -195,7 +195,6 @@ class GameService:
             self.game_sessions[session_id] = {
                 "avatar_data": user_info
             }
-        
         session = self.game_sessions[session_id]
         print(f"[DEBUG] Session has avatar: {'avatar' in session}")
         
@@ -603,8 +602,21 @@ class GameService:
                     avatar = self.game_sessions[session_id]["avatar"]
                 else:
                     from core.systems.mbti_traits import MBTIType
-                    avatar = AIAvatar(name, MBTIType(mbti), session_id)
+                    # 尝试转换 MBTI 字符串为枚举
+                    try:
+                        mbti_enum = MBTIType(mbti)
+                    except:
+                        mbti_enum = MBTIType.INTJ
+                        
+                    avatar = AIAvatar(name, mbti_enum, session_id)
                     self.game_sessions[session_id] = {"avatar": avatar}
+                
+                # 同步最新状态给 Avatar 实例，确保 AI 知道当前财务状况
+                avatar.attributes.credits = new_cash
+                avatar.attributes.current_month = new_month
+                avatar.attributes.invested_assets = invested
+                # 如果有更多状态(健康等)也应该在这里同步，目前数据库只存了基础的
+                
                 ctx = avatar.generate_situation(self.ai_engine)
                 if ctx:
                     situation_payload = {
@@ -687,43 +699,86 @@ class GameService:
             raise Exception("数据库未初始化")
         self.db.ensure_district_states(session_id)
         state = self.db.get_or_create_district_state(session_id, district_id)
-        # 简化：根据区块属性生成描述
-        influence = state["influence"]
-        heat = state["heat"]
-        prosperity = state["prosperity"]
-        description = f"{district_id} 区块的影响力 {influence:.2f}、热度 {heat:.2f}、繁荣 {prosperity:.2f} 发生波动。"
-        options = [
-            "投入资源稳固该区块",
-            "观望市场情绪",
-            "转移资金到其他区域"
-        ]
+        
+        description = ""
+        options = []
+        
+        # 尝试使用AI生成事件
+        ai_success = False
+        if AI_AVAILABLE and self.ai_engine and self.ai_engine.api_key:
+            try:
+                ai_context = {
+                    "name": state["name"],
+                    "type": state["type"],
+                    "influence": state["influence"],
+                    "heat": state["heat"],
+                    "prosperity": state["prosperity"]
+                }
+                ai_result = self.ai_engine.generate_district_event(ai_context)
+                if ai_result:
+                    description = ai_result["description"]
+                    options = ai_result["options"]
+                    ai_success = True
+            except Exception as e:
+                print(f"[WARN] AI district event generation failed: {e}")
+        
+        # Fallback logic
+        if not ai_success:
+            influence = state["influence"]
+            heat = state["heat"]
+            prosperity = state["prosperity"]
+            description = f"{state['name']} 检测到数据异常波动。影响力 {influence:.2f}、热度 {heat:.2f}、繁荣 {prosperity:.2f}。"
+            options = [
+                "投入资源稳固该区块",
+                "观望市场情绪",
+                "转移资金到其他区域"
+            ]
+            
         payload = {
             "district_id": district_id,
             "description": description,
             "options": options,
         }
-        self.db.save_city_event(session_id, district_id, f"{district_id} 事件", description)
+        
+        self.db.save_city_event(session_id, district_id, f"{state['name']} 事件", description)
+        
+        # 更新状态 (模拟波动)
+        import random
         self.db.update_district_state(
             session_id,
             district_id,
-            influence=min(1.0, influence + 0.02),
-            heat=min(1.0, heat + 0.01),
-            prosperity=min(1.0, prosperity + 0.015),
+            influence=min(1.0, max(0.0, state["influence"] + random.uniform(-0.05, 0.05))),
+            heat=min(1.0, max(0.0, state["heat"] + random.uniform(-0.05, 0.05))),
+            prosperity=min(1.0, max(0.0, state["prosperity"] + random.uniform(-0.05, 0.05))),
             events_completed=(state["events_completed"] or 0) + 1,
             last_event=description,
         )
         return payload
 
     async def ai_chat(self, message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
-        payload = {
-            "response": f"我听到了你的想法：{message}",
-            "reflection": "当前市场仍有波动，但理性策略依旧有效。",
-            "monologue": "我需要把城市的每一次呼吸记录下来。"
-        }
-        # TODO: plug real DeepSeek integration (mock for now)
         if self.ai_engine and self.ai_engine.api_key:
             try:
-                payload = await self.ai_engine.chat(message, session_id=session_id)
+                return await self.ai_engine.chat(message, session_id=session_id)
             except Exception as e:
-                print(f"[AI Chat] fallback: {e}")
-        return payload
+                print(f"[AI Chat] error: {e}")
+        
+        # Fallback
+        return {
+            "response": f"系统离线中... (收到: {message})",
+            "reflection": "连接断开",
+            "monologue": "..."
+        }
+
+    def get_macro_indicators(self) -> Dict[str, Any]:
+        """获取宏观经济指标（模拟数据）"""
+        # 随机波动
+        inflation = round(random.uniform(1.5, 4.5), 1)
+        interest = round(random.uniform(3.0, 6.0), 1)
+        market_idx = int(random.uniform(11000, 14000))
+        
+        return {
+            "inflation": inflation,
+            "interest": interest,
+            "market_idx": market_idx,
+            "market_trend": random.choice(["up", "down", "stable"])
+        }
