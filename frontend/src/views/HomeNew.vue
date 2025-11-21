@@ -1,1366 +1,996 @@
 <template>
-  <div class="home-container">
-    <!-- 飘字组件 -->
-    <FloatingText ref="floatingTextRef" />
-
-    <!-- Canvas城市背景 -->
-    <CityTopDown 
-      :districts="districts" 
-      :selected-district-id="activeZone"
-      :echo-trigger="echoTrigger"
-      @district-click="handleDistrictClick" 
-    />
-
-    <!-- 左侧角色面板 -->
-    <aside class="left-panel glass-panel tech-border">
-      <div class="panel-decoration top-left"></div>
-      <div class="panel-decoration bottom-right"></div>
+  <div class="project-echo-interface">
+    <!-- Left Sidebar: Directory -->
+    <nav class="sidebar-nav">
+      <div class="nav-header">
+        <div class="logo-text">ECHOPOLIS</div>
+        <div class="sub-header">// 系统终端</div>
+      </div>
       
-      <div class="avatar-section">
-        <div class="avatar-portrait-container">
-          <div class="avatar-portrait">
-            <div class="digital-core">
-              <div class="core-ring inner"></div>
-              <div class="core-ring outer"></div>
-              <div class="core-dot"></div>
-            </div>
-          </div>
-          <div class="portrait-ring"></div>
-        </div>
-        <div class="avatar-info">
-          <div class="info-header">
-            <h2>{{ avatar?.name || 'Echo' }}</h2>
-            <span class="mbti-tag">{{ avatar?.mbti_type || 'INTJ' }}</span>
-          </div>
-          <p class="month-indicator">CYCLE: {{ currentMonthDisplay.toString().padStart(3, '0') }} // SYSTEM_ACTIVE</p>
+      <div class="nav-section">
+        <div class="section-label">目录</div>
+        <div 
+          v-for="item in navItems" 
+          :key="item.id"
+          :class="['nav-item', { active: currentView === item.id }]"
+          @click="currentView = item.id">
+          <span class="icon">{{ item.icon }}</span>
+          {{ item.label }}
         </div>
       </div>
 
-      <div class="stats-grid">
-        <div class="stat-item" v-for="stat in coreStats" :key="stat.label">
-          <div class="stat-label">{{ stat.label }}</div>
-          <div class="stat-value">{{ stat.value }}</div>
-        </div>
-      </div>
+      <div class="nav-spacer"></div>
 
-      <div class="trust-section">
-        <div class="trust-header">
-          <span class="trust-label">NEURAL SYNC RATE // 神经同步率</span>
-          <span class="trust-value">{{ trustLevel }}%</span>
-        </div>
-        <div class="trust-visual">
-          <svg viewBox="0 0 100 10" class="trust-bar-svg">
-            <rect x="0" y="0" width="100" height="10" fill="rgba(255,255,255,0.1)" rx="2" />
-            <rect 
-              x="0" y="0" 
-              :width="trustLevel" 
-              height="10" 
-              fill="url(#trust-gradient)" 
-              rx="2"
-              class="trust-fill-anim"
-            />
-            <defs>
-              <linearGradient id="trust-gradient" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stop-color="#3b82f6" />
-                <stop offset="100%" stop-color="#8b5cf6" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <div class="trust-markers">
-            <span v-for="i in 5" :key="i" class="marker" :style="{ left: (i * 20) + '%' }"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 聊天记录区域 (恢复功能) -->
-      <div class="comm-log-section">
-        <div class="comm-header">
-          <span class="icon">📡</span> SYSTEM LOGS // 系统日志
-        </div>
-        <div class="comm-messages custom-scrollbar" ref="echoMessagesRef">
-          <transition-group name="msg-fade">
-            <div 
-              v-for="msg in recentChatMessages" 
-              :key="msg.timestamp"
-              :class="['comm-message', msg.role]">
-              <div class="msg-content">
-                <span class="msg-role">{{ msg.role === 'user' ? 'USER' : 'CORE' }} >></span>
-                {{ msg.text }}
-              </div>
-            </div>
-          </transition-group>
-        </div>
-      </div>
-    </aside>
-
-    <!-- 右侧投资数据看板 -->
-    <aside class="right-panel">
-      <InvestmentDashboard
-        :total-assets="assets.total"
-        :cash="assets.cash"
-        :invested="avatar?.invested_assets || 0"
-        :investments="assets.investments"
-        :monthly-income="monthlyIncome"
-        :macro-indicators="macroIndicators"
-      />
-    </aside>
-
-    <!-- 中央任务面板 (位置调整 + 可折叠) -->
-    <div class="center-panel-container" :class="{ 'collapsed': isPanelCollapsed }">
-      <button class="collapse-btn" @click="isPanelCollapsed = !isPanelCollapsed">
-        {{ isPanelCollapsed ? 'EXPAND TACTICAL VIEW // 展开战术视图 ▲' : 'MINIMIZE // 最小化 ▼' }}
-      </button>
-
-      <div class="center-mission-panel glass-panel tech-border">
-        <div class="panel-decoration top-right"></div>
-        <div class="panel-decoration bottom-left"></div>
-
-        <div class="panel-content custom-scrollbar">
-        <header class="mission-header">
-          <div class="header-content">
-            <p class="eyebrow">TACTICAL OVERVIEW // 战术概览</p>
-            <h3>{{ currentSituation?.title || '等待指令输入...' }}</h3>
-          </div>
-          <button 
-            class="btn primary ai-btn"
-            :disabled="gameStore.isAiInvesting" 
-            @click="handleAiInvest">
-            <span class="btn-icon">🤖</span>
-            {{ gameStore.isAiInvesting ? 'AI 运算中…' : 'AI 决策辅助' }}
+      <div class="system-config">
+        <div class="section-label">系统配置</div>
+        <div class="config-grid">
+          <button class="config-btn orange active">
+            <span class="icon">🔊</span> BGM: 开
           </button>
-        </header>
-
-        <div class="terminal-display">
-          <p class="story-text">{{ currentSituation?.description || '城市系统待机中。请选择区域接入或推进时间线。' }}</p>
-        </div>
-
-        <!-- AI思考过程 -->
-        <div class="ai-thoughts" v-if="currentSituation?.ai_thoughts">
-          <div class="thoughts-header">
-            <span class="icon-pulse"></span>
-            <strong>AI CORE ANALYSIS</strong>
-          </div>
-          <p class="typing-effect">{{ currentSituation.ai_thoughts }}</p>
-        </div>
-
-        <!-- 决策影响展示 -->
-        <div class="decision-impact" v-if="lastDecisionImpact">
-          <div class="impact-grid">
-            <div class="impact-item" v-if="lastDecisionImpact.cash_change">
-              <span class="icon">CREDITS</span>
-              <span :class="['value', lastDecisionImpact.cash_change > 0 ? 'positive' : 'negative']">
-                {{ lastDecisionImpact.cash_change > 0 ? '▲' : '▼' }}{{ formatNumber(Math.abs(lastDecisionImpact.cash_change)) }}
-              </span>
-            </div>
-            <div class="impact-item" v-if="lastDecisionImpact.happiness_change">
-              <span class="icon">MORALE</span>
-              <span :class="['value', lastDecisionImpact.happiness_change > 0 ? 'positive' : 'negative']">
-                {{ lastDecisionImpact.happiness_change > 0 ? '▲' : '▼' }}{{ Math.abs(lastDecisionImpact.happiness_change) }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 选项选择 -->
-        <div class="options-grid" v-if="situationOptions?.length">
-          <div 
-            v-for="(option, idx) in situationOptions" 
-            :key="idx"
-            @click="handleSelectOption(idx)"
-            :class="['option-card', { 'selected': selectedOption === idx }]">
-            <div class="option-header">
-              <span class="option-id">OPT-{{ idx + 1 }}</span>
-              <div class="selection-indicator"></div>
-            </div>
-            <p>{{ option }}</p>
-          </div>
-        </div>
-
-        <!-- 意识回响输入区 -->
-        <div class="echo-zone">
-          <div class="echo-header">
-            <span class="echo-title">NEURAL UPLINK // 意识上传</span>
-            <div class="echo-types">
-              <button 
-                v-for="type in echoTypes" 
-                :key="type.value"
-                @click="echoType = type.value"
-                :class="['type-btn', { 'active': echoType === type.value }]">
-                {{ type.label }}
-              </button>
-            </div>
-          </div>
-          <div class="echo-input-group">
-            <span class="prompt-char">></span>
-            <textarea 
-              v-model="echoText" 
-              placeholder="输入指令以干预系统演化..."
-              rows="1"
-              class="echo-textarea"
-              @keydown.enter.prevent="handleAdvance"
-            ></textarea>
-            <button class="transmit-btn" @click="handleAdvance" :disabled="gameStore.isAdvancingMonth">
-              TRANSMIT
-            </button>
-          </div>
-        </div>
+          <button class="config-btn green active">
+            <span class="icon">📺</span> CRT: 开
+          </button>
+          <button class="config-btn white" @click="themeStore.toggleTheme">
+            <span class="icon">☀</span> 模式: {{ themeStore.isDark ? '暗色' : '亮色' }}
+          </button>
+          <button class="config-btn yellow">
+            <span class="icon">文</span> CN | EN
+          </button>
         </div>
       </div>
-    </div>
+    </nav>
 
-    <!-- 底部AI对话框 -->
-    <div class="bottom-chat-panel glass-panel tech-border">
-      <form class="chat-form" @submit.prevent="sendChat">
-        <span class="chat-prompt">AI_CORE:~$</span>
-        <input 
-          v-model="chatText" 
-          type="text" 
-          placeholder="建立直接通讯链路..." 
-          class="chat-input"
-        />
-      </form>
-    </div>
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header -->
+      <header class="top-bar">
+        <div class="brand-logo">
+          <span class="highlight">ECHOPOLIS</span> // 系统
+        </div>
+        <div class="header-meta">
+          <span>记录日期: 2025-11-22</span>
+        </div>
+      </header>
 
-    <!-- 顶部控制按钮 (恢复功能) -->
-    <div class="top-controls">
-      <button 
-        class="btn ghost" 
-        :disabled="gameStore.isAdvancingMonth" 
-        @click="handleAdvance">
-        {{ gameStore.isAdvancingMonth ? 'PROCESSING...' : 'NEXT CYCLE // 下个周期 >>' }}
-      </button>
-      <button class="btn primary" @click="$router.push('/world')">
-        WORLD MAP // 世界地图
-      </button>
-      <button class="btn ghost" @click="$router.push('/assets')">
-        ASSETS // 资产管理
-      </button>
-      <button class="btn ghost" @click="showCharacterSelect = true">
-        CHARACTERS // 角色档案
-      </button>
-      <button class="btn ghost" @click="$router.push('/profile')">
-        SYSTEM TERMINAL // 系统终端
-      </button>
-    </div>
+      <!-- Game View Layer -->
+      <div class="game-viewport" v-show="currentView === 'city'">
+        <!-- City Background -->
+        <section class="city-stage" @mousemove="onParallax" @mouseleave="resetParallax">
+          <div class="city-sky" :style="parallaxStyles.sky" />
+          <div class="city-grid" :style="parallaxStyles.grid" />
+          
+          <!-- Map Decorations (SVG Layer) -->
+          <svg class="city-connections" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.05)" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <!-- Connection Lines -->
+            <g stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
+              <!-- Central Hub Connections -->
+              <path d="M 30% 35% L 50% 45%" /> <!-- Learning -> Finance -->
+              <path d="M 70% 35% L 50% 45%" /> <!-- Tech -> Finance -->
+              <path d="M 30% 65% L 50% 45%" /> <!-- Green -> Finance -->
+              <path d="M 70% 65% L 50% 45%" /> <!-- Housing -> Finance -->
+              <path d="M 50% 70% L 50% 45%" /> <!-- Leisure -> Finance -->
+              
+              <!-- Outer Ring -->
+              <path d="M 30% 35% L 70% 35%" /> <!-- Learning -> Tech -->
+              <path d="M 30% 65% L 50% 70% L 70% 65%" /> <!-- Green -> Leisure -> Housing -->
+              <path d="M 30% 35% L 30% 65%" /> <!-- Learning -> Green -->
+              <path d="M 70% 35% L 70% 65%" /> <!-- Tech -> Housing -->
+            </g>
+            
+            <!-- Zone Circles -->
+            <circle cx="50%" cy="45%" r="120" fill="none" stroke="rgba(0,0,0,0.03)" stroke-width="1" />
+            <circle cx="50%" cy="45%" r="250" fill="none" stroke="rgba(0,0,0,0.02)" stroke-width="1" stroke-dasharray="10 5" />
+          </svg>
 
-    <!-- 角色选择弹窗 (恢复) -->
-    <Teleport to="body">
-      <transition name="modal">
-        <div v-if="showCharacterSelect" class="modal-overlay" @click="showCharacterSelect = false">
-          <div class="character-modal glass-panel" @click.stop>
-            <div class="modal-header">
-              <h2>IDENTITY SELECT // 身份切换</h2>
-              <button class="btn-close" @click="showCharacterSelect = false">✕</button>
+          <div class="city-layer city-layer--far" :style="parallaxStyles.far" />
+          <div class="city-layer city-layer--mid" :style="parallaxStyles.mid" />
+          <div class="city-layer city-layer--front" :style="parallaxStyles.front" />
+          
+          <!-- District Markers -->
+          <div class="district-marker"
+               v-for="district in districts"
+               :key="district.id"
+               :style="pinStyle(district)"
+               @click="handleZoneSelect(district)">
+            <div class="marker-box">
+              <span class="marker-code">{{ getDistrictCode(district.id) }}</span>
+              <div class="marker-corner"></div>
             </div>
-            <div class="modal-body custom-scrollbar">
-              <div class="characters-grid">
-                <div 
-                  v-for="char in availableCharacters" 
-                  :key="char.id"
-                  @click="switchCharacter(char)"
-                  :class="['character-card', { active: char.id === currentCharacterId }]">
-                  <div class="character-avatar">
-                    <div class="avatar-icon">{{ (char.mbti || char.mbti_type || 'IN').substring(0, 2) }}</div>
+            <div class="marker-label">
+              {{ district.name }}
+            </div>
+          </div>
+        </section>
+
+        <!-- HUD Overlay (Floating Cards) -->
+        <div class="hud-overlay">
+          <!-- Left: Avatar Status -->
+          <div class="hud-column left">
+            <div class="archive-card">
+              <div class="archive-header">
+                <span>主体状态</span>
+                <span>ID_001</span>
+              </div>
+              <div class="archive-body">
+                <div class="avatar-row">
+                  <div class="avatar-face">
+                    <div class="eye left"></div>
+                    <div class="eye right"></div>
+                    <div class="mouth"></div>
                   </div>
-                  <div class="character-info">
-                    <h4>{{ char.name }}</h4>
-                    <p class="mbti">{{ char.mbti || char.mbti_type || 'INTJ' }}</p>
-                    <p class="assets">ASSETS: ¥{{ formatNumber(char.assets || 0) }}</p>
+                  <div class="avatar-details">
+                    <h3>{{ avatar?.name || 'Echo' }}</h3>
+                    <div class="tags">
+                      <span class="tag">{{ avatar?.mbti_type || 'INTJ' }}</span>
+                      <span class="tag">Lv.{{ Math.floor((avatar?.current_month || 0)/12) + 1 }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="stat-list">
+                  <div class="stat-item">
+                    <label>总资产</label>
+                    <span class="value">¥{{ formatNumber(assets.total) }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <label>现金流</label>
+                    <span class="value">¥{{ formatNumber(assets.cash) }}</span>
                   </div>
                 </div>
               </div>
-              <button class="btn primary full" @click="$router.push('/character-select')">
-                + INITIALIZE NEW IDENTITY
-              </button>
+            </div>
+            
+            <div class="archive-card">
+              <div class="archive-header">AI 思考</div>
+              <div class="archive-body">
+                <p class="mono-text">{{ aiReflection || '系统等待输入...' }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Mission Control -->
+          <div class="hud-column right">
+            <div class="archive-card highlight flex-grow-card">
+              <div class="archive-header">
+                <span>当前指令</span>
+                <span class="blink">执行中</span>
+              </div>
+              <div class="archive-body scrollable-body">
+                <h3 class="mission-title">{{ currentSituation?.title || '等待事件' }}</h3>
+                <p class="mission-desc">{{ currentSituation?.description || '当前扇区未检测到异常活动。' }}</p>
+                
+                <div class="ai-log" v-if="currentSituation?.ai_thoughts">
+                  <span class="prefix">> AI 分析:</span> {{ currentSituation.ai_thoughts }}
+                </div>
+
+                <div class="action-grid" v-if="situationOptions?.length">
+                  <button 
+                    v-for="(option, idx) in situationOptions" 
+                    :key="idx"
+                    class="term-btn"
+                    @click="handleSelectOption(idx)">
+                    [{{ idx + 1 }}] {{ option }}
+                  </button>
+                </div>
+
+                <div class="control-bar">
+                  <button class="term-btn primary full" :disabled="gameStore.isAdvancingMonth" @click="handleAdvance">
+                    {{ gameStore.isAdvancingMonth ? '处理中...' : '>> 执行下一周期' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Echo Input -->
+            <div class="archive-card fixed-height-card">
+              <div class="archive-header">
+                <span>注入意识</span>
+                <span class="help-icon" title="向AI植入潜意识，影响其性格与决策倾向">?</span>
+              </div>
+              <div class="archive-body">
+                <div class="echo-types">
+                  <span 
+                    v-for="type in echoTypes" 
+                    :key="type.value"
+                    @click="echoType = type.value"
+                    :class="['type-tag', { active: echoType === type.value }]">
+                    {{ type.label }}
+                  </span>
+                </div>
+                <textarea 
+                  v-model="echoText" 
+                  class="term-input" 
+                  placeholder="输入引导参数 (例如: '激进一点', '关注科技股')..."></textarea>
+                <button class="term-btn full" @click="handleSendEcho">发送指引 // UPLOAD</button>
+              </div>
             </div>
           </div>
         </div>
-      </transition>
-    </Teleport>
 
-    <!-- 设置弹窗 (恢复) -->
-    <Teleport to="body">
-      <transition name="modal">
-        <div v-if="showSettings" class="modal-overlay" @click="showSettings = false">
-          <div class="settings-modal glass-panel" @click.stop>
-            <div class="modal-header">
-              <h2>SYSTEM CONFIG // 系统设置</h2>
-              <button class="btn-close" @click="showSettings = false">✕</button>
-            </div>
-            <div class="modal-body custom-scrollbar">
-              <div class="settings-section">
-                <h3>AUDIO</h3>
-                <div class="setting-item">
-                  <span>BGM</span>
-                  <button @click="toggleMusic" :class="['toggle-btn', { active: musicEnabled }]">
-                    <span class="toggle-slider"></span>
-                  </button>
-                </div>
-                <div class="setting-item">
-                  <span>SFX</span>
-                  <button @click="toggleSound" :class="['toggle-btn', { active: soundEnabled }]">
-                    <span class="toggle-slider"></span>
-                  </button>
-                </div>
-              </div>
-              <div class="settings-section">
-                <h3>ACCOUNT</h3>
-                <div class="setting-item">
-                  <span>USER</span>
-                  <span class="setting-value">{{ username }}</span>
-                </div>
-                <button class="btn ghost full" @click="handleLogout">
-                  LOGOUT
-                </button>
-              </div>
-            </div>
+        <!-- Bottom: Chat -->
+        <div class="chat-dock">
+          <!-- Chat History Panel -->
+          <div class="chat-history" v-if="chatMessages.length > 0" :class="{ collapsed: !isChatExpanded }">
+             <div class="chat-header" @click="isChatExpanded = !isChatExpanded">
+               <span>通讯记录 // COMMS_LOG</span>
+               <span class="toggle-icon">{{ isChatExpanded ? '▼' : '▲' }}</span>
+             </div>
+             <div class="chat-body" ref="chatBodyRef">
+               <div v-for="(msg, idx) in chatMessages" :key="idx" :class="['chat-msg', msg.role]">
+                  <span class="role">[{{ msg.role === 'user' ? 'USER' : 'ECHO' }}]:</span>
+                  <span class="text">{{ msg.text }}</span>
+               </div>
+             </div>
+          </div>
+
+          <div class="cmd-interface">
+            <span class="prompt">用户@ECHO:~$</span>
+            <input 
+              v-model="chatText" 
+              type="text" 
+              class="cmd-input" 
+              placeholder="输入指令..." 
+              @keyup.enter="sendChat"
+            />
           </div>
         </div>
-      </transition>
-    </Teleport>
+      </div>
+
+      <!-- Placeholder for other views (Timeline, World, etc.) -->
+      <div class="view-placeholder" v-if="currentView !== 'city'">
+        <ProfileView v-if="currentView === 'profile'" />
+        <TimelineView v-if="currentView === 'timeline'" />
+        <WorldView v-if="currentView === 'world'" />
+        <ArchivesView v-if="currentView === 'logs'" />
+      </div>
+
+    </main>
+
+    <!-- CRT Overlay -->
+    <div class="crt-overlay"></div>
+    <div class="grid-bg"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import CityTopDown from '../components/home/CityTopDown.vue'
-import InvestmentDashboard from '../components/InvestmentDashboard.vue'
-import FloatingText from '../components/FloatingText.vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
+import ProfileView from '../components/views/ProfileView.vue'
+import TimelineView from '../components/views/TimelineView.vue'
+import WorldView from '../components/views/WorldView.vue'
+import ArchivesView from '../components/views/ArchivesView.vue'
 
 const gameStore = useGameStore()
 const themeStore = useThemeStore()
-const floatingTextRef = ref(null)
-const echoMessagesRef = ref(null)
-
+const currentView = ref('city')
+const parallax = ref({ x: 0, y: 0 })
 const chatText = ref('')
 const echoText = ref('')
 const echoType = ref('advisory')
-const selectedOption = ref(null)
-const lastDecisionImpact = ref(null)
-const echoTrigger = ref(null)
-const isPanelCollapsed = ref(false)
-const showCharacterSelect = ref(false)
-const showSettings = ref(false)
-const availableCharacters = ref([])
-const musicEnabled = ref(false)
-const soundEnabled = ref(true)
+const isChatExpanded = ref(true)
+const chatBodyRef = ref(null)
 
-const username = computed(() => localStorage.getItem('username') || 'COMMANDER')
-const currentCharacterId = computed(() => {
-  try {
-    const char = JSON.parse(localStorage.getItem('currentCharacter') || '{}')
-    return char.id
-  } catch {
-    return null
-  }
-})
-
-const echoTypes = [
-  { value: 'inspirational', label: '启发', icon: '💡' },
-  { value: 'advisory', label: '建议', icon: '📋' },
-  { value: 'directive', label: '指令', icon: '⚡' },
-  { value: 'emotional', label: '情感', icon: '❤️' }
+const navItems = [
+  { id: 'city', label: '城市概览', icon: '⚡' },
+  { id: 'profile', label: '主体数据', icon: '👤' },
+  { id: 'timeline', label: '时间线', icon: '🕒' },
+  { id: 'world', label: '世界构建', icon: '🌐' },
+  { id: 'logs', label: '档案库', icon: '📖' }
 ]
 
+const echoTypes = [
+  { value: 'inspirational', label: '激励' },
+  { value: 'advisory', label: '建议' },
+  { value: 'directive', label: '指令' },
+  { value: 'emotional', label: '共情' }
+]
+
+// Data Mapping
 const avatar = computed(() => gameStore.avatar)
 const assets = computed(() => ({
   total: gameStore.assets?.total ?? 0,
-  cash: gameStore.assets?.cash ?? 0,
-  investments: Array.isArray(gameStore.assets?.investments) ? gameStore.assets.investments : []
+  cash: gameStore.assets?.cash ?? 0
 }))
 const districts = computed(() => gameStore.districts)
+const aiReflection = computed(() => gameStore.aiReflection)
 const currentSituation = computed(() => gameStore.currentSituation)
 const situationOptions = computed(() => gameStore.situationOptions)
-const activeZone = computed(() => gameStore.selectedDistrictId)
-const trustLevel = computed(() => gameStore.trustLevel || 50)
-
-const monthlyIncome = computed(() => 
-  assets.value.investments.reduce((sum, inv) => sum + (inv.monthly_return || 0), 0)
-)
-
-const currentMonthDisplay = computed(() => avatar.value?.current_month ?? 0)
-
-const coreStats = computed(() => [
-  { label: 'NET WORTH // 净资产', value: `¥${formatNumber(assets.value.total)}` },
-  { label: 'LIQUIDITY // 流动资金', value: `¥${formatNumber(assets.value.cash)}` },
-  { label: 'ASSETS // 总资产', value: `¥${formatNumber(avatar.value?.invested_assets || 0)}` },
-  { label: 'PASSIVE INC // 被动收入', value: `+¥${formatNumber(monthlyIncome.value)}` }
-])
-
-const macroIndicators = computed(() => gameStore.macroIndicators || {
-  inflation: 2.4,
-  interest: 4.5,
-  market_idx: 12450,
-  market_trend: 'up'
-})
-
-const recentChatMessages = computed(() => {
-  return (gameStore.chatMessages || []).slice(-6)
-})
-
-// 自动滚动到最新消息
-watch(() => gameStore.chatMessages?.length, () => {
-  nextTick(() => {
-    if (echoMessagesRef.value) {
-      echoMessagesRef.value.scrollTop = echoMessagesRef.value.scrollHeight
-    }
-  })
-})
+const chatMessages = computed(() => gameStore.chatMessages)
 
 const formatNumber = (num) => Number(num || 0).toLocaleString('zh-CN')
 
+const getDistrictCode = (id) => {
+  const map = {
+    finance: 'FIN',
+    tech: 'TEC',
+    housing: 'EST',
+    learning: 'EDU',
+    leisure: 'ENT',
+    green: 'NRG'
+  }
+  return map[id] || 'UNK'
+}
+
+// Parallax Logic
+const parallaxStyles = computed(() => {
+  const { x, y } = parallax.value
+  const make = (mult) => ({ transform: `translate3d(${x * mult}px, ${y * mult}px, 0)` })
+  return {
+    sky: make(10),
+    grid: make(15),
+    far: make(20),
+    mid: make(30),
+    front: make(40)
+  }
+})
+
+const pinStyle = (district) => {
+  const x = district.coords?.x ?? 50
+  const y = district.coords?.y ?? 50
+  return { left: `${x}%`, top: `${y}%` }
+}
+
+const onParallax = (event) => {
+  const rect = event.currentTarget.getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const offsetX = (event.clientX - centerX) / rect.width
+  const offsetY = (event.clientY - centerY) / rect.height
+  parallax.value = { x: offsetX, y: offsetY }
+}
+
+const resetParallax = () => {
+  parallax.value = { x: 0, y: 0 }
+}
+
+// Actions
 const handleAdvance = async () => {
   try {
-    const echo = echoText.value.trim() || null
-    
-    // 触发视觉特效
-    if (echo) {
-      echoTrigger.value = { 
-        timestamp: Date.now(),
-        districtId: activeZone.value || 1 
-      }
-    }
-
-    await gameStore.advanceMonth(echo)
-    
-    // 飘字效果
-    await nextTick()
-    if (floatingTextRef.value) {
-      const centerX = window.innerWidth / 2
-      const centerY = window.innerHeight / 2
-      
-      const impact = gameStore.currentSituation?.decision_impact
-      if (impact) {
-        let offsetY = 0
-        if (impact.cash_change) {
-          const type = impact.cash_change > 0 ? 'positive' : 'negative'
-          const prefix = impact.cash_change > 0 ? '+' : ''
-          floatingTextRef.value.addFloatingText(
-            `${prefix}${formatNumber(impact.cash_change)} CR`,
-            centerX - 100,
-            centerY + offsetY,
-            type
-          )
-          offsetY += 40
-        }
-        if (impact.happiness_change) {
-          const type = impact.happiness_change > 0 ? 'positive' : 'negative'
-          const prefix = impact.happiness_change > 0 ? '+' : ''
-          floatingTextRef.value.addFloatingText(
-            `${prefix}${impact.happiness_change} MORALE`,
-            centerX + 50,
-            centerY + offsetY,
-            type
-          )
-        }
-      }
-    }
-
-    echoText.value = ''
-    selectedOption.value = null
-    
-    if (gameStore.currentSituation?.decision_impact) {
-      lastDecisionImpact.value = gameStore.currentSituation.decision_impact
-      setTimeout(() => {
-        lastDecisionImpact.value = null
-      }, 5000)
-    }
-  } catch (error) {
-    alert(error.message)
-  }
+    const text = echoText.value
+    echoText.value = '' // Clear immediately
+    await gameStore.advanceMonth(text)
+  } catch (e) { console.error(e) }
 }
 
-const handleSelectOption = (index) => {
-  selectedOption.value = index
+const handleSelectOption = async (idx) => {
+  await gameStore.makeDecision(idx)
 }
 
-const handleDistrictClick = (district) => {
-  gameStore.exploreDistrict(district.id)
-}
-
-const handleAiInvest = async () => {
-  try {
-    await gameStore.requestAiInvestment()
-  } catch (error) {
-    alert(error.message)
-  }
+const handleSendEcho = async () => {
+  if (!echoText.value) return
+  const text = echoText.value
+  echoText.value = '' // Clear immediately
+  await gameStore.sendEcho(text, echoType.value)
 }
 
 const sendChat = async () => {
-  const text = chatText.value.trim()
-  if (!text) return
-  
-  chatText.value = ''
+  if (!chatText.value) return
+  const text = chatText.value
+  chatText.value = '' // Clear immediately
   await gameStore.talkToAI(text)
 }
 
-const switchCharacter = async (character) => {
-  try {
-    const characterData = {
-      id: character.id,
-      name: character.name,
-      mbti: character.mbti,
-      assets: character.assets
-    }
-    localStorage.setItem('currentCharacter', JSON.stringify(characterData))
-    localStorage.setItem('session_id', character.id)
-    
-    showCharacterSelect.value = false
-    await gameStore.loadAvatar()
-    location.reload()
-  } catch (error) {
-    alert('切换角色失败: ' + error.message)
+const handleZoneSelect = (district) => {
+  gameStore.exploreDistrict(district.id)
+}
+
+// Auto-scroll chat
+watch(chatMessages, async () => {
+  await nextTick()
+  if (chatBodyRef.value) {
+    chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
   }
-}
-
-const loadAvailableCharacters = async () => {
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
-    
-    const response = await fetch(`/api/characters/${username}`)
-    if (response.ok) {
-      availableCharacters.value = await response.json()
-    }
-  } catch (error) {
-    console.error('加载角色列表失败:', error)
-  }
-}
-
-const toggleMusic = () => {
-  musicEnabled.value = !musicEnabled.value
-  localStorage.setItem('musicEnabled', musicEnabled.value)
-}
-
-const toggleSound = () => {
-  soundEnabled.value = !soundEnabled.value
-  localStorage.setItem('soundEnabled', soundEnabled.value)
-}
-
-const handleLogout = () => {
-  if (confirm('TERMINATE SESSION?')) {
-    localStorage.removeItem('username')
-    localStorage.removeItem('currentCharacter')
-    localStorage.removeItem('session_id')
-    location.href = '/login'
-  }
-}
+}, { deep: true })
 
 onMounted(async () => {
   themeStore.applyTheme()
-  musicEnabled.value = localStorage.getItem('musicEnabled') === 'true'
-  soundEnabled.value = localStorage.getItem('soundEnabled') !== 'false'
-  
   await gameStore.bootstrapHome()
-  await loadAvailableCharacters()
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
-
-.home-container {
-  position: relative;
+.project-echo-interface {
+  display: flex;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg-dark);
-  font-family: 'Rajdhani', sans-serif;
-  color: var(--text-primary);
+  background: var(--term-bg);
+  color: var(--term-text);
 }
 
-/* 通用面板样式 - 高级感升级 */
-/* .glass-panel 样式已移至全局 game-theme.css */
-
-.glass-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  background: radial-gradient(
-    800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
-    rgba(255, 255, 255, 0.03),
-    transparent 40%
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-.tech-border {
-  /* 移除切角效果，改回圆角 */
-  border-radius: 16px;
-}
-
-.tech-border::after {
-  display: none;
-}
-
-.panel-decoration {
-  display: none; /* 移除装饰线 */
-}
-
-/* 左侧面板 */
-.left-panel {
-  position: absolute;
-  left: 24px;
-  top: 80px;
-  width: 320px;
-  height: calc(100vh - 160px);
-  padding: 24px;
-  z-index: 20; /* 提高层级，确保在地图之上 */
+/* Sidebar */
+.sidebar-nav {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
 }
 
-.avatar-section {
-  display: flex;
-  gap: 20px;
-  margin-bottom: 24px;
-  align-items: center;
-  flex-shrink: 0;
+.nav-section {
+  padding-top: 20px;
 }
 
-.avatar-portrait-container {
-  position: relative;
-  width: 70px;
-  height: 70px;
+.nav-header {
+  /* Removed local styles to use terminal-theme.css */
 }
 
-.avatar-portrait {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid rgba(59, 130, 246, 0.5);
-  background: #0f172a;
+.logo-text {
+  /* Removed local styles */
 }
 
-.portrait-ring {
-  position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 1px dashed rgba(59, 130, 246, 0.3);
-  animation: spin 20s linear infinite;
+.sub-header {
+  /* Removed local styles */
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.info-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  background: linear-gradient(to right, #fff, #94a3b8);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+.nav-spacer {
+  flex: 1;
 }
 
-.mbti-tag {
-  font-size: 12px;
-  background: rgba(59, 130, 246, 0.2);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #60a5fa;
-  font-weight: 600;
+.system-config {
+  padding: 24px;
+  border-top: 2px solid var(--term-border);
 }
 
-.month-indicator {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  font-family: monospace;
+.config-header {
+  font-size: 10px;
+  margin-bottom: 12px;
+  color: var(--term-text-secondary);
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-  flex-shrink: 0;
-}
-
-.stat-item {
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
-  border-left: 2px solid rgba(59, 130, 246, 0.3);
-}
-
-.stat-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text-secondary);
-}
-
-.stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  font-family: 'Rajdhani', monospace;
-  letter-spacing: 1px;
-  color: var(--text-primary);
-  text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
-}
-
-.trust-section {
-  background: rgba(59, 130, 246, 0.05);
-  padding: 16px;
-  border: 1px solid rgba(59, 130, 246, 0.1);
-  margin-bottom: 20px;
-  flex-shrink: 0;
-}
-
-.trust-header {
+.config-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
 }
 
-.trust-value {
-  color: #60a5fa;
-  font-family: monospace;
+.config-row.clickable {
+  cursor: pointer;
 }
 
-.trust-visual {
-  position: relative;
-  height: 10px;
+.config-row.clickable:hover {
+  color: var(--term-accent);
 }
 
-.trust-bar-svg {
-  width: 100%;
-  height: 100%;
+.status-badge {
+  background: #333;
+  color: #fff;
+  padding: 2px 6px;
+  font-size: 10px;
 }
 
-.trust-markers {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.status-badge.on {
+  background: var(--term-accent);
+  color: #000;
 }
 
-.marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-/* 聊天记录区域 */
-.comm-log-section {
+/* Main Content */
+.main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
+  position: relative;
+}
+
+.header-meta {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  gap: 20px;
+  opacity: 0.7;
+}
+
+/* Game Viewport */
+.game-viewport {
+  flex: 1;
+  position: relative;
   overflow: hidden;
 }
 
-.comm-header {
-  padding: 8px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #93c5fd;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
-}
-
-.comm-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.comm-message {
-  font-size: 12px;
-  line-height: 1.4;
-  padding: 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.comm-message.user {
-  border-left: 2px solid #10b981;
-}
-
-.comm-message.assistant {
-  border-left: 2px solid #3b82f6;
-}
-
-.msg-role {
-  font-weight: 700;
-  font-size: 10px;
-  opacity: 0.7;
-  margin-right: 4px;
-}
-
-/* 右侧面板 */
-.right-panel {
+.city-stage {
   position: absolute;
-  right: 24px;
-  top: 80px;
-  width: 360px;
-  height: calc(100vh - 160px);
-  z-index: 20; /* 提高层级 */
+  inset: 0;
+  background: transparent;
 }
 
-/* 中央面板容器 - 负责定位 */
-.center-panel-container {
+/* Reusing city styles */
+.city-sky { 
+  /* Placeholder for sky styles if needed */
+}
+.city-grid {
   position: absolute;
-  bottom: 90px; /* 位于聊天栏上方 */
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(700px, 90vw);
-  z-index: 25; /* 比左右面板更高 */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: 
+    linear-gradient(var(--term-accent-glow) 1px, transparent 1px),
+    linear-gradient(90deg, var(--term-accent-glow) 1px, transparent 1px);
+  background-size: 80px 80px;
+  transform: perspective(500px) rotateX(60deg);
+  opacity: 0.4;
 }
 
-/* 内部面板 - 负责外观 */
-.center-mission-panel {
+.city-layer {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.city-connections {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  max-height: 60vh;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* District Markers */
+.district-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 10;
   display: flex;
   flex-direction: column;
-  transition: all 0.4s ease;
-  /* 确保圆角不被内容溢出破坏 */
-  overflow: hidden; 
-}
-
-.panel-content {
-  padding: 24px;
-  overflow-y: auto;
-  /* 减去头部和底部留白 */
-  max-height: 55vh; 
-}
-
-/* 按钮样式 - 位于面板上方 */
-.collapse-btn {
-  position: relative;
-  margin-bottom: -2px; /* 稍微覆盖面板边框 */
-  background: rgba(5, 8, 16, 0.95);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-bottom: none;
-  color: #60a5fa;
-  font-size: 10px;
-  padding: 6px 24px;
-  border-radius: 8px 8px 0 0;
-  cursor: pointer;
-  z-index: 20;
-  letter-spacing: 1px;
-  font-weight: 600;
-  box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
-  transition: all 0.3s ease;
-}
-
-.collapse-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #fff;
-}
-
-/* 折叠状态 */
-.center-panel-container.collapsed {
-  /* 仅水平居中，不再下移，避免遮挡底部聊天框 */
-  transform: translateX(-50%); 
-}
-
-/* 折叠时完全隐藏面板内容 */
-.center-panel-container.collapsed .center-mission-panel {
-  max-height: 0;
-  opacity: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-  pointer-events: none;
-}
-
-.mission-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 12px;
-}
-
-.eyebrow {
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: #60a5fa;
-  margin-bottom: 6px;
-}
-
-.mission-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.ai-btn {
-  font-size: 12px;
-  padding: 8px 16px;
-  display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.terminal-display {
-  font-family: monospace;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 16px;
-  border-left: 2px solid #60a5fa;
-  margin-bottom: 20px;
-}
-
-.story-text {
-  line-height: 1.6;
-  color: #cbd5e1;
-  font-size: 14px;
-}
-
-.ai-thoughts {
-  margin: 20px 0;
-  padding: 16px;
-  background: rgba(139, 92, 246, 0.05);
-  border: 1px dashed rgba(139, 92, 246, 0.3);
-}
-
-.thoughts-header {
+.marker-box {
+  width: 42px;
+  height: 42px;
+  background: var(--term-bg);
+  border: 2px solid var(--term-text);
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: #a78bfa;
-  margin-bottom: 8px;
-  letter-spacing: 1px;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
 }
 
-.icon-pulse {
-  width: 6px;
-  height: 6px;
-  background: #a78bfa;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-.decision-impact {
-  margin: 16px 0;
-  animation: slideIn 0.4s ease-out;
-}
-
-.impact-grid {
-  display: flex;
-  gap: 16px;
-}
-
-.impact-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 6px 12px;
-  border-radius: 4px;
+.marker-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
   font-size: 12px;
-}
-
-.impact-item .icon {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
-}
-
-.impact-item .value.positive { color: #34d399; }
-.impact-item .value.negative { color: #f87171; }
-
-.options-grid {
-  display: grid;
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.option-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.option-card:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.option-card.selected {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3b82f6;
-}
-
-.option-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.option-id {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  font-family: monospace;
-}
-
-.selection-indicator {
-  width: 8px;
-  height: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-}
-
-.option-card.selected .selection-indicator {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  box-shadow: 0 0 8px #3b82f6;
-}
-
-.echo-zone {
-  margin-top: 32px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 20px;
-}
-
-.echo-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.echo-title {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--term-text);
   letter-spacing: 1px;
 }
 
-.type-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.6);
-  padding: 4px 10px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.type-btn.active {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3b82f6;
-  color: #fff;
-}
-
-.echo-input-group {
-  display: flex;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  padding: 4px;
-}
-
-.prompt-char {
-  padding: 0 12px;
-  color: #3b82f6;
-  font-weight: bold;
-}
-
-.echo-textarea {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #fff;
-  padding: 12px 0;
-  font-family: monospace;
-  resize: none;
-}
-
-.echo-textarea:focus {
-  outline: none;
-}
-
-.transmit-btn {
-  background: #3b82f6;
-  color: #000;
-  border: none;
-  padding: 8px 16px;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.transmit-btn:hover:not(:disabled) {
-  background: #60a5fa;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-}
-
-/* 底部对话框 */
-.bottom-chat-panel {
+.marker-corner {
   position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(600px, 90vw);
-  padding: 12px 20px;
-  z-index: 10;
-}
-
-.chat-form {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.chat-prompt {
-  color: #10b981;
-  font-family: monospace;
-  font-size: 13px;
-}
-
-.chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-family: monospace;
-  font-size: 14px;
-}
-
-.chat-input:focus {
-  outline: none;
-}
-
-/* 顶部控制 */
-.top-controls {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  gap: 12px;
-  z-index: 20;
-}
-
-/* .btn 样式已移至全局 game-theme.css */
-.btn {
-  font-family: 'Rajdhani', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-/* Digital Core Styles */
-.digital-core {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
-}
-
-.core-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(59, 130, 246, 0.6);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
-}
-
-.core-ring.inner {
-  width: 40%;
-  height: 40%;
-  border-left-color: transparent;
-  border-right-color: transparent;
-  animation: spin 4s linear infinite;
-}
-
-.core-ring.outer {
-  width: 70%;
-  height: 70%;
-  border-top-color: transparent;
-  border-bottom-color: transparent;
-  animation: spin 8s linear infinite reverse;
-  opacity: 0.7;
-}
-
-.core-dot {
+  top: -2px;
+  right: -2px;
   width: 6px;
   height: 6px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #fff, 0 0 20px #3b82f6;
-  animation: pulse 2s infinite;
+  background: var(--term-text);
+  transition: background 0.2s;
 }
 
-/* 弹窗样式 */
-.modal-overlay {
-  position: fixed;
+.marker-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--term-text-secondary);
+  background: var(--term-panel-bg);
+  padding: 4px 8px;
+  border: 1px solid var(--term-border);
+  opacity: 0.9;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.05);
+}
+
+/* Hover Effects */
+.district-marker:hover .marker-box {
+  background: var(--term-accent);
+  border-color: var(--term-text);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+}
+
+.district-marker:hover .marker-code {
+  color: #000;
+}
+
+.district-marker:hover .marker-corner {
+  background: #000;
+}
+
+.district-marker:hover .marker-label {
+  opacity: 1;
+  color: var(--term-text);
+  border-color: var(--term-accent);
+  transform: translateY(2px);
+}
+
+/* HUD Overlay */
+.hud-overlay {
+  position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
+  pointer-events: none;
+  padding: 32px 40px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
+  justify-content: space-between;
 }
 
-.character-modal, .settings-modal {
-  width: min(600px, 90vw);
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: 0;
+.hud-column {
+  width: 320px;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-height: 100%; /* Ensure column doesn't exceed parent height */
+}
+
+.flex-grow-card {
+  flex: 1;
+  min-height: 0; /* Allow shrinking */
   display: flex;
   flex-direction: column;
 }
 
-.modal-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.fixed-height-card {
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-  letter-spacing: 1px;
-}
-
-.btn-close {
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 20px;
+.scrollable-body {
   flex: 1;
   overflow-y: auto;
+  padding: 20px; /* Move padding here from .archive-body */
 }
 
-.characters-grid {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.character-card {
+/* Avatar Styles */
+.avatar-row {
   display: flex;
-  align-items: center;
   gap: 16px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: all 0.2s;
+  margin-bottom: 16px;
 }
 
-.character-card:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.4);
+.avatar-face {
+  width: 64px;
+  height: 64px;
+  background: var(--term-accent);
+  border: 2px solid #000;
+  position: relative;
 }
 
-.character-card.active {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.2);
+.avatar-face .eye {
+  position: absolute;
+  top: 24px;
+  width: 8px;
+  height: 8px;
+  background: #000;
+}
+.avatar-face .eye.left { left: 14px; }
+.avatar-face .eye.right { right: 14px; }
+.avatar-face .mouth {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 4px;
+  background: #000;
 }
 
-.avatar-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+.avatar-details h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.tags {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 8px;
+}
+
+.tag {
+  background: var(--term-border);
+  color: var(--term-bg);
+  padding: 2px 6px;
+  font-size: 10px;
   font-weight: bold;
 }
 
-.character-info h4 {
-  margin: 0 0 4px 0;
+.stat-list {
+  display: grid;
+  gap: 8px;
 }
 
-.character-info p {
-  margin: 0;
+.stat-item {
+  display: flex;
+  justify-content: space-between;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px dashed var(--term-border);
+  padding-bottom: 4px;
 }
 
-.settings-section {
-  margin-bottom: 24px;
+.stat-item label {
+  font-weight: 700;
+  color: var(--term-text-secondary);
 }
 
-.settings-section h3 {
-  font-size: 12px;
-  color: #60a5fa;
+/* Mission Styles */
+.mission-title {
+  font-size: 16px;
+  font-weight: 900;
+  margin: 0 0 8px 0;
+  color: var(--term-accent);
+}
+
+.mission-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+
+.ai-log {
+  background: rgba(0,0,0,0.05);
+  border-left: 4px solid var(--term-accent);
+  padding: 10px;
+  font-size: 11px;
+  margin-bottom: 16px;
+  font-style: italic;
+}
+
+.prefix {
+  font-weight: bold;
+  color: var(--term-accent);
+  font-style: normal;
+}
+
+.action-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.full {
+  width: 100%;
+}
+
+/* Echo Input */
+.echo-types {
+  display: flex;
+  gap: 8px;
   margin-bottom: 12px;
-  letter-spacing: 1px;
+  flex-wrap: wrap;
 }
 
-.setting-item {
+.type-tag {
+  border: 1px solid var(--term-border);
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.type-tag.active {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.term-input {
+  width: 100%;
+  background: transparent;
+  border: 2px solid var(--term-border);
+  padding: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  margin-bottom: 8px;
+  min-height: 60px;
+  color: var(--term-text);
+}
+
+/* Chat Dock */
+.chat-dock {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 90%;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Add gap between history and input */
+}
+
+.chat-history {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  transition: height 0.3s ease;
+  height: 200px;
+  overflow: hidden;
+}
+
+.chat-history.collapsed {
+  height: 36px; /* Only header height */
+  border-bottom: 2px solid var(--term-border);
+}
+
+.chat-header {
+  background: transparent;
+  border-bottom: 2px solid var(--term-border);
+  padding: 8px 12px;
+  font-weight: 800;
+  font-size: 10px;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
+  cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  user-select: none;
 }
 
-.toggle-btn {
-  width: 40px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  position: relative;
-  border: none;
-  cursor: pointer;
+.chat-header:hover {
+  background: rgba(0,0,0,0.05);
 }
 
-.toggle-btn.active {
-  background: #3b82f6;
+.toggle-icon {
+  font-size: 10px;
 }
 
-.toggle-slider {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: #fff;
+.chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-icon {
+  cursor: help;
+  border: 1px solid var(--term-text-secondary);
   border-radius: 50%;
-  transition: transform 0.2s;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--term-text-secondary);
 }
 
-.toggle-btn.active .toggle-slider {
-  transform: translateX(20px);
+.chat-msg {
+  line-height: 1.4;
+  word-break: break-word;
 }
 
-.btn.full {
-  width: 100%;
-  margin-top: 12px;
+.chat-msg .role {
+  font-weight: bold;
+  margin-right: 8px;
+  opacity: 0.7;
 }
 
-/* 滚动条样式已移至全局 game-theme.css */
+.chat-msg.user {
+  color: var(--term-text-secondary);
+}
+
+.chat-msg.ai {
+  color: var(--term-accent);
+}
+
+.chat-msg.system {
+  color: var(--term-error);
+}
+
+.cmd-interface {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.15);
+  z-index: 20;
+}
+
+.prompt {
+  color: var(--term-accent);
+  font-weight: 900;
+  margin-right: 12px;
+}
+
+.cmd-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--term-text);
+}
+
+.cmd-input:focus {
+  outline: none;
+}
+
+.view-placeholder {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.blink {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Sidebar Updates */
+.section-label {
+  font-size: 10px;
+  font-weight: 900;
+  color: var(--term-text-secondary);
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.config-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.config-btn {
+  border: 2px solid var(--term-border);
+  padding: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+  transition: all 0.1s;
+}
+
+.config-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
+}
+
+.config-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0px 0px 0px;
+}
+
+.config-btn.orange { background: var(--term-accent); color: #000; }
+.config-btn.green { background: var(--term-success); color: #000; }
+.config-btn.yellow { background: var(--term-accent-secondary); color: #000; }
+.config-btn.white { background: #fff; color: #000; }
+
+/* Header Updates */
+.meta-tag {
+  padding: 4px 8px;
+  font-weight: 800;
+  font-size: 10px;
+  border: 2px solid var(--term-border);
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+}
+
+.meta-tag.yellow {
+  background: var(--term-accent-secondary);
+  color: #000;
+}
 </style>

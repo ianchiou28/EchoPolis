@@ -8,7 +8,7 @@ const DISTRICT_META = {
     tagline: '银行 · 流动性中枢',
     spectrum: 'blue',
     icon: '🏦',
-    coords: { x: 20, y: 52 }
+    coords: { x: 50, y: 45 }
   },
   tech: {
     id: 'tech',
@@ -16,7 +16,7 @@ const DISTRICT_META = {
     tagline: '交易所 · 算法驱动',
     spectrum: 'violet',
     icon: '💹',
-    coords: { x: 62, y: 32 }
+    coords: { x: 70, y: 35 }
   },
   housing: {
     id: 'housing',
@@ -24,7 +24,7 @@ const DISTRICT_META = {
     tagline: '房产中心 · 城市更新',
     spectrum: 'amber',
     icon: '🏙️',
-    coords: { x: 75, y: 68 }
+    coords: { x: 70, y: 65 }
   },
   learning: {
     id: 'learning',
@@ -32,7 +32,7 @@ const DISTRICT_META = {
     tagline: '教育 · 成长设计',
     spectrum: 'teal',
     icon: '📚',
-    coords: { x: 38, y: 30 }
+    coords: { x: 30, y: 35 }
   },
   leisure: {
     id: 'leisure',
@@ -40,7 +40,7 @@ const DISTRICT_META = {
     tagline: '文娱 · 体验经济',
     spectrum: 'rose',
     icon: '🎭',
-    coords: { x: 48, y: 72 }
+    coords: { x: 50, y: 70 }
   },
   green: {
     id: 'green',
@@ -48,7 +48,7 @@ const DISTRICT_META = {
     tagline: '能源 · 可持续',
     spectrum: 'emerald',
     icon: '⚡',
-    coords: { x: 18, y: 32 }
+    coords: { x: 30, y: 65 }
   }
 }
 
@@ -287,6 +287,12 @@ export const useGameStore = defineStore('game', {
           }
           this.currentSituation = storyline
           this.situationOptions = storyline.options
+          
+          // 更新宏观经济数据
+          if (res.data.macro_economy) {
+            this.macroIndicators = res.data.macro_economy
+          }
+
           this.appendCityEvent({
             districtId: this.selectedDistrictId,
             title: '时间推进',

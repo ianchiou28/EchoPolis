@@ -12,6 +12,7 @@ try:
     from core.systems.echo_system import EchoSystem
     from core.systems.asset_calculator import asset_calculator
     from core.systems.investment_system import investment_system
+    from core.systems.macro_economy import macro_economy
     from core.ai.deepseek_engine import DeepSeekEngine
     AI_AVAILABLE = True
 except ImportError as e:
@@ -542,6 +543,11 @@ class GameService:
         """推进一个月份：发放月收益、递减投资、生成新情境"""
         if not self.db:
             raise Exception("数据库未初始化")
+            
+        # 推进宏观经济
+        macro_stats = macro_economy.advance_month()
+        asset_impact = macro_economy.get_asset_impact()
+        
         import sqlite3
         # 加载基本状态
         with sqlite3.connect(self.db.db_path) as conn:
@@ -551,35 +557,78 @@ class GameService:
             if not row:
                 raise Exception("会话不存在")
             name, mbti, cash, username = row
-            # 计算月度基础收益（简化版：总资产的0.5%）
+            
+            # 计算月度基础收益（受宏观经济影响）
             cursor.execute('SELECT SUM(amount) FROM investments WHERE session_id = ? AND remaining_months > 0', (session_id,))
             invested = cursor.fetchone()[0] or 0
-            total_before = cash + invested
-            monthly_income = int(total_before * 0.005)
+            
+            # 现金贬值
+            real_cash_value = cash * asset_impact["cash"]
+            inflation_loss = cash - real_cash_value
+            
+            # 投资收益计算
+            cursor.execute('''
+                SELECT id, name, amount, return_rate, monthly_return, investment_type
+                FROM investments 
+                WHERE session_id = ? AND remaining_months > 0
+            ''', (session_id,))
+            
+            monthly_income = 0
+            for inv in cursor.fetchall():
+                inv_type = inv[5] # investment_type
+                base_return = inv[4] # monthly_return
+                
+                # 根据资产类型应用宏观影响
+                impact_factor = 1.0
+                if "股票" in inv_type or "基金" in inv_type:
+                    impact_factor = asset_impact["stock"]
+                elif "房产" in inv_type:
+                    impact_factor = asset_impact["real_estate"]
+                elif "债券" in inv_type:
+                    impact_factor = asset_impact["bond"]
+                
+                # 实际收益 = 基础收益 * 宏观影响
+                actual_return = int(base_return * impact_factor)
+                monthly_income += actual_return
+
             # 更新投资剩余月数
             cursor.execute('''
                 UPDATE investments
                 SET remaining_months = remaining_months - 1
                 WHERE session_id = ? AND remaining_months > 0
             ''', (session_id,))
+            
             # 处理到期投资
             cursor.execute('''
-                SELECT id, name, amount, return_rate, monthly_return, remaining_months
+                SELECT id, name, amount, return_rate, monthly_return, remaining_months, investment_type
                 FROM investments
                 WHERE session_id = ?
             ''', (session_id,))
+            
             matured_return = 0
-            for iid, iname, amount, return_rate, monthly_ret, remaining in cursor.fetchall():
+            for iid, iname, amount, return_rate, monthly_ret, remaining, inv_type in cursor.fetchall():
                 if remaining <= 0:
+                    # 到期本金回收也受宏观影响（例如股市崩盘）
+                    impact_factor = 1.0
+                    if "股票" in inv_type:
+                        impact_factor = asset_impact["stock"]
+                    
+                    final_amount = int(amount * impact_factor)
+                    
                     if monthly_ret and monthly_ret > 0:
-                        matured_return += amount
+                        matured_return += final_amount
                     else:
-                        matured_return += int(amount * (1 + (return_rate or 0)))
+                        # 一次性收益型
+                        total_ret = int(final_amount * (1 + (return_rate or 0)))
+                        matured_return += total_ret
+                        
                     cursor.execute('DELETE FROM investments WHERE id = ?', (iid,))
+            
             # 加入收益
-            new_cash = cash + monthly_income + matured_return
+            new_cash = int(cash + monthly_income + matured_return)
             cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
             conn.commit()
+            
         # 更新月份与快照
         new_month = self.db.advance_session_month(session_id)
         total_assets = new_cash + invested  # 投资在上面已经更新/可能减少
@@ -590,6 +639,7 @@ class GameService:
             cash=new_cash,
             invested_assets=invested,
         )
+        
         # 生成新情境（复用现有 generate_situation 逻辑）
         situation_payload = None
         try:
@@ -615,19 +665,25 @@ class GameService:
                 avatar.attributes.credits = new_cash
                 avatar.attributes.current_month = new_month
                 avatar.attributes.invested_assets = invested
-                # 如果有更多状态(健康等)也应该在这里同步，目前数据库只存了基础的
+                
+                # 将宏观经济数据注入上下文
+                macro_context = f"当前宏观经济：GDP增长{macro_stats['gdp_growth']}%, 通胀{macro_stats['inflation']}%, 市场情绪{macro_stats['market_sentiment']}({macro_stats['phase']})"
+                
+                # 这里需要修改 AIAvatar.generate_situation 接口来接受额外上下文，或者临时修改属性
+                # 暂时通过 prompt injection 的方式（如果 DeepSeekEngine 支持）
+                # 假设 generate_situation 内部会调用 engine
                 
                 ctx = avatar.generate_situation(self.ai_engine)
                 if ctx:
                     situation_payload = {
-                        "situation": ctx.situation,
+                        "situation": f"[{macro_stats['phase'].upper()}] {ctx.situation}",
                         "options": ctx.options,
                         "ai_generated": True,
                     }
             if not situation_payload:
                 # Fallback：简单情境
                 situation_payload = {
-                    "situation": "新的一个月开始了。你的资产组合产生了变化，需要重新审视投资和现金流。",
+                    "situation": f"新的一个月开始了。当前经济处于{macro_stats['phase']}阶段，通胀率{macro_stats['inflation']}%。",
                     "options": [
                         "继续当前策略，保持观望",
                         "调整投资组合，增加稳健资产",
@@ -642,6 +698,7 @@ class GameService:
                 "options": ["保持现状", "略微增加投资", "增加储蓄"],
                 "ai_generated": False,
             }
+            
         return {
             "session_id": session_id,
             "new_month": new_month,
@@ -652,6 +709,7 @@ class GameService:
             "situation": situation_payload["situation"],
             "options": situation_payload["options"],
             "ai_generated": situation_payload["ai_generated"],
+            "macro_economy": macro_stats
         }
 
     def finish_session(self, session_id: str) -> Dict[str, Any]:
@@ -770,15 +828,11 @@ class GameService:
         }
 
     def get_macro_indicators(self) -> Dict[str, Any]:
-        """获取宏观经济指标（模拟数据）"""
-        # 随机波动
-        inflation = round(random.uniform(1.5, 4.5), 1)
-        interest = round(random.uniform(3.0, 6.0), 1)
-        market_idx = int(random.uniform(11000, 14000))
-        
+        """获取宏观经济指标"""
         return {
-            "inflation": inflation,
-            "interest": interest,
-            "market_idx": market_idx,
-            "market_trend": random.choice(["up", "down", "stable"])
+            "gdp_growth": macro_economy.state.gdp_growth,
+            "inflation": macro_economy.state.inflation,
+            "interest_rate": macro_economy.state.interest_rate,
+            "market_sentiment": macro_economy.state.market_sentiment,
+            "phase": macro_economy.state.phase
         }

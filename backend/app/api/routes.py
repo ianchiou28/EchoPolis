@@ -788,3 +788,34 @@ async def get_macro_indicators():
         return game_service.get_macro_indicators()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/decide")
+async def make_decision(request: dict):
+    try:
+        session_id = request.get("session_id")
+        option_index = request.get("option_index")
+        
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id required")
+            
+        # 获取当前情况
+        state = game_service.get_session_state(session_id)
+        # 这里简化处理，直接假设玩家选择了某个选项
+        # 实际上应该从 session 中获取 current_situation 并根据 index 获取选项文本
+        
+        # 模拟决策结果
+        result = {
+            "success": True,
+            "ai_thoughts": f"收到指令，执行选项 {option_index + 1}",
+            "decision_impact": {
+                "cash_change": -1000, # 示例
+                "trust_change": 5
+            }
+        }
+        
+        # 推进时间或更新状态
+        # ...
+        
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
