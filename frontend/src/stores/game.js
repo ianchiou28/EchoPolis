@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import axios from 'axios'
 
-const DISTRICT_META = {
+export const DISTRICT_META = {
   finance: {
     id: 'finance',
     name: '中央银行群',

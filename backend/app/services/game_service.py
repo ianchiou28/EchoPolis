@@ -758,6 +758,18 @@ class GameService:
         self.db.ensure_district_states(session_id)
         state = self.db.get_or_create_district_state(session_id, district_id)
         
+        # 补充区域元数据
+        district_meta = {
+            'finance': {'name': '中央银行群', 'type': 'finance'},
+            'tech': {'name': '量化交易所', 'type': 'tech'},
+            'housing': {'name': '房产中枢', 'type': 'housing'},
+            'learning': {'name': '知识引擎院', 'type': 'learning'},
+            'leisure': {'name': '文娱漫游区', 'type': 'leisure'},
+            'green': {'name': '绿色能源港', 'type': 'green'}
+        }
+        meta = district_meta.get(district_id, {'name': '未知区域', 'type': 'unknown'})
+        state.update(meta)
+        
         description = ""
         options = []
         

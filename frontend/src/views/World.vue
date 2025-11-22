@@ -196,7 +196,7 @@ import { computed, ref, onMounted } from 'vue'
 import GameLayout from '../components/GameLayout.vue'
 import CityMapPanel from '../components/CityMapPanel.vue'
 import WorldOperationPanel from '../components/WorldOperationPanel.vue'
-import { useGameStore } from '../stores/game'
+import { useGameStore, DISTRICT_META } from '../stores/game'
 
 const gameStore = useGameStore()
 const activeDistrictId = ref('finance')
@@ -213,16 +213,22 @@ const sessionId = computed(() => {
   }
 })
 
-// 从 Store 获取真实区域数据
+// 从 Store 获取真实区域数据，并确保包含所有元数据
 const districts = computed(() => {
-  return gameStore.districts.map(d => ({
-    ...d,
-    stats: {
-      heat: d.heat || 0.5,
-      influence: d.influence || 0.5,
-      prosperity: d.prosperity || 0.5
+  const storeDistricts = gameStore.districts || []
+  return Object.values(DISTRICT_META).map(meta => {
+    // 尝试匹配 store 中的数据
+    const storeData = storeDistricts.find(d => d.id === meta.id || d.district_id === meta.id) || {}
+    return {
+      ...meta,
+      ...storeData,
+      stats: {
+        heat: storeData.heat || 0.5,
+        influence: storeData.influence || 0.5,
+        prosperity: storeData.prosperity || 0.5
+      }
     }
-  }))
+  })
 })
 
 const activeDistrict = computed(() => districts.value.find(d => d.id === activeDistrictId.value))
@@ -235,8 +241,8 @@ const recentEvents = computed(() => {
 
 const onSelectDistrict = (district) => {
   activeDistrictId.value = district.id
-  // 不自动打开面板，让用户点击"进入操作"
-  // showOperationPanel.value = true 
+  // 自动打开面板
+  showOperationPanel.value = true 
 }
 
 const onOperationComplete = async (result) => {
@@ -291,8 +297,12 @@ const formatTime = (timestamp) => {
 }
 
 onMounted(async () => {
-  await gameStore.loadAvatar()
-  await gameStore.loadCityState()
+  try {
+    await gameStore.loadAvatar()
+    await gameStore.loadCityState()
+  } catch (e) {
+    console.error('Failed to load world data:', e)
+  }
 })
 </script>
 

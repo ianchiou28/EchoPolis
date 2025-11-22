@@ -244,7 +244,6 @@
       <div class="view-placeholder" v-if="currentView !== 'city'">
         <ProfileView v-if="currentView === 'profile'" />
         <TimelineView v-if="currentView === 'timeline'" />
-        <WorldView v-if="currentView === 'world'" />
         <ArchivesView v-if="currentView === 'logs'" />
       </div>
 
@@ -262,7 +261,6 @@ import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
 import ProfileView from '../components/views/ProfileView.vue'
 import TimelineView from '../components/views/TimelineView.vue'
-import WorldView from '../components/views/WorldView.vue'
 import ArchivesView from '../components/views/ArchivesView.vue'
 
 const gameStore = useGameStore()
@@ -279,7 +277,6 @@ const navItems = [
   { id: 'city', label: '城市概览', icon: '⚡' },
   { id: 'profile', label: '主体数据', icon: '👤' },
   { id: 'timeline', label: '时间线', icon: '🕒' },
-  { id: 'world', label: '世界构建', icon: '🌐' },
   { id: 'logs', label: '档案库', icon: '📖' }
 ]
 
@@ -975,9 +972,9 @@ onMounted(async () => {
   box-shadow: 0px 0px 0px;
 }
 
-.config-btn.orange { background: var(--term-accent); color: #000; }
-.config-btn.green { background: var(--term-success); color: #000; }
-.config-btn.yellow { background: var(--term-accent-secondary); color: #000; }
+.config-btn.orange { background: var(--term-accent); color: var(--config-btn-text); }
+.config-btn.green { background: var(--term-success); color: var(--config-btn-text); }
+.config-btn.yellow { background: var(--term-accent-secondary); color: var(--config-btn-text); }
 .config-btn.white { background: #fff; color: #000; }
 
 /* Header Updates */

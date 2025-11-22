@@ -50,6 +50,19 @@ class EchopolisDatabase:
             except:
                 pass
             
+            # 检查 users 表是否有新属性
+            try:
+                cursor.execute("PRAGMA table_info(users)")
+                columns = [column[1] for column in cursor.fetchall()]
+                if 'happiness' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN happiness INTEGER DEFAULT 70')
+                if 'energy' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN energy INTEGER DEFAULT 75')
+                if 'health' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN health INTEGER DEFAULT 80')
+            except:
+                pass
+            
             # 账户表
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS accounts (

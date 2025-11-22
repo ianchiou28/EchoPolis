@@ -5,8 +5,8 @@
 [data-theme='dark'] {
   --term-bg: #050505; /* Pure Black */
   --term-grid: rgba(255, 255, 255, 0.05);
-  --term-text: #e0e0e0;
-  --term-text-secondary: #888888;
+  --term-text: #ffffff; /* Pure White for High Contrast */
+  --term-text-secondary: #cccccc; /* Light Grey */
   --term-accent: #FF5500; /* Project Echo Orange */
   --term-accent-glow: rgba(255, 85, 0, 0.4);
   --term-border: #333333;
@@ -14,9 +14,13 @@
   
   --sidebar-bg: #0a0a0a;
   --sidebar-border: #333;
-  --sidebar-text: #888;
+  --sidebar-text: #cccccc;
   --sidebar-active-bg: #FF5500;
-  --sidebar-active-text: #000;
+  --sidebar-active-text: #000000; /* Black text on Orange accent for contrast */
+  
+  --term-success: #22c55e; /* Green */
+  --term-accent-secondary: #eab308; /* Yellow/Gold */
+  --config-btn-text: #ffffff; /* White text for buttons in dark mode */
 }
 
 /* Light Mode - Archive Style (Beige/Graph Paper) */
@@ -39,6 +43,8 @@
   --sidebar-item-bg: #FFFFFF;
   --sidebar-item-active-bg: #000000;
   --sidebar-item-active-text: #FFFFFF;
+  
+  --config-btn-text: #000000;
 }
 
 /* 全局样式重置 */
