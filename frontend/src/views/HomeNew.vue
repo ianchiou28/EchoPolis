@@ -107,14 +107,14 @@
 
             <g v-else stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
                <!-- Mobile Hexagon Connections -->
-               <path d="M 50% 20% L 25% 38%" />
-               <path d="M 50% 20% L 75% 38%" />
-               <path d="M 25% 38% L 25% 62%" />
-               <path d="M 75% 38% L 75% 62%" />
-               <path d="M 25% 62% L 50% 80%" />
-               <path d="M 75% 62% L 50% 80%" />
-               <path d="M 25% 38% L 75% 38%" />
-               <path d="M 25% 62% L 75% 62%" />
+               <path d="M 50% 28% L 25% 45%" />
+               <path d="M 50% 28% L 75% 45%" />
+               <path d="M 25% 45% L 25% 65%" />
+               <path d="M 75% 45% L 75% 65%" />
+               <path d="M 25% 65% L 50% 82%" />
+               <path d="M 75% 65% L 50% 82%" />
+               <path d="M 25% 45% L 75% 45%" />
+               <path d="M 25% 65% L 75% 65%" />
             </g>
             
             <!-- Zone Circles -->
@@ -393,12 +393,12 @@ const updateMobileState = () => {
 const pinStyle = (district) => {
   if (isMobile.value) {
     const mobileLayout = {
-      finance: { x: 50, y: 20 },
-      learning: { x: 25, y: 38 },
-      tech: { x: 75, y: 38 },
-      green: { x: 25, y: 62 },
-      housing: { x: 75, y: 62 },
-      leisure: { x: 50, y: 80 }
+      finance: { x: 50, y: 28 },
+      learning: { x: 25, y: 45 },
+      tech: { x: 75, y: 45 },
+      green: { x: 25, y: 65 },
+      housing: { x: 75, y: 65 },
+      leisure: { x: 50, y: 82 }
     }
     const coords = mobileLayout[district.id] || district.coords || { x: 50, y: 50 }
     return { left: `${coords.x}%`, top: `${coords.y}%` }
