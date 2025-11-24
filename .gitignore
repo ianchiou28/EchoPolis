@@ -50,7 +50,6 @@ UnityFrontend/Temp/
 test_*.py
 
 # Generated files
-*.png
 *.dot
 *.jpg
 *.jpeg
