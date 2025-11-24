@@ -1,11 +1,11 @@
 <template>
-  <div class="login-page-wrapper">
+  <div class="login-page-wrapper" data-theme="dark">
     <div class="grid-bg"></div>
     <div class="crt-overlay"></div>
 
     <div class="login-container">
       <div class="brand-header">
-        <h1 class="brand-logo">ECHO<span class="highlight">POLIS</span></h1>
+        <h1 class="brand-logo">FinAI<span class="highlight">金融模拟沙盘</span></h1>
         <p class="subtitle">WEALTH SIMULATION SYSTEM // 财富人生沙盘</p>
       </div>
 
@@ -135,6 +135,8 @@ const register = async () => {
   font-family: 'JetBrains Mono', monospace;
   position: relative;
   overflow: hidden;
+  background-color: var(--term-bg);
+  color: var(--term-text);
 }
 
 .login-container {

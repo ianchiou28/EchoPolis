@@ -24,7 +24,7 @@ def start_frontend():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("🌆 EchoPolis - 回声都市")
+    print("🌆 FinAI - 金融模拟沙盘")
     print("=" * 50)
     
     backend = start_backend()

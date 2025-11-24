@@ -8,25 +8,47 @@
     <div class="timeline-content">
       <div class="archive-card full-height">
         <div class="archive-body scrollable">
-          <div v-if="!events.length" class="empty-state">
+          <div v-if="loading" class="loading-state">
+            加载中...
+          </div>
+          <div v-else-if="!timelineItems.length" class="empty-state">
             暂无历史记录
           </div>
           <div v-else class="timeline-list">
-            <div v-for="(event, index) in events" :key="index" class="timeline-item">
+            <div v-for="(item, index) in timelineItems" :key="index" class="timeline-item">
               <div class="time-marker">
-                <div class="dot"></div>
-                <div class="line" v-if="index !== events.length - 1"></div>
+                <div class="dot" :class="item.source"></div>
+                <div class="line" v-if="index !== timelineItems.length - 1"></div>
               </div>
-              <div class="event-card">
+              
+              <!-- 交易记录样式 -->
+              <div v-if="item.source === 'transaction'" class="event-card transaction">
                 <div class="event-header">
-                  <span class="event-type">{{ getEventType(event.type) }}</span>
-                  <span class="event-time">{{ formatDate(event.timestamp) }}</span>
+                  <span class="event-type">交易</span>
+                  <span class="event-time">{{ formatDate(item.timestamp) }}</span>
                 </div>
-                <div class="event-title">{{ event.title }}</div>
-                <div class="event-desc">{{ event.description }}</div>
-                <div class="event-impact" v-if="event.impact">
-                  <div v-if="event.impact.cash_change" :class="event.impact.cash_change > 0 ? 'pos' : 'neg'">
-                    {{ event.impact.cash_change > 0 ? '+' : '' }}¥{{ event.impact.cash_change }}
+                <div class="trans-row">
+                  <div class="trans-info">
+                    <div class="event-title">{{ item.title }}</div>
+                    <div class="event-desc" v-if="item.description">{{ item.description }}</div>
+                  </div>
+                  <div class="trans-amount" :class="item.amount > 0 ? 'pos' : 'neg'">
+                    {{ item.amount > 0 ? '+' : '' }}¥{{ item.amount.toLocaleString() }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- 事件记录样式 -->
+              <div v-else class="event-card event">
+                <div class="event-header">
+                  <span class="event-type">{{ getEventType(item.type) }}</span>
+                  <span class="event-time">{{ formatDate(item.timestamp) }}</span>
+                </div>
+                <div class="event-title">{{ item.title }}</div>
+                <div class="event-desc">{{ item.description }}</div>
+                <div class="event-impact" v-if="item.impact">
+                  <div v-if="item.impact.cash_change" :class="item.impact.cash_change > 0 ? 'pos' : 'neg'">
+                    {{ item.impact.cash_change > 0 ? '+' : '' }}¥{{ item.impact.cash_change.toLocaleString() }}
                   </div>
                 </div>
               </div>
@@ -39,14 +61,43 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useGameStore } from '../../stores/game'
 
 const gameStore = useGameStore()
-const events = ref([])
+const loading = ref(true)
+
+// 合并并排序所有时间线项目
+const timelineItems = computed(() => {
+  const events = (gameStore.cityEvents || []).map(e => ({
+    ...e,
+    source: 'event',
+    timestamp: new Date(e.timestamp).getTime()
+  }))
+  
+  const transactions = (gameStore.transactions || []).map(t => ({
+    ...t,
+    source: 'transaction',
+    timestamp: new Date(t.timestamp).getTime(),
+    // 确保 description 存在
+    description: t.description || t.ai_thoughts || ''
+  }))
+
+  return [...events, ...transactions].sort((a, b) => b.timestamp - a.timestamp)
+})
 
 onMounted(async () => {
-  events.value = await gameStore.getTimeline(50)
+  try {
+    console.log('Loading timeline events...')
+    await Promise.all([
+      gameStore.loadCityState(),
+      gameStore.loadTransactions()
+    ])
+  } catch (e) {
+    console.error('Failed to load timeline:', e)
+  } finally {
+    loading.value = false
+  }
 })
 
 const getEventType = (type) => {
@@ -54,7 +105,8 @@ const getEventType = (type) => {
     'story': '事件',
     'decision': '决策',
     'ai': 'AI操作',
-    'timeline': '周期'
+    'timeline': '周期',
+    'action': '行动'
   }
   return map[type] || '记录'
 }
@@ -137,6 +189,11 @@ const formatDate = (ts) => {
   z-index: 2;
 }
 
+.dot.transaction {
+  background: var(--term-success);
+  border-radius: 50%;
+}
+
 .line {
   flex: 1;
   width: 2px;
@@ -151,6 +208,10 @@ const formatDate = (ts) => {
   padding: 16px;
   position: relative;
   top: -6px;
+}
+
+.event-card.transaction {
+  border-left: 4px solid var(--term-success);
 }
 
 .event-header {
@@ -172,7 +233,7 @@ const formatDate = (ts) => {
 .event-title {
   font-weight: 900;
   font-size: 16px;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   color: var(--term-text);
 }
 
@@ -180,6 +241,18 @@ const formatDate = (ts) => {
   font-size: 13px;
   line-height: 1.5;
   color: var(--term-text-secondary);
+}
+
+.trans-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.trans-amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+  font-size: 16px;
 }
 
 .event-impact {
@@ -191,7 +264,7 @@ const formatDate = (ts) => {
 .pos { color: var(--term-success); }
 .neg { color: #F44336; }
 
-.empty-state {
+.empty-state, .loading-state {
   text-align: center;
   padding: 40px;
   color: var(--term-text-secondary);

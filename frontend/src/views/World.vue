@@ -33,7 +33,7 @@
       <section class="panel-section panel-section--center">
         <header class="panel-header panel-header--center">
           <div class="panel-header-main">
-            <h1 class="city-title">ECHOPOLIS // 城市总览</h1>
+            <h1 class="city-title">FinAI金融模拟沙盘 // 城市总览</h1>
             <p class="city-sub">YOUR DECISIONS SHAPE THE SKYLINE // 你的决策塑造天际线</p>
           </div>
           <div class="panel-header-meta">
@@ -87,7 +87,7 @@
 
     <!-- 右侧：区块详情 / 时间轴 -->
     <template #right>
-      <section class="panel-section">
+      <section class="panel-section" style="z-index: 10; position: relative;">
         <header class="panel-header">
           <h2 class="panel-title">DISTRICT DATA // 城区详情</h2>
           <p class="panel-sub">ANALYSIS & OPPORTUNITIES // 分析与机会</p>
@@ -127,12 +127,12 @@
         </div>
       </section>
 
-      <section class="panel-section panel-section--timeline">
+      <section class="panel-section panel-section--timeline" style="z-index: 10; position: relative;">
         <header class="panel-header">
           <h2 class="panel-title">EVENT STREAM // 城市事件流</h2>
           <p class="panel-sub">REAL-TIME MONITORING // 实时监控</p>
         </header>
-        <div class="glass-panel tech-border" style="flex: 1; padding: 12px; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="glass-panel tech-border" style="flex: 1; padding: 12px; overflow: hidden; display: flex; flex-direction: column; background: rgba(15, 23, 42, 0.8);">
           <ul class="timeline-list custom-scrollbar" style="flex: 1; overflow-y: auto;">
             <li class="timeline-item" v-for="item in recentEvents" :key="item.id">
               <div class="timeline-dot" :class="item.type" />

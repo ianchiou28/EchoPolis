@@ -74,6 +74,7 @@ export const useGameStore = defineStore('game', {
     districts: Object.values(DISTRICT_META),
     selectedDistrictId: null,
     cityEvents: [],
+    transactions: [],
     chatMessages: [],
     isChatting: false,
     isLoadingDistrict: false,
@@ -121,7 +122,12 @@ export const useGameStore = defineStore('game', {
         console.log('[Game Store] 加载角色状态:', char.id)
         
         // 使用统一的会话状态接口
-        const res = await axios.get('/api/session/state', { params: { session_id: char.id } })
+        const res = await axios.get('/api/session/state', { 
+          params: { 
+            session_id: char.id,
+            _t: Date.now() 
+          } 
+        })
         console.log('[Game Store] API返回数据:', res.data)
         
         // 映射返回的数据到avatar格式
@@ -139,7 +145,12 @@ export const useGameStore = defineStore('game', {
         }
         
         // 加载投资数据
-        const invRes = await axios.get('/api/investments', { params: { session_id: char.id } })
+        const invRes = await axios.get('/api/investments', { 
+          params: { 
+            session_id: char.id,
+            _t: Date.now()
+          } 
+        })
         this.assets.investments = Array.isArray(invRes.data) ? invRes.data : []
         console.log('[Game Store] 投资数据:', this.assets.investments)
         
@@ -154,7 +165,12 @@ export const useGameStore = defineStore('game', {
       const character = this.getCurrentCharacter()
       if (!character) return
       if (!this.avatar) await this.loadAvatar()
-      const res = await axios.get('/api/city/state', { params: { session_id: character.id } })
+      const res = await axios.get('/api/city/state', { 
+        params: { 
+          session_id: character.id,
+          _t: Date.now()
+        } 
+      })
       const backendStates = res.data?.districts || []
       this.districts = backendStates.map(state => ({
         ...DISTRICT_META[state.district_id] || DISTRICT_META[state.id] || {},
@@ -299,7 +315,19 @@ export const useGameStore = defineStore('game', {
             description: res.data.situation,
             type: 'timeline'
           })
-          await Promise.all([this.loadAvatar(), this.loadCityState()])
+
+          // Optimistic update from response
+          if (this.avatar) {
+            if (res.data.new_month) this.avatar.current_month = res.data.new_month
+            if (res.data.cash !== undefined) this.avatar.cash = res.data.cash
+            if (res.data.total_assets !== undefined) this.avatar.total_assets = res.data.total_assets
+            this.updateAssets()
+          }
+          
+          // Force reload with delay to ensure DB commit
+          setTimeout(async () => {
+            await Promise.all([this.loadAvatar(), this.loadCityState()])
+          }, 100)
         }
       } finally {
         this.isAdvancingMonth = false
@@ -351,6 +379,35 @@ export const useGameStore = defineStore('game', {
         }
       } finally {
         this.isLoadingDistrict = false
+      }
+    },
+
+    async performDistrictAction(payload) {
+      const character = this.getCurrentCharacter()
+      if (!character) throw new Error('请先选择角色')
+
+      try {
+        const res = await axios.post('/api/world/action', {
+          ...payload,
+          session_id: character.id
+        })
+        
+        if (res.data.success) {
+          // Refresh data
+          await Promise.all([this.loadAvatar(), this.loadCityState()])
+          
+          // Add to event log
+          this.appendCityEvent({
+            districtId: payload.building,
+            title: payload.action_name,
+            description: res.data.message,
+            type: 'action'
+          })
+        }
+        return res.data
+      } catch (error) {
+        console.error('[Game Store] 执行区域动作失败:', error)
+        throw error.response?.data?.detail ? new Error(error.response.data.detail) : error
       }
     },
 
@@ -421,6 +478,20 @@ export const useGameStore = defineStore('game', {
       }
     },
 
+    async loadTransactions() {
+      const character = this.getCurrentCharacter()
+      if (!character) return
+      try {
+        const res = await axios.get(`/api/session/transactions`, {
+          params: { session_id: character.id, limit: 50 }
+        })
+        this.transactions = res.data || []
+      } catch (error) {
+        console.error('[Game Store] 加载交易记录失败:', error)
+        this.transactions = []
+      }
+    },
+
     async bootstrapHome() {
       // 检查并修复旧的localStorage数据（数字id → session_id）
       const character = this.getCurrentCharacter()
@@ -461,6 +532,7 @@ export const useGameStore = defineStore('game', {
       
       await this.loadAvatar()
       await this.loadCityState()
+      await this.loadTransactions()
       await this.loadMacroIndicators()
       if (!this.currentSituation) {
         await this.generateSituation()
@@ -488,10 +560,13 @@ export const useGameStore = defineStore('game', {
       const character = this.getCurrentCharacter()
       if (!character) throw new Error('请先选择角色')
       
+      const optionText = this.situationOptions[optionIndex] || ''
+
       try {
         const res = await axios.post('/api/decide', {
           session_id: character.id,
-          option_index: optionIndex
+          option_index: optionIndex,
+          option_text: optionText
         })
         
         // 更新当前状态
@@ -571,6 +646,39 @@ export const useGameStore = defineStore('game', {
         console.error('[Game Store] 创建角色失败:', error)
         throw error
       }
+    },
+
+    async deleteCharacter(sessionId) {
+      try {
+        const res = await axios.delete(`/api/characters/session/${sessionId}`)
+        return res.data
+      } catch (error) {
+        console.error('[Game Store] 删除角色失败:', error)
+        throw error
+      }
+    },
+
+    resetState() {
+      this.avatar = null
+      this.assets = { total: 0, cash: 0, investments: [] }
+      this.trustLevel = 50
+      this.wealthLevel = '贫困'
+      this.lifeStage = '起步期'
+      this.aiReflection = '正在思考当前的财务状况...'
+      this.aiMonologue = '我需要更谨慎地规划未来的投资方向。'
+      this.aiResponse = ''
+      this.currentSituation = ''
+      this.situationOptions = []
+      this.assetHistory = []
+      this.maxEquity = 0
+      this.decisionLog = []
+      this.selectedDistrictId = null
+      this.cityEvents = []
+      this.chatMessages = []
+      this.isChatting = false
+      this.isLoadingDistrict = false
+      this.isAdvancingMonth = false
+      this.isAiInvesting = false
     }
   }
 })

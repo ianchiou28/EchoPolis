@@ -456,4 +456,82 @@ const chartOption = computed(() => {
   color: var(--term-text-secondary);
   font-style: italic;
 }
+
+@media (max-width: 768px) {
+  .view-container {
+    padding: 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: 100%; /* Ensure it fills the parent to allow scrolling */
+    display: block;
+  }
+
+  .content-grid {
+    display: block; /* Stack columns normally */
+    height: auto;
+    overflow: visible;
+    padding-bottom: 40px; /* Extra space at bottom */
+  }
+
+  .col-left, .col-right {
+    width: 100%;
+    height: auto !important;
+    display: block;
+    overflow: visible;
+    margin-bottom: 24px; /* Space between columns */
+  }
+
+  .archive-card {
+    margin-bottom: 24px; /* Space between cards */
+    height: auto !important;
+    min-height: 0;
+  }
+
+  /* Reset flex-grow card to normal block */
+  .flex-grow {
+    flex: none !important;
+    display: block !important;
+  }
+
+  /* Reset flex-col body to normal block */
+  .archive-body.flex-col {
+    height: auto !important;
+    display: block !important;
+  }
+
+  /* Chart container */
+  .chart-container {
+    height: 250px !important;
+    width: 100% !important;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+    display: block !important;
+    background: rgba(255,255,255,0.5); /* Ensure background is visible */
+  }
+  
+  .chart {
+    min-height: 250px;
+  }
+
+  /* Portfolio section */
+  .full-height {
+    height: auto !important;
+    flex: none !important;
+  }
+
+  .archive-body.scrollable {
+    height: 400px; /* Fixed height for the list area */
+    overflow-y: auto;
+  }
+
+  .profile-header {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .asset-big .value {
+    font-size: 24px;
+  }
+}
 </style>

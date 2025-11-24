@@ -1,10 +1,14 @@
 <template>
   <div class="project-echo-interface">
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" v-if="isSidebarOpen" @click="isSidebarOpen = false"></div>
+
     <!-- Left Sidebar: Directory -->
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav" :class="{ open: isSidebarOpen }">
       <div class="nav-header">
-        <div class="logo-text">ECHOPOLIS</div>
+        <div class="logo-text">FinAI金融模拟沙盘</div>
         <div class="sub-header">// 系统终端</div>
+        <button class="close-sidebar-btn" @click="isSidebarOpen = false">×</button>
       </div>
       
       <div class="nav-section">
@@ -13,7 +17,7 @@
           v-for="item in navItems" 
           :key="item.id"
           :class="['nav-item', { active: currentView === item.id }]"
-          @click="currentView = item.id">
+          @click="handleNavClick(item.id)">
           <span class="icon">{{ item.icon }}</span>
           {{ item.label }}
         </div>
@@ -27,14 +31,17 @@
           <button class="config-btn orange active">
             <span class="icon">🔊</span> BGM: 开
           </button>
-          <button class="config-btn green active">
-            <span class="icon">📺</span> CRT: 开
+          <button class="config-btn green" :class="{ active: isCrtOn }" @click="toggleCrt">
+            <span class="icon">📺</span> CRT: {{ isCrtOn ? '开' : '关' }}
           </button>
           <button class="config-btn white" @click="themeStore.toggleTheme">
             <span class="icon">☀</span> 模式: {{ themeStore.isDark ? '暗色' : '亮色' }}
           </button>
           <button class="config-btn yellow">
             <span class="icon">文</span> CN | EN
+          </button>
+          <button class="config-btn red" @click="exitToSelect">
+            <span class="icon">🔌</span> 断开连接
           </button>
         </div>
       </div>
@@ -44,18 +51,34 @@
     <main class="main-content">
       <!-- Top Header -->
       <header class="top-bar">
+        <button class="menu-btn" @click="isSidebarOpen = true">☰</button>
         <div class="brand-logo">
-          <span class="highlight">ECHOPOLIS</span> // 系统
+          <span class="highlight">FinAI</span> // 系统
         </div>
         <div class="header-meta">
-          <span>记录日期: 2025-11-22</span>
+          <span>{{ currentDate }}</span>
         </div>
       </header>
 
       <!-- Game View Layer -->
       <div class="game-viewport" v-show="currentView === 'city'">
-        <!-- City Background -->
-        <section class="city-stage" @mousemove="onParallax" @mouseleave="resetParallax">
+        
+        <!-- Mobile View Switcher -->
+        <div class="mobile-view-switch">
+          <button 
+            :class="['switch-btn', { active: !mobileMapMode }]" 
+            @click="mobileMapMode = false">
+            📊 仪表盘
+          </button>
+          <button 
+            :class="['switch-btn', { active: mobileMapMode }]" 
+            @click="mobileMapMode = true">
+            🗺️ 城市地图
+          </button>
+        </div>
+
+        <!-- City Background (Map) -->
+        <section class="city-stage" :class="{ 'mobile-hidden': !mobileMapMode }" @mousemove="onParallax" @mouseleave="resetParallax">
           <div class="city-sky" :style="parallaxStyles.sky" />
           <div class="city-grid" :style="parallaxStyles.grid" />
           
@@ -67,7 +90,7 @@
               </pattern>
             </defs>
             <!-- Connection Lines -->
-            <g stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
+            <g v-if="!isMobile" stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
               <!-- Central Hub Connections -->
               <path d="M 30% 35% L 50% 45%" /> <!-- Learning -> Finance -->
               <path d="M 70% 35% L 50% 45%" /> <!-- Tech -> Finance -->
@@ -81,25 +104,41 @@
               <path d="M 30% 35% L 30% 65%" /> <!-- Learning -> Green -->
               <path d="M 70% 35% L 70% 65%" /> <!-- Tech -> Housing -->
             </g>
+
+            <g v-else stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
+               <!-- Mobile Hexagon Connections -->
+               <path d="M 50% 20% L 25% 38%" />
+               <path d="M 50% 20% L 75% 38%" />
+               <path d="M 25% 38% L 25% 62%" />
+               <path d="M 75% 38% L 75% 62%" />
+               <path d="M 25% 62% L 50% 80%" />
+               <path d="M 75% 62% L 50% 80%" />
+               <path d="M 25% 38% L 75% 38%" />
+               <path d="M 25% 62% L 75% 62%" />
+            </g>
             
             <!-- Zone Circles -->
             <circle cx="50%" cy="45%" r="120" fill="none" stroke="rgba(0,0,0,0.03)" stroke-width="1" />
             <circle cx="50%" cy="45%" r="250" fill="none" stroke="rgba(0,0,0,0.02)" stroke-width="1" stroke-dasharray="10 5" />
           </svg>
 
-          <div class="city-layer city-layer--far" :style="parallaxStyles.far" />
-          <div class="city-layer city-layer--mid" :style="parallaxStyles.mid" />
-          <div class="city-layer city-layer--front" :style="parallaxStyles.front" />
-          
-          <!-- District Markers -->
+          <!-- District Markers (Pixel Art Buildings) -->
           <div class="district-marker"
                v-for="district in districts"
                :key="district.id"
                :style="pinStyle(district)"
                @click="handleZoneSelect(district)">
-            <div class="marker-box">
-              <span class="marker-code">{{ getDistrictCode(district.id) }}</span>
-              <div class="marker-corner"></div>
+            <div class="district-visual">
+              <img :src="`/assets/districts/${district.id}.png`" 
+                   class="pixel-building" 
+                   :style="{ animationDelay: `${(district.id.length % 3) * 0.5}s` }"
+                   :alt="district.name"
+                   @error="$event.target.style.display='none'" />
+              <!-- Fallback Marker if image fails or loading -->
+              <div class="marker-box fallback">
+                <span class="marker-code">{{ getDistrictCode(district.id) }}</span>
+                <div class="marker-corner"></div>
+              </div>
             </div>
             <div class="marker-label">
               {{ district.name }}
@@ -107,8 +146,15 @@
           </div>
         </section>
 
+        <!-- Action Panel Overlay -->
+        <DistrictActionPanel 
+          v-if="selectedDistrict" 
+          :district="selectedDistrict" 
+          @close="selectedDistrict = null" 
+        />
+
         <!-- HUD Overlay (Floating Cards) -->
-        <div class="hud-overlay">
+        <div class="hud-overlay" :class="{ 'mobile-hidden': mobileMapMode }">
           <!-- Left: Avatar Status -->
           <div class="hud-column left">
             <div class="archive-card">
@@ -172,14 +218,15 @@
                     v-for="(option, idx) in situationOptions" 
                     :key="idx"
                     class="term-btn"
+                    :class="{ active: selectedOptionIndex === idx }"
                     @click="handleSelectOption(idx)">
                     [{{ idx + 1 }}] {{ option }}
                   </button>
                 </div>
 
                 <div class="control-bar">
-                  <button class="term-btn primary full" :disabled="gameStore.isAdvancingMonth" @click="handleAdvance">
-                    {{ gameStore.isAdvancingMonth ? '处理中...' : '>> 执行下一周期' }}
+                  <button class="term-btn primary full" :disabled="gameStore.isAdvancingMonth || isProcessing" @click="handleAdvance">
+                    {{ (gameStore.isAdvancingMonth || isProcessing) ? '处理中...' : '>> 执行下一周期' }}
                   </button>
                 </div>
               </div>
@@ -212,7 +259,7 @@
         </div>
 
         <!-- Bottom: Chat -->
-        <div class="chat-dock">
+        <div class="chat-dock" :class="{ 'mobile-hidden': mobileMapMode }">
           <!-- Chat History Panel -->
           <div class="chat-history" v-if="chatMessages.length > 0" :class="{ collapsed: !isChatExpanded }">
              <div class="chat-header" @click="isChatExpanded = !isChatExpanded">
@@ -236,6 +283,7 @@
               placeholder="输入指令..." 
               @keyup.enter="sendChat"
             />
+            <button class="term-btn small" @click="sendChat">发送</button>
           </div>
         </div>
       </div>
@@ -250,28 +298,38 @@
     </main>
 
     <!-- CRT Overlay -->
-    <div class="crt-overlay"></div>
+    <div class="crt-overlay" v-if="isCrtOn"></div>
     <div class="grid-bg"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
 import ProfileView from '../components/views/ProfileView.vue'
 import TimelineView from '../components/views/TimelineView.vue'
 import ArchivesView from '../components/views/ArchivesView.vue'
+import DistrictActionPanel from '../components/DistrictActionPanel.vue'
+import { useRouter } from 'vue-router'
 
 const gameStore = useGameStore()
 const themeStore = useThemeStore()
+const router = useRouter()
 const currentView = ref('city')
 const parallax = ref({ x: 0, y: 0 })
+const selectedDistrict = ref(null)
+const selectedOptionIndex = ref(null)
 const chatText = ref('')
 const echoText = ref('')
 const echoType = ref('advisory')
 const isChatExpanded = ref(true)
 const chatBodyRef = ref(null)
+const isCrtOn = ref(true)
+const isProcessing = ref(false)
+const currentDate = ref(new Date().toLocaleDateString('zh-CN').replace(/\//g, '-'))
+const isSidebarOpen = ref(false)
+const mobileMapMode = ref(true)
 
 const navItems = [
   { id: 'city', label: '城市概览', icon: '⚡' },
@@ -326,13 +384,34 @@ const parallaxStyles = computed(() => {
   }
 })
 
+const isMobile = ref(window.innerWidth <= 768)
+
+const updateMobileState = () => {
+  isMobile.value = window.innerWidth <= 768
+}
+
 const pinStyle = (district) => {
+  if (isMobile.value) {
+    const mobileLayout = {
+      finance: { x: 50, y: 20 },
+      learning: { x: 25, y: 38 },
+      tech: { x: 75, y: 38 },
+      green: { x: 25, y: 62 },
+      housing: { x: 75, y: 62 },
+      leisure: { x: 50, y: 80 }
+    }
+    const coords = mobileLayout[district.id] || district.coords || { x: 50, y: 50 }
+    return { left: `${coords.x}%`, top: `${coords.y}%` }
+  }
   const x = district.coords?.x ?? 50
   const y = district.coords?.y ?? 50
   return { left: `${x}%`, top: `${y}%` }
 }
 
 const onParallax = (event) => {
+  // Disable parallax on mobile or if map is hidden
+  if (window.innerWidth <= 768) return
+  
   const rect = event.currentTarget.getBoundingClientRect()
   const centerX = rect.left + rect.width / 2
   const centerY = rect.top + rect.height / 2
@@ -346,17 +425,54 @@ const resetParallax = () => {
 }
 
 // Actions
-const handleAdvance = async () => {
+const toggleCrt = () => {
+  isCrtOn.value = !isCrtOn.value
+}
+
+const exitToSelect = () => {
   try {
+    gameStore.resetState()
+  } catch (e) {
+    console.error('Reset state error:', e)
+  }
+  localStorage.removeItem('currentCharacter')
+  router.push('/character-select')
+}
+
+const handleNavClick = (viewId) => {
+  currentView.value = viewId
+  isSidebarOpen.value = false // Close sidebar on mobile selection
+}
+
+const handleAdvance = async () => {
+  if (isProcessing.value) return
+  isProcessing.value = true
+  try {
+    // Commit decision if selected
+    if (selectedOptionIndex.value !== null) {
+      await gameStore.makeDecision(selectedOptionIndex.value)
+    }
+
     const text = echoText.value
     echoText.value = '' // Clear immediately
     await gameStore.advanceMonth(text)
-  } catch (e) { console.error(e) }
+    // Add feedback
+    // alert('周期推进完成')
+  } catch (e) { 
+    console.error(e)
+    alert('推进失败: ' + e.message)
+  } finally {
+    isProcessing.value = false
+  }
 }
 
-const handleSelectOption = async (idx) => {
-  await gameStore.makeDecision(idx)
+const handleSelectOption = (idx) => {
+  selectedOptionIndex.value = idx
 }
+
+watch(currentSituation, () => {
+  selectedOptionIndex.value = null
+})
 
 const handleSendEcho = async () => {
   if (!echoText.value) return
@@ -373,7 +489,8 @@ const sendChat = async () => {
 }
 
 const handleZoneSelect = (district) => {
-  gameStore.exploreDistrict(district.id)
+  selectedDistrict.value = district
+  // gameStore.exploreDistrict(district.id) // Replaced by Action Panel
 }
 
 // Auto-scroll chat
@@ -385,8 +502,13 @@ watch(chatMessages, async () => {
 }, { deep: true })
 
 onMounted(async () => {
+  window.addEventListener('resize', updateMobileState)
   themeStore.applyTheme()
   await gameStore.bootstrapHome()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileState)
 })
 </script>
 
@@ -405,22 +527,31 @@ onMounted(async () => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  width: 260px; /* Fixed width to prevent shrinking */
+  border-right: 2px solid var(--term-border); /* Add border for separation */
+  background: var(--term-panel-bg);
 }
 
 .nav-section {
   padding-top: 20px;
+  padding-left: 20px; /* Add padding */
+  padding-right: 20px;
 }
 
 .nav-header {
   /* Removed local styles to use terminal-theme.css */
+  padding: 20px; /* Add padding */
+  border-bottom: 2px solid var(--term-border);
 }
 
 .logo-text {
   /* Removed local styles */
+  font-weight: bold;
 }
 
 .sub-header {
   /* Removed local styles */
+  opacity: 0.7;
 }
 
 .nav-spacer {
@@ -498,6 +629,8 @@ onMounted(async () => {
 /* Reusing city styles */
 .city-sky { 
   /* Placeholder for sky styles if needed */
+  position: absolute;
+  inset: 0;
 }
 .city-grid {
   position: absolute;
@@ -510,13 +643,6 @@ onMounted(async () => {
   background-size: 80px 80px;
   transform: perspective(500px) rotateX(60deg);
   opacity: 0.4;
-}
-
-.city-layer {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
 }
 
 .city-connections {
@@ -538,8 +664,117 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 16px; /* Increased gap for larger visuals */
 }
+
+.district-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pixel-building {
+  width: 160px; /* Significantly larger size */
+  max-width: 25vw; /* Responsive constraint */
+  height: auto;
+  image-rendering: pixelated; /* Crisp pixels */
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,0.5)); /* Deep shadow for pop */
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy spring transition */
+  z-index: 2;
+  animation: building-float 6s ease-in-out infinite; /* Alive breathing effect */
+  will-change: transform;
+}
+
+@keyframes building-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Hide fallback box when image loads successfully */
+.pixel-building:not([style*="display: none"]) + .marker-box.fallback {
+  display: none;
+}
+
+.marker-box {
+  width: 42px;
+  height: 42px;
+  background: var(--term-bg);
+  border: 2px solid var(--term-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+}
+
+.marker-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--term-text);
+  letter-spacing: 1px;
+}
+
+.marker-corner {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background: var(--term-text);
+  transition: background 0.2s;
+}
+
+.marker-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; /* Slightly larger text */
+  font-weight: 800;
+  color: var(--term-text);
+  background: var(--term-panel-bg);
+  padding: 6px 12px;
+  border: 2px solid var(--term-border); /* Thicker border */
+  opacity: 0.9;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.2); /* Stronger shadow */
+  z-index: 3;
+  text-transform: uppercase;
+}
+
+/* Hover Effects */
+.district-marker:hover .pixel-building {
+  transform: scale(1.15) translateY(-15px);
+  filter: drop-shadow(0 30px 50px rgba(0,0,0,0.6)) brightness(1.1);
+  z-index: 20;
+  animation-play-state: paused;
+}
+
+.district-marker:hover .marker-box {
+  background: var(--term-accent);
+  border-color: var(--term-text);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+}
+
+.district-marker:hover .marker-code {
+  color: #000;
+}
+
+.district-marker:hover .marker-corner {
+  background: #000;
+}
+
+.district-marker:hover .marker-label {
+  opacity: 1;
+  color: #000;
+  background: var(--term-accent);
+  border-color: #000;
+  transform: translateY(4px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.3);
+}
+
 
 .marker-box {
   width: 42px;
@@ -617,6 +852,7 @@ onMounted(async () => {
   padding: 32px 40px;
   display: flex;
   justify-content: space-between;
+  z-index: 50; /* Ensure HUD sits above map markers */
 }
 
 .hud-column {
@@ -802,6 +1038,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 12px; /* Add gap between history and input */
+  z-index: 100; /* Ensure it is above other elements */
 }
 
 .chat-history {
@@ -976,6 +1213,7 @@ onMounted(async () => {
 .config-btn.green { background: var(--term-success); color: var(--config-btn-text); }
 .config-btn.yellow { background: var(--term-accent-secondary); color: var(--config-btn-text); }
 .config-btn.white { background: #fff; color: #000; }
+.config-btn.red { background: #ef4444; color: #fff; }
 
 /* Header Updates */
 .meta-tag {
@@ -989,5 +1227,185 @@ onMounted(async () => {
 .meta-tag.yellow {
   background: var(--term-accent-secondary);
   color: #000;
+}
+
+.term-btn.active {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.term-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile Responsive Styles */
+.menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--term-accent);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.close-sidebar-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--term-text);
+  font-size: 24px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  backdrop-filter: blur(2px);
+}
+
+.mobile-view-switch {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60; /* Higher than HUD (50) */
+  background: var(--term-panel-bg);
+  border: 1px solid var(--term-border);
+  padding: 4px;
+  gap: 4px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.switch-btn {
+  background: transparent;
+  border: none;
+  color: var(--term-text-secondary);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  border-radius: 16px;
+}
+
+.switch-btn.active {
+  background: var(--term-accent);
+  color: #000;
+  font-weight: bold;
+}
+
+@media (max-width: 768px) {
+  .menu-btn {
+    display: block;
+  }
+
+  .close-sidebar-btn {
+    display: block;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+
+  .sidebar-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 80%;
+    max-width: 300px;
+    /* Remove shadow when closed to prevent bleeding */
+    box-shadow: none;
+  }
+
+  .sidebar-nav.open {
+    transform: translateX(0);
+    box-shadow: 10px 0 20px rgba(0,0,0,0.5);
+  }
+
+  .nav-header {
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-view-switch {
+    display: flex;
+  }
+
+  .hud-overlay {
+    position: relative;
+    flex-direction: column;
+    padding: 60px 10px 10px 10px; /* Top padding for switch button */
+    gap: 10px;
+    height: calc(100vh - 120px); /* Adjust for header and bottom chat */
+    overflow-y: auto;
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.8); /* Dim background */
+  }
+
+  .hud-column {
+    width: 100%;
+    gap: 10px;
+  }
+
+  .chat-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    transform: none;
+    max-width: 100%;
+    padding: 10px;
+    background: var(--term-bg);
+    border-top: 1px solid var(--term-border);
+  }
+  
+  .chat-history {
+    position: fixed;
+    bottom: 60px; /* Height of input area */
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: 40vh;
+    z-index: 101;
+  }
+
+  .city-stage {
+    position: fixed; /* Keep it fixed as background */
+  }
+
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  /* Adjust font sizes for mobile */
+  .archive-header {
+    font-size: 12px;
+  }
+  
+  .mission-title {
+    font-size: 14px;
+  }
+  
+  .mission-desc {
+    font-size: 12px;
+  }
+
+  /* Allow larger images on mobile */
+  .pixel-building {
+    max-width: 40vw;
+  }
 }
 </style>

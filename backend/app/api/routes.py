@@ -189,8 +189,8 @@ async def get_avatar_status(session_id: str = None):
             # 计算投资资产
             cursor.execute('''
                 SELECT SUM(amount) FROM investments 
-                WHERE username = ? AND remaining_months > 0
-            ''', (username,))
+                WHERE session_id = ? AND remaining_months > 0
+            ''', (session_id,))
             invested = cursor.fetchone()[0] or 0
             
             total_assets = cash + invested
@@ -239,9 +239,9 @@ async def get_investments(session_id: str = None):
             cursor.execute('''
                 SELECT id, name, amount, investment_type, remaining_months, monthly_return, return_rate
                 FROM investments 
-                WHERE username = ?
+                WHERE session_id = ?
                 ORDER BY created_at DESC
-            ''', (username,))
+            ''', (session_id,))
             
             investments = []
             for row in cursor.fetchall():
@@ -351,6 +351,19 @@ async def create_character(data: dict):
         print(f"创建角色错误: {e}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/characters/session/{session_id}")
+async def delete_character(session_id: str):
+    try:
+        print(f"Deleting character: {session_id}")
+        success = game_service.delete_character(session_id)
+        if success:
+            return {"success": True, "message": "角色删除成功"}
+        else:
+            raise HTTPException(status_code=404, detail="角色不存在或删除失败")
+    except Exception as e:
+        print(f"Error deleting character: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 async def make_ai_decision(session_id: str, name: str, mbti: str, cash: int, situation: str, options: list, api_key: str):
@@ -811,6 +824,14 @@ async def world_action(action: dict):
                 new_cash -= price
                 happiness = min(100, happiness + 15)
                 ai_message = "享受生活，但也要理性消费。"
+            
+            elif action_type == 'start_business':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "创业项目", price, "长期", 12, 0, 0.25, 1, "创业维艰，但也充满希望"))
+                ai_message = "创业项目已启动，期待回报。"
 
             # --- 能源区 ---
             elif action_type == 'green_invest':
@@ -886,7 +907,10 @@ async def session_state(session_id: str):
 @router.post("/session/advance")
 async def session_advance(req: SessionAdvanceRequest):
     try:
-      return game_service.advance_session(req.session_id, req.echo_text)
+      print(f"[API] session_advance called for {req.session_id}")
+      result = game_service.advance_session(req.session_id, req.echo_text)
+      print(f"[API] session_advance success: month={result.get('new_month')}")
+      return result
     except Exception as e:
       print(f"[session_advance] error: {e}")
       raise HTTPException(status_code=400, detail=str(e))
@@ -936,28 +960,25 @@ async def make_decision(request: dict):
     try:
         session_id = request.get("session_id")
         option_index = request.get("option_index")
+        option_text = request.get("option_text", "")
         
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id required")
             
-        # 获取当前情况
-        state = game_service.get_session_state(session_id)
-        # 这里简化处理，直接假设玩家选择了某个选项
-        # 实际上应该从 session 中获取 current_situation 并根据 index 获取选项文本
+        print(f"[API] make_decision: {session_id}, index={option_index}, text='{option_text}'")
         
-        # 模拟决策结果
-        result = {
-            "success": True,
-            "ai_thoughts": f"收到指令，执行选项 {option_index + 1}",
-            "decision_impact": {
-                "cash_change": -1000, # 示例
-                "trust_change": 5
-            }
-        }
-        
-        # 推进时间或更新状态
-        # ...
-        
+        # 调用服务层处理决策
+        result = game_service.process_decision(session_id, option_index, option_text)
         return result
+    except Exception as e:
+        print(f"[API] make_decision error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/session/transactions")
+async def get_session_transactions(session_id: str, limit: int = 20):
+    try:
+        return game_service.get_session_transactions(session_id, limit)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

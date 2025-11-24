@@ -5,7 +5,7 @@
       <div class="game-shell__brand">
         <div class="logo-orb" />
         <div class="brand-text">
-          <div class="brand-title">EchoPolis</div>
+          <div class="brand-title">FinAI金融模拟沙盘</div>
           <div class="brand-sub">AI 金融人生 · 策略养成实验场</div>
         </div>
       </div>

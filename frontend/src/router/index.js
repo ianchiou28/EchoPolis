@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
+import AutoLogin from '../views/AutoLogin.vue'
 import CharacterSelect from '../views/CharacterSelect.vue'
 import Home from '../views/HomeNew.vue'
 import Assets from '../views/Assets.vue'
@@ -20,7 +21,9 @@ const routes = [
   },
   {
     path: '/',
-    redirect: '/login'
+    name: 'Root',
+    component: import.meta.env.VITE_ENABLE_JUDGE_MODE === 'true' ? AutoLogin : undefined,
+    redirect: import.meta.env.VITE_ENABLE_JUDGE_MODE === 'true' ? undefined : '/login'
   },
   {
     path: '/home',

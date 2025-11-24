@@ -15,8 +15,9 @@
   --sidebar-bg: #0a0a0a;
   --sidebar-border: #333;
   --sidebar-text: #cccccc;
-  --sidebar-active-bg: #FF5500;
-  --sidebar-active-text: #000000; /* Black text on Orange accent for contrast */
+  --sidebar-item-bg: #0a0a0a; /* Added */
+  --sidebar-item-active-bg: #FF5500; /* Fixed name */
+  --sidebar-item-active-text: #000000; /* Fixed name */
   
   --term-success: #22c55e; /* Green */
   --term-accent-secondary: #eab308; /* Yellow/Gold */

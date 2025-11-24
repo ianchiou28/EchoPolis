@@ -1,5 +1,5 @@
 """
-Echopolis FastAPI 后端主入口
+FinAI FastAPI 后端主入口
 """
 import sys
 import os
@@ -19,7 +19,7 @@ import uvicorn
 from app.api.routes import router
 from app.services.game_service import GameService
 
-app = FastAPI(title="Echopolis API", version="1.0.0")
+app = FastAPI(title="FinAI API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,7 +37,7 @@ app.include_router(router, prefix="/api")
 
 @app.get("/")
 async def root():
-    return {"message": "Echopolis API Server", "version": "1.0.0"}
+    return {"message": "FinAI API Server", "version": "1.0.0"}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8000)
