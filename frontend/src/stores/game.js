@@ -158,6 +158,14 @@ export const useGameStore = defineStore('game', {
         this.pushAssetSnapshot()
       } catch (error) {
         console.error('[Game Store] 加载化身失败:', error)
+        // 如果会话不存在或无效(400/404)，自动清理并重定向
+        if (error.response && (error.response.status === 400 || error.response.status === 404)) {
+          console.warn('[Game Store] 会话无效，重置状态...')
+          localStorage.removeItem('currentCharacter')
+          localStorage.removeItem('session_id')
+          localStorage.removeItem('username') // 也要清除username
+          window.location.href = '/'
+        }
       }
     },
 
