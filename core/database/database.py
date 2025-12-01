@@ -196,6 +196,229 @@ class FinAIDatabase:
                     FOREIGN KEY (district_id) REFERENCES district_states (district_id)
                 )
             ''')
+            
+            # ============ 新增金融系统表 ============
+            
+            # 股票持仓表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS stock_holdings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    stock_id TEXT NOT NULL,
+                    stock_name TEXT NOT NULL,
+                    shares INTEGER NOT NULL,
+                    avg_cost REAL NOT NULL,
+                    buy_month INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, stock_id)
+                )
+            ''')
+            
+            # 股票交易历史表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS stock_transactions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    stock_id TEXT NOT NULL,
+                    stock_name TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    shares INTEGER NOT NULL,
+                    price REAL NOT NULL,
+                    total_amount REAL NOT NULL,
+                    month INTEGER NOT NULL,
+                    profit REAL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 股票价格历史表（K线数据）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS stock_prices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    stock_id TEXT NOT NULL,
+                    month INTEGER NOT NULL,
+                    day INTEGER NOT NULL,
+                    open_price REAL NOT NULL,
+                    high_price REAL NOT NULL,
+                    low_price REAL NOT NULL,
+                    close_price REAL NOT NULL,
+                    volume INTEGER NOT NULL,
+                    UNIQUE(stock_id, month, day)
+                )
+            ''')
+            
+            # 贷款表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS loans (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    loan_id TEXT UNIQUE NOT NULL,
+                    loan_type TEXT NOT NULL,
+                    product_name TEXT NOT NULL,
+                    principal INTEGER NOT NULL,
+                    remaining_principal INTEGER NOT NULL,
+                    annual_rate REAL NOT NULL,
+                    term_months INTEGER NOT NULL,
+                    remaining_months INTEGER NOT NULL,
+                    monthly_payment INTEGER NOT NULL,
+                    repayment_method TEXT NOT NULL,
+                    start_month INTEGER NOT NULL,
+                    is_overdue INTEGER DEFAULT 0,
+                    overdue_days INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 还款记录表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS loan_payments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    loan_id TEXT NOT NULL,
+                    month INTEGER NOT NULL,
+                    payment_amount INTEGER NOT NULL,
+                    principal_part INTEGER NOT NULL,
+                    interest_part INTEGER NOT NULL,
+                    remaining_principal INTEGER NOT NULL,
+                    is_early_repayment INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 保险保单表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS insurance_policies (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    policy_id TEXT UNIQUE NOT NULL,
+                    product_id TEXT NOT NULL,
+                    product_name TEXT NOT NULL,
+                    insurance_type TEXT NOT NULL,
+                    monthly_premium INTEGER NOT NULL,
+                    coverage_amount INTEGER NOT NULL,
+                    deductible INTEGER NOT NULL,
+                    coverage_ratio REAL NOT NULL,
+                    start_month INTEGER NOT NULL,
+                    remaining_months INTEGER NOT NULL,
+                    claim_count INTEGER DEFAULT 0,
+                    max_claims INTEGER NOT NULL,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 保险理赔记录表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS insurance_claims (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    policy_id TEXT NOT NULL,
+                    claim_id TEXT UNIQUE NOT NULL,
+                    event_type TEXT NOT NULL,
+                    event_description TEXT,
+                    claim_amount INTEGER NOT NULL,
+                    approved_amount INTEGER DEFAULT 0,
+                    status TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 金融产品持仓表（基金、债券、定期等）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS financial_holdings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    product_id TEXT NOT NULL,
+                    product_name TEXT NOT NULL,
+                    product_type TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
+                    buy_price REAL NOT NULL,
+                    current_value REAL NOT NULL,
+                    buy_month INTEGER NOT NULL,
+                    maturity_month INTEGER,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, product_id)
+                )
+            ''')
+            
+            # 现金流记录表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cashflow_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    month INTEGER NOT NULL,
+                    category TEXT NOT NULL,
+                    item_type TEXT NOT NULL,
+                    item_name TEXT NOT NULL,
+                    amount INTEGER NOT NULL,
+                    is_income INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 月度现金流汇总表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS monthly_cashflow (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    month INTEGER NOT NULL,
+                    total_income INTEGER NOT NULL,
+                    total_expense INTEGER NOT NULL,
+                    net_cashflow INTEGER NOT NULL,
+                    saving_rate REAL NOT NULL,
+                    cash_balance INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, month)
+                )
+            ''')
+            
+            # 信用分历史表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS credit_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    month INTEGER NOT NULL,
+                    credit_score INTEGER NOT NULL,
+                    change_reason TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 宏观经济状态表
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS economic_state (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    month INTEGER UNIQUE NOT NULL,
+                    gdp_growth REAL NOT NULL,
+                    inflation REAL NOT NULL,
+                    interest_rate REAL NOT NULL,
+                    unemployment REAL NOT NULL,
+                    cpi_index REAL NOT NULL,
+                    house_price_index REAL NOT NULL,
+                    stock_index REAL NOT NULL,
+                    economic_phase TEXT NOT NULL,
+                    active_event TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 成就解锁记录表（更详细的版本）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS achievements_unlocked (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    achievement_id TEXT NOT NULL,
+                    achievement_name TEXT NOT NULL,
+                    rarity TEXT NOT NULL,
+                    reward_coins INTEGER DEFAULT 0,
+                    reward_exp INTEGER DEFAULT 0,
+                    reward_title TEXT,
+                    unlocked_month INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, achievement_id)
+                )
+            ''')
 
             conn.commit()
     
@@ -688,11 +911,19 @@ class FinAIDatabase:
                 tables = [
                     'investments', 'transactions', 'sessions', 
                     'monthly_snapshots', 'district_states', 
-                    'achievement_progress', 'city_events'
+                    'achievement_progress', 'city_events',
+                    'stock_holdings', 'stock_transactions',
+                    'loans', 'loan_payments', 'insurance_policies',
+                    'insurance_claims', 'financial_holdings',
+                    'cashflow_records', 'monthly_cashflow',
+                    'credit_history', 'achievements_unlocked'
                 ]
                 
                 for table in tables:
-                    cursor.execute(f'DELETE FROM {table} WHERE session_id = ?', (session_id,))
+                    try:
+                        cursor.execute(f'DELETE FROM {table} WHERE session_id = ?', (session_id,))
+                    except:
+                        pass
                 
                 # 最后删除用户表中的记录
                 cursor.execute('DELETE FROM users WHERE session_id = ?', (session_id,))
@@ -702,6 +933,465 @@ class FinAIDatabase:
         except Exception as e:
             print(f"[Delete] Error deleting user {session_id}: {e}")
             return False
+    
+    # ============ 股票系统方法 ============
+    
+    def save_stock_holding(self, session_id: str, stock_id: str, stock_name: str,
+                          shares: int, avg_cost: float, buy_month: int) -> None:
+        """保存或更新股票持仓"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO stock_holdings (session_id, stock_id, stock_name, shares, avg_cost, buy_month)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id, stock_id) DO UPDATE SET
+                    shares = excluded.shares,
+                    avg_cost = excluded.avg_cost
+            ''', (session_id, stock_id, stock_name, shares, avg_cost, buy_month))
+            conn.commit()
+    
+    def get_stock_holdings(self, session_id: str) -> List[Dict]:
+        """获取股票持仓"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT stock_id, stock_name, shares, avg_cost, buy_month
+                FROM stock_holdings
+                WHERE session_id = ? AND shares > 0
+            ''', (session_id,))
+            return [
+                {
+                    'stock_id': r[0],
+                    'stock_name': r[1],
+                    'shares': r[2],
+                    'avg_cost': r[3],
+                    'buy_month': r[4]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def delete_stock_holding(self, session_id: str, stock_id: str) -> None:
+        """删除股票持仓（清仓时）"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM stock_holdings WHERE session_id = ? AND stock_id = ?
+            ''', (session_id, stock_id))
+            conn.commit()
+    
+    def save_stock_transaction(self, session_id: str, stock_id: str, stock_name: str,
+                               action: str, shares: int, price: float, 
+                               total_amount: float, month: int, profit: float = 0) -> None:
+        """保存股票交易记录"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO stock_transactions 
+                (session_id, stock_id, stock_name, action, shares, price, total_amount, month, profit)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (session_id, stock_id, stock_name, action, shares, price, total_amount, month, profit))
+            conn.commit()
+    
+    def get_stock_transactions(self, session_id: str, limit: int = 50) -> List[Dict]:
+        """获取股票交易历史"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT stock_id, stock_name, action, shares, price, total_amount, month, profit, created_at
+                FROM stock_transactions
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            return [
+                {
+                    'stock_id': r[0],
+                    'stock_name': r[1],
+                    'action': r[2],
+                    'shares': r[3],
+                    'price': r[4],
+                    'total_amount': r[5],
+                    'month': r[6],
+                    'profit': r[7],
+                    'created_at': r[8]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def get_stock_profit_stats(self, session_id: str) -> Dict:
+        """获取股票盈亏统计"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT SUM(profit), COUNT(*), SUM(CASE WHEN profit > 0 THEN 1 ELSE 0 END)
+                FROM stock_transactions
+                WHERE session_id = ? AND action = 'sell'
+            ''', (session_id,))
+            row = cursor.fetchone()
+            total_profit = row[0] or 0
+            total_trades = row[1] or 0
+            winning_trades = row[2] or 0
+            return {
+                'total_profit': total_profit,
+                'total_trades': total_trades,
+                'winning_trades': winning_trades,
+                'win_rate': winning_trades / total_trades if total_trades > 0 else 0
+            }
+    
+    # ============ 贷款系统方法 ============
+    
+    def save_loan(self, session_id: str, loan_data: Dict) -> None:
+        """保存贷款"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO loans (
+                    session_id, loan_id, loan_type, product_name, principal,
+                    remaining_principal, annual_rate, term_months, remaining_months,
+                    monthly_payment, repayment_method, start_month
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                session_id, loan_data['loan_id'], loan_data['loan_type'],
+                loan_data['product_name'], loan_data['principal'],
+                loan_data['remaining_principal'], loan_data['annual_rate'],
+                loan_data['term_months'], loan_data['remaining_months'],
+                loan_data['monthly_payment'], loan_data['repayment_method'],
+                loan_data['start_month']
+            ))
+            conn.commit()
+    
+    def get_loans(self, session_id: str, active_only: bool = True) -> List[Dict]:
+        """获取贷款列表"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            query = '''
+                SELECT loan_id, loan_type, product_name, principal, remaining_principal,
+                       annual_rate, term_months, remaining_months, monthly_payment,
+                       repayment_method, start_month, is_overdue, overdue_days
+                FROM loans
+                WHERE session_id = ?
+            '''
+            if active_only:
+                query += ' AND remaining_months > 0'
+            cursor.execute(query, (session_id,))
+            return [
+                {
+                    'loan_id': r[0], 'loan_type': r[1], 'product_name': r[2],
+                    'principal': r[3], 'remaining_principal': r[4],
+                    'annual_rate': r[5], 'term_months': r[6], 'remaining_months': r[7],
+                    'monthly_payment': r[8], 'repayment_method': r[9],
+                    'start_month': r[10], 'is_overdue': bool(r[11]), 'overdue_days': r[12]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def update_loan(self, session_id: str, loan_id: str, **kwargs) -> None:
+        """更新贷款信息"""
+        if not kwargs:
+            return
+        columns = ', '.join([f"{key} = ?" for key in kwargs.keys()])
+        values = list(kwargs.values())
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f'''
+                UPDATE loans SET {columns}
+                WHERE session_id = ? AND loan_id = ?
+            ''', (*values, session_id, loan_id))
+            conn.commit()
+    
+    def save_loan_payment(self, session_id: str, payment_data: Dict) -> None:
+        """保存还款记录"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO loan_payments (
+                    session_id, loan_id, month, payment_amount, principal_part,
+                    interest_part, remaining_principal, is_early_repayment
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                session_id, payment_data['loan_id'], payment_data['month'],
+                payment_data['payment_amount'], payment_data['principal_part'],
+                payment_data['interest_part'], payment_data['remaining_principal'],
+                int(payment_data.get('is_early_repayment', False))
+            ))
+            conn.commit()
+    
+    # ============ 保险系统方法 ============
+    
+    def save_insurance_policy(self, session_id: str, policy_data: Dict) -> None:
+        """保存保险保单"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO insurance_policies (
+                    session_id, policy_id, product_id, product_name, insurance_type,
+                    monthly_premium, coverage_amount, deductible, coverage_ratio,
+                    start_month, remaining_months, max_claims
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                session_id, policy_data['policy_id'], policy_data['product_id'],
+                policy_data['product_name'], policy_data['insurance_type'],
+                policy_data['monthly_premium'], policy_data['coverage_amount'],
+                policy_data['deductible'], policy_data['coverage_ratio'],
+                policy_data['start_month'], policy_data['remaining_months'],
+                policy_data['max_claims']
+            ))
+            conn.commit()
+    
+    def get_insurance_policies(self, session_id: str, active_only: bool = True) -> List[Dict]:
+        """获取保险保单列表"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            query = '''
+                SELECT policy_id, product_id, product_name, insurance_type,
+                       monthly_premium, coverage_amount, deductible, coverage_ratio,
+                       start_month, remaining_months, claim_count, max_claims, is_active
+                FROM insurance_policies
+                WHERE session_id = ?
+            '''
+            if active_only:
+                query += ' AND is_active = 1'
+            cursor.execute(query, (session_id,))
+            return [
+                {
+                    'policy_id': r[0], 'product_id': r[1], 'product_name': r[2],
+                    'insurance_type': r[3], 'monthly_premium': r[4],
+                    'coverage_amount': r[5], 'deductible': r[6], 'coverage_ratio': r[7],
+                    'start_month': r[8], 'remaining_months': r[9],
+                    'claim_count': r[10], 'max_claims': r[11], 'is_active': bool(r[12])
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def update_insurance_policy(self, session_id: str, policy_id: str, **kwargs) -> None:
+        """更新保险保单"""
+        if not kwargs:
+            return
+        columns = ', '.join([f"{key} = ?" for key in kwargs.keys()])
+        values = list(kwargs.values())
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(f'''
+                UPDATE insurance_policies SET {columns}
+                WHERE session_id = ? AND policy_id = ?
+            ''', (*values, session_id, policy_id))
+            conn.commit()
+    
+    def save_insurance_claim(self, session_id: str, claim_data: Dict) -> None:
+        """保存理赔记录"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO insurance_claims (
+                    session_id, policy_id, claim_id, event_type, event_description,
+                    claim_amount, approved_amount, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                session_id, claim_data['policy_id'], claim_data['claim_id'],
+                claim_data['event_type'], claim_data.get('event_description', ''),
+                claim_data['claim_amount'], claim_data.get('approved_amount', 0),
+                claim_data['status']
+            ))
+            conn.commit()
+    
+    # ============ 现金流系统方法 ============
+    
+    def save_cashflow_record(self, session_id: str, month: int, category: str,
+                            item_type: str, item_name: str, amount: int, is_income: bool) -> None:
+        """保存现金流记录"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO cashflow_records (session_id, month, category, item_type, item_name, amount, is_income)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (session_id, month, category, item_type, item_name, amount, int(is_income)))
+            conn.commit()
+    
+    def save_monthly_cashflow(self, session_id: str, month: int, total_income: int,
+                             total_expense: int, net_cashflow: int, 
+                             saving_rate: float, cash_balance: int) -> None:
+        """保存月度现金流汇总"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO monthly_cashflow (session_id, month, total_income, total_expense, net_cashflow, saving_rate, cash_balance)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id, month) DO UPDATE SET
+                    total_income = excluded.total_income,
+                    total_expense = excluded.total_expense,
+                    net_cashflow = excluded.net_cashflow,
+                    saving_rate = excluded.saving_rate,
+                    cash_balance = excluded.cash_balance
+            ''', (session_id, month, total_income, total_expense, net_cashflow, saving_rate, cash_balance))
+            conn.commit()
+    
+    def get_cashflow_history(self, session_id: str, months: int = 12) -> List[Dict]:
+        """获取现金流历史"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT month, total_income, total_expense, net_cashflow, saving_rate, cash_balance
+                FROM monthly_cashflow
+                WHERE session_id = ?
+                ORDER BY month DESC
+                LIMIT ?
+            ''', (session_id, months))
+            return [
+                {
+                    'month': r[0], 'total_income': r[1], 'total_expense': r[2],
+                    'net_cashflow': r[3], 'saving_rate': r[4], 'cash_balance': r[5]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    # ============ 信用分系统方法 ============
+    
+    def save_credit_score(self, session_id: str, month: int, 
+                         credit_score: int, change_reason: str = None) -> None:
+        """保存信用分记录"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO credit_history (session_id, month, credit_score, change_reason)
+                VALUES (?, ?, ?, ?)
+            ''', (session_id, month, credit_score, change_reason))
+            conn.commit()
+    
+    def get_credit_history(self, session_id: str, months: int = 24) -> List[Dict]:
+        """获取信用分历史"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT month, credit_score, change_reason, created_at
+                FROM credit_history
+                WHERE session_id = ?
+                ORDER BY month DESC
+                LIMIT ?
+            ''', (session_id, months))
+            return [
+                {'month': r[0], 'credit_score': r[1], 'change_reason': r[2], 'created_at': r[3]}
+                for r in cursor.fetchall()
+            ]
+    
+    def get_latest_credit_score(self, session_id: str) -> int:
+        """获取最新信用分"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT credit_score FROM credit_history
+                WHERE session_id = ?
+                ORDER BY month DESC LIMIT 1
+            ''', (session_id,))
+            row = cursor.fetchone()
+            return row[0] if row else 650  # 默认信用分
+    
+    # ============ 成就系统方法 ============
+    
+    def save_achievement_unlock(self, session_id: str, achievement_data: Dict) -> None:
+        """保存解锁的成就"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO achievements_unlocked (
+                    session_id, achievement_id, achievement_name, rarity,
+                    reward_coins, reward_exp, reward_title, unlocked_month
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id, achievement_id) DO NOTHING
+            ''', (
+                session_id, achievement_data['achievement_id'],
+                achievement_data['achievement_name'], achievement_data['rarity'],
+                achievement_data.get('reward_coins', 0), achievement_data.get('reward_exp', 0),
+                achievement_data.get('reward_title'), achievement_data['unlocked_month']
+            ))
+            conn.commit()
+    
+    def get_unlocked_achievements(self, session_id: str) -> List[Dict]:
+        """获取已解锁成就列表"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT achievement_id, achievement_name, rarity, reward_coins,
+                       reward_exp, reward_title, unlocked_month, created_at
+                FROM achievements_unlocked
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+            ''', (session_id,))
+            return [
+                {
+                    'achievement_id': r[0], 'achievement_name': r[1], 'rarity': r[2],
+                    'reward_coins': r[3], 'reward_exp': r[4], 'reward_title': r[5],
+                    'unlocked_month': r[6], 'created_at': r[7]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def get_achievement_stats(self, session_id: str) -> Dict:
+        """获取成就统计"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*), SUM(reward_coins), SUM(reward_exp)
+                FROM achievements_unlocked
+                WHERE session_id = ?
+            ''', (session_id,))
+            row = cursor.fetchone()
+            return {
+                'unlocked_count': row[0] or 0,
+                'total_coins': row[1] or 0,
+                'total_exp': row[2] or 0
+            }
+    
+    # ============ 经济状态方法 ============
+    
+    def save_economic_state(self, month: int, state_data: Dict) -> None:
+        """保存宏观经济状态"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO economic_state (
+                    month, gdp_growth, inflation, interest_rate, unemployment,
+                    cpi_index, house_price_index, stock_index, economic_phase, active_event
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(month) DO UPDATE SET
+                    gdp_growth = excluded.gdp_growth,
+                    inflation = excluded.inflation,
+                    interest_rate = excluded.interest_rate,
+                    unemployment = excluded.unemployment,
+                    cpi_index = excluded.cpi_index,
+                    house_price_index = excluded.house_price_index,
+                    stock_index = excluded.stock_index,
+                    economic_phase = excluded.economic_phase,
+                    active_event = excluded.active_event
+            ''', (
+                month, state_data['gdp_growth'], state_data['inflation'],
+                state_data['interest_rate'], state_data['unemployment'],
+                state_data['cpi_index'], state_data['house_price_index'],
+                state_data['stock_index'], state_data['economic_phase'],
+                state_data.get('active_event')
+            ))
+            conn.commit()
+    
+    def get_economic_history(self, months: int = 36) -> List[Dict]:
+        """获取经济历史"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT month, gdp_growth, inflation, interest_rate, unemployment,
+                       cpi_index, house_price_index, stock_index, economic_phase, active_event
+                FROM economic_state
+                ORDER BY month DESC
+                LIMIT ?
+            ''', (months,))
+            return [
+                {
+                    'month': r[0], 'gdp_growth': r[1], 'inflation': r[2],
+                    'interest_rate': r[3], 'unemployment': r[4], 'cpi_index': r[5],
+                    'house_price_index': r[6], 'stock_index': r[7],
+                    'economic_phase': r[8], 'active_event': r[9]
+                }
+                for r in cursor.fetchall()
+            ]
+
 
 # 全局数据库实例
 db = FinAIDatabase()

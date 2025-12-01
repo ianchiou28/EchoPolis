@@ -146,11 +146,12 @@
           </div>
         </section>
 
-        <!-- Action Panel Overlay -->
-        <DistrictActionPanel 
+        <!-- District Preview Panel -->
+        <DistrictPreviewPanel 
           v-if="selectedDistrict" 
           :district="selectedDistrict" 
-          @close="selectedDistrict = null" 
+          @close="selectedDistrict = null"
+          @navigate="handleDistrictNavigate"
         />
 
         <!-- HUD Overlay (Floating Cards) -->
@@ -194,6 +195,27 @@
               <div class="archive-header">AI 思考</div>
               <div class="archive-body">
                 <p class="mono-text">{{ aiReflection || '系统等待输入...' }}</p>
+              </div>
+            </div>
+            
+            <!-- 活跃效果提示 -->
+            <div class="archive-card" v-if="activeEffects.length > 0">
+              <div class="archive-header">
+                <span>⚡ 活跃效果</span>
+                <span class="count">{{ activeEffects.length }}</span>
+              </div>
+              <div class="archive-body">
+                <div class="effect-list">
+                  <div v-for="(effect, i) in activeEffects.slice(0, 3)" :key="i" 
+                    class="effect-item" :class="effect.value >= 0 ? 'positive' : 'negative'">
+                    <span class="effect-source">{{ effect.source }}</span>
+                    <span class="effect-value">
+                      {{ effect.value >= 0 ? '+' : '' }}{{ effect.value }}
+                      {{ effect.type === 'income' ? '收入' : effect.type === 'expense' ? '支出' : effect.type }}
+                    </span>
+                    <span class="effect-duration">{{ effect.remaining_months }}个月</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -291,8 +313,15 @@
       <!-- Placeholder for other views (Timeline, World, etc.) -->
       <div class="view-placeholder" v-if="currentView !== 'city'">
         <ProfileView v-if="currentView === 'profile'" />
-        <TimelineView v-if="currentView === 'timeline'" />
+        <BankingView v-if="currentView === 'banking'" />
+        <HousingView v-if="currentView === 'housing'" />
+        <LifestyleView v-if="currentView === 'lifestyle'" />
         <ArchivesView v-if="currentView === 'logs'" />
+        <TimelineView v-if="currentView === 'timeline'" />
+        <TradingView v-if="currentView === 'trading'" />
+        <CareerView v-if="currentView === 'career'" />
+        <LeaderboardView v-if="currentView === 'leaderboard'" />
+        <AchievementView v-if="currentView === 'achievements'" />
       </div>
 
     </main>
@@ -300,6 +329,13 @@
     <!-- CRT Overlay -->
     <div class="crt-overlay" v-if="isCrtOn"></div>
     <div class="grid-bg"></div>
+    
+    <!-- 事件弹窗 -->
+    <EventModal 
+      ref="eventModalRef"
+      @event-completed="onEventCompleted"
+      @all-events-done="onAllEventsDone"
+    />
   </div>
 </template>
 
@@ -310,7 +346,15 @@ import { useThemeStore } from '../stores/theme'
 import ProfileView from '../components/views/ProfileView.vue'
 import TimelineView from '../components/views/TimelineView.vue'
 import ArchivesView from '../components/views/ArchivesView.vue'
-import DistrictActionPanel from '../components/DistrictActionPanel.vue'
+import TradingView from '../components/views/TradingView.vue'
+import AchievementView from '../components/views/AchievementView.vue'
+import CareerView from '../components/views/CareerView.vue'
+import LeaderboardView from '../components/views/LeaderboardView.vue'
+import BankingView from '../components/views/BankingView.vue'
+import HousingView from '../components/views/HousingView.vue'
+import LifestyleView from '../components/views/LifestyleView.vue'
+import DistrictPreviewPanel from '../components/DistrictPreviewPanel.vue'
+import EventModal from '../components/EventModal.vue'
 import { useRouter } from 'vue-router'
 
 const gameStore = useGameStore()
@@ -331,11 +375,21 @@ const currentDate = ref(new Date().toLocaleDateString('zh-CN').replace(/\//g, '-
 const isSidebarOpen = ref(false)
 const mobileMapMode = ref(true)
 
+// 事件系统
+const eventModalRef = ref(null)
+const pendingEvents = ref([])
+const activeEffects = ref([])
+
 const navItems = [
   { id: 'city', label: '城市概览', icon: '⚡' },
   { id: 'profile', label: '主体数据', icon: '👤' },
+  { id: 'banking', label: '银行系统', icon: '🏦' },
+  { id: 'trading', label: '股票交易', icon: '📈' },
+  { id: 'career', label: '职业发展', icon: '💼' },
+  { id: 'logs', label: '档案库', icon: '📖' },
   { id: 'timeline', label: '时间线', icon: '🕒' },
-  { id: 'logs', label: '档案库', icon: '📖' }
+  { id: 'leaderboard', label: '排行榜', icon: '🏅' },
+  { id: 'achievements', label: '成就系统', icon: '🏆' }
 ]
 
 const echoTypes = [
@@ -456,14 +510,94 @@ const handleAdvance = async () => {
     const text = echoText.value
     echoText.value = '' // Clear immediately
     await gameStore.advanceMonth(text)
-    // Add feedback
-    // alert('周期推进完成')
+    
+    // 时间推进后触发随机事件
+    await triggerRandomEvents()
+    
+    // 更新活跃效果
+    await updateActiveEffects()
   } catch (e) { 
     console.error(e)
     alert('推进失败: ' + e.message)
   } finally {
     isProcessing.value = false
   }
+}
+
+// 获取当前会话ID
+const getSessionId = () => {
+  try {
+    const char = localStorage.getItem('currentCharacter')
+    return char ? JSON.parse(char).id : null
+  } catch { return null }
+}
+
+// 触发随机事件
+const triggerRandomEvents = async () => {
+  const sessionId = getSessionId()
+  if (!sessionId) return
+  
+  try {
+    const res = await fetch('/api/events/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        player_state: {
+          assets: gameStore.assets?.total || 0,
+          cash: gameStore.assets?.cash || 0,
+          job: gameStore.avatar?.job || null,
+          month: gameStore.avatar?.month || 1
+        },
+        count: 1  // 每月最多1个事件
+      })
+    })
+    const data = await res.json()
+    
+    if (data.success && data.events && data.events.length > 0) {
+      // 通过 ref 调用 EventModal 的 addEvents 方法
+      if (eventModalRef.value) {
+        eventModalRef.value.addEvents(data.events)
+      }
+    }
+  } catch (e) {
+    console.error('生成事件失败:', e)
+  }
+}
+
+// 更新活跃效果
+const updateActiveEffects = async () => {
+  const sessionId = getSessionId()
+  if (!sessionId) return
+  
+  try {
+    const res = await fetch('/api/events/update-effects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId })
+    })
+    const data = await res.json()
+    
+    if (data.success && data.active_effects) {
+      activeEffects.value = data.active_effects
+      // 应用效果到游戏状态（如收入加成、支出增加等）
+      // 这里可以扩展处理逻辑
+    }
+  } catch (e) {
+    console.error('更新效果失败:', e)
+  }
+}
+
+// 事件完成回调
+const onEventCompleted = (payload) => {
+  console.log('事件完成:', payload)
+  // 刷新玩家状态
+  gameStore.loadAvatar()
+}
+
+// 所有事件处理完成
+const onAllEventsDone = () => {
+  console.log('所有事件处理完成')
 }
 
 const handleSelectOption = (idx) => {
@@ -490,7 +624,12 @@ const sendChat = async () => {
 
 const handleZoneSelect = (district) => {
   selectedDistrict.value = district
-  // gameStore.exploreDistrict(district.id) // Replaced by Action Panel
+}
+
+// 区域导航到对应页面
+const handleDistrictNavigate = (viewId) => {
+  currentView.value = viewId
+  selectedDistrict.value = null
 }
 
 // Auto-scroll chat
@@ -505,7 +644,26 @@ onMounted(async () => {
   window.addEventListener('resize', updateMobileState)
   themeStore.applyTheme()
   await gameStore.bootstrapHome()
+  
+  // 加载活跃效果
+  await loadActiveEffects()
 })
+
+// 加载活跃效果
+const loadActiveEffects = async () => {
+  const sessionId = getSessionId()
+  if (!sessionId) return
+  
+  try {
+    const res = await fetch(`/api/events/active-effects/${sessionId}`)
+    const data = await res.json()
+    if (data.success && data.effects) {
+      activeEffects.value = data.effects
+    }
+  } catch (e) {
+    console.error('加载活跃效果失败:', e)
+  }
+}
 
 onUnmounted(() => {
   window.removeEventListener('resize', updateMobileState)
@@ -950,6 +1108,60 @@ onUnmounted(() => {
 .stat-item label {
   font-weight: 700;
   color: var(--term-text-secondary);
+}
+
+/* Active Effects Styles */
+.effect-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.effect-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  padding: 6px 8px;
+  border-left: 3px solid var(--term-border);
+  background: rgba(0,0,0,0.03);
+}
+
+.effect-item.positive {
+  border-left-color: #10b981;
+}
+
+.effect-item.negative {
+  border-left-color: #ef4444;
+}
+
+.effect-source {
+  font-weight: 700;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+}
+
+.effect-value {
+  font-weight: 600;
+  margin: 0 8px;
+}
+
+.effect-item.positive .effect-value {
+  color: #10b981;
+}
+
+.effect-item.negative .effect-value {
+  color: #ef4444;
+}
+
+.effect-duration {
+  font-size: 10px;
+  color: var(--term-text-secondary);
+  background: rgba(0,0,0,0.05);
+  padding: 2px 6px;
 }
 
 /* Mission Styles */
