@@ -27,11 +27,11 @@ const props = defineProps({
 })
 
 const districts = [
-  { id: 'finance', name: '金融高塔', tagline: '资产配置 / 对冲策略' },
-  { id: 'tech', name: '未来科创区', tagline: '科技初创 / AI 投资' },
-  { id: 'housing', name: '新星住区', tagline: '地产 / 租赁 / 长期持有' },
-  { id: 'learning', name: '知识穹顶', tagline: '教育 / 个人成长' },
-  { id: 'leisure', name: '文娱街区', tagline: '消费 / 体验经济' },
+  { id: 'finance', name: '中央银行群', tagline: '资产配置 / 对冲策略' },
+  { id: 'tech', name: '量化交易所', tagline: '科技初创 / AI 投资' },
+  { id: 'housing', name: '房产中枢', tagline: '地产 / 租赁 / 长期持有' },
+  { id: 'learning', name: '知识引擎院', tagline: '教育 / 个人成长' },
+  { id: 'leisure', name: '文娱漫游区', tagline: '消费 / 体验经济' },
   { id: 'green', name: '绿色能源港', tagline: '能源 / ESG / 可持续' }
 ]
 </script>

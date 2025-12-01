@@ -2,7 +2,7 @@
 游戏服务层 - 业务逻辑处理
 """
 import random
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # 尝试导入核心游戏系统
 try:
@@ -12,6 +12,7 @@ try:
     from core.systems.echo_system import EchoSystem
     from core.systems.asset_calculator import asset_calculator
     from core.systems.investment_system import investment_system
+    from core.systems.macro_economy import macro_economy
     from core.ai.deepseek_engine import DeepSeekEngine
     AI_AVAILABLE = True
 except ImportError as e:
@@ -540,8 +541,15 @@ class GameService:
 
     def advance_session(self, session_id: str, echo_text: Optional[str] = None) -> Dict[str, Any]:
         """推进一个月份：发放月收益、递减投资、生成新情境"""
+        print(f"[GameService] advance_session start: {session_id}")
         if not self.db:
             raise Exception("数据库未初始化")
+            
+        # 推进宏观经济
+        macro_stats = macro_economy.advance_month()
+        print(f"[GameService] Macro stats: {macro_stats}")
+        asset_impact = macro_economy.get_asset_impact()
+        
         import sqlite3
         # 加载基本状态
         with sqlite3.connect(self.db.db_path) as conn:
@@ -551,35 +559,96 @@ class GameService:
             if not row:
                 raise Exception("会话不存在")
             name, mbti, cash, username = row
-            # 计算月度基础收益（简化版：总资产的0.5%）
+            
+            # 计算月度基础收益（受宏观经济影响）
             cursor.execute('SELECT SUM(amount) FROM investments WHERE session_id = ? AND remaining_months > 0', (session_id,))
             invested = cursor.fetchone()[0] or 0
-            total_before = cash + invested
-            monthly_income = int(total_before * 0.005)
+            
+            # 现金贬值
+            real_cash_value = cash * asset_impact["cash"]
+            inflation_loss = cash - real_cash_value
+            
+            # 投资收益计算
+            cursor.execute('''
+                SELECT id, name, amount, return_rate, monthly_return, investment_type
+                FROM investments 
+                WHERE session_id = ? AND remaining_months > 0
+            ''', (session_id,))
+            
+            monthly_income = 0
+            for inv in cursor.fetchall():
+                inv_type = inv[5] # investment_type
+                base_return = inv[4] # monthly_return
+                
+                # 根据资产类型应用宏观影响
+                impact_factor = 1.0
+                if "股票" in inv_type or "基金" in inv_type:
+                    impact_factor = asset_impact["stock"]
+                elif "房产" in inv_type:
+                    impact_factor = asset_impact["real_estate"]
+                elif "债券" in inv_type:
+                    impact_factor = asset_impact["bond"]
+                
+                # 实际收益 = 基础收益 * 宏观影响
+                actual_return = int(base_return * impact_factor)
+                monthly_income += actual_return
+
             # 更新投资剩余月数
             cursor.execute('''
                 UPDATE investments
                 SET remaining_months = remaining_months - 1
                 WHERE session_id = ? AND remaining_months > 0
             ''', (session_id,))
+            
             # 处理到期投资
             cursor.execute('''
-                SELECT id, name, amount, return_rate, monthly_return, remaining_months
+                SELECT id, name, amount, return_rate, monthly_return, remaining_months, investment_type
                 FROM investments
                 WHERE session_id = ?
             ''', (session_id,))
+            
             matured_return = 0
-            for iid, iname, amount, return_rate, monthly_ret, remaining in cursor.fetchall():
+            for iid, iname, amount, return_rate, monthly_ret, remaining, inv_type in cursor.fetchall():
                 if remaining <= 0:
+                    # 到期本金回收也受宏观影响（例如股市崩盘）
+                    impact_factor = 1.0
+                    if "股票" in inv_type:
+                        impact_factor = asset_impact["stock"]
+                    
+                    final_amount = int(amount * impact_factor)
+                    
                     if monthly_ret and monthly_ret > 0:
-                        matured_return += amount
+                        matured_return += final_amount
                     else:
-                        matured_return += int(amount * (1 + (return_rate or 0)))
+                        # 一次性收益型
+                        total_ret = int(final_amount * (1 + (return_rate or 0)))
+                        matured_return += total_ret
+                        
                     cursor.execute('DELETE FROM investments WHERE id = ?', (iid,))
+            
             # 加入收益
-            new_cash = cash + monthly_income + matured_return
+            new_cash = int(cash + monthly_income + matured_return)
+            
+            # 模拟月度工资收入 (简化版，基于当前资产规模估算)
+            # 假设工资是资产的 1% - 5% 之间，或者固定值
+            # 这里简单给一个固定工资 + 随机波动
+            base_salary = 5000
+            salary_fluctuation = random.randint(-500, 2000)
+            monthly_salary = base_salary + salary_fluctuation
+            
+            # 模拟月度生活开支
+            base_expense = 3000
+            expense_fluctuation = random.randint(0, 1000)
+            monthly_expense = base_expense + expense_fluctuation
+            
+            net_income = monthly_salary - monthly_expense
+            new_cash += net_income
+            
+            print(f"[GameService] Monthly Salary: {monthly_salary}, Expense: {monthly_expense}, Net: {net_income}")
+            
             cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
             conn.commit()
+            
         # 更新月份与快照
         new_month = self.db.advance_session_month(session_id)
         total_assets = new_cash + invested  # 投资在上面已经更新/可能减少
@@ -590,6 +659,7 @@ class GameService:
             cash=new_cash,
             invested_assets=invested,
         )
+        
         # 生成新情境（复用现有 generate_situation 逻辑）
         situation_payload = None
         try:
@@ -615,9 +685,25 @@ class GameService:
                 avatar.attributes.credits = new_cash
                 avatar.attributes.current_month = new_month
                 avatar.attributes.invested_assets = invested
-                # 如果有更多状态(健康等)也应该在这里同步，目前数据库只存了基础的
+                
+                # 将宏观经济数据注入上下文
+                macro_context = f"当前宏观经济：GDP增长{macro_stats['gdp_growth']}%, 通胀{macro_stats['inflation']}%, 市场情绪{macro_stats['market_sentiment']}({macro_stats['phase']})"
+                
+                # 这里需要修改 AIAvatar.generate_situation 接口来接受额外上下文，或者临时修改属性
+                # 暂时通过 prompt injection 的方式（如果 DeepSeekEngine 支持）
+                # 假设 generate_situation 内部会调用 engine
                 
                 ctx = avatar.generate_situation(self.ai_engine)
+                
+                # 翻译宏观阶段
+                phase_map = {
+                    "expansion": "经济扩张",
+                    "peak": "经济繁荣",
+                    "contraction": "经济衰退",
+                    "trough": "经济萧条"
+                }
+                phase_cn = phase_map.get(macro_stats['phase'], "经济波动")
+                
                 if ctx:
                     situation_payload = {
                         "situation": ctx.situation,
@@ -627,7 +713,7 @@ class GameService:
             if not situation_payload:
                 # Fallback：简单情境
                 situation_payload = {
-                    "situation": "新的一个月开始了。你的资产组合产生了变化，需要重新审视投资和现金流。",
+                    "situation": f"新的一个月开始了。当前经济处于{macro_stats['phase']}阶段，通胀率{macro_stats['inflation']}%。",
                     "options": [
                         "继续当前策略，保持观望",
                         "调整投资组合，增加稳健资产",
@@ -642,7 +728,10 @@ class GameService:
                 "options": ["保持现状", "略微增加投资", "增加储蓄"],
                 "ai_generated": False,
             }
+            
+        print(f"[GameService] advance_session completed. New month: {new_month}, Cash: {new_cash}")
         return {
+            "success": True,
             "session_id": session_id,
             "new_month": new_month,
             "cash": new_cash,
@@ -652,6 +741,7 @@ class GameService:
             "situation": situation_payload["situation"],
             "options": situation_payload["options"],
             "ai_generated": situation_payload["ai_generated"],
+            "macro_economy": macro_stats
         }
 
     def finish_session(self, session_id: str) -> Dict[str, Any]:
@@ -699,6 +789,18 @@ class GameService:
             raise Exception("数据库未初始化")
         self.db.ensure_district_states(session_id)
         state = self.db.get_or_create_district_state(session_id, district_id)
+        
+        # 补充区域元数据
+        district_meta = {
+            'finance': {'name': '中央银行群', 'type': 'finance'},
+            'tech': {'name': '量化交易所', 'type': 'tech'},
+            'housing': {'name': '房产中枢', 'type': 'housing'},
+            'learning': {'name': '知识引擎院', 'type': 'learning'},
+            'leisure': {'name': '文娱漫游区', 'type': 'leisure'},
+            'green': {'name': '绿色能源港', 'type': 'green'}
+        }
+        meta = district_meta.get(district_id, {'name': '未知区域', 'type': 'unknown'})
+        state.update(meta)
         
         description = ""
         options = []
@@ -756,9 +858,70 @@ class GameService:
         return payload
 
     async def ai_chat(self, message: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+        context = {}
+        if session_id:
+            try:
+                # 优先从内存获取丰富上下文
+                if session_id in self.game_sessions:
+                    session = self.game_sessions[session_id]
+                    if "avatar_data" in session:
+                        data = session["avatar_data"]
+                        context.update({
+                            "name": data.get("name"),
+                            "mbti": data.get("mbti"),
+                            "cash": data.get("credits"),
+                            "total_assets": data.get("total_assets"),
+                            "current_month": data.get("current_round", 0)
+                        })
+                    
+                    if "current_situation" in session:
+                        sit = session["current_situation"]
+                        if isinstance(sit, dict):
+                            context["current_situation"] = sit.get("situation") or sit.get("description")
+                            context["options"] = sit.get("options") or sit.get("choices")
+                        elif hasattr(sit, "situation"):
+                            context["current_situation"] = sit.situation
+                            context["options"] = getattr(sit, "options", None) or getattr(sit, "choices", None)
+
+                # 如果内存信息不足，从数据库补充
+                if (not context.get("name") or not context.get("current_situation")) and self.db:
+                    import sqlite3
+                    with sqlite3.connect(self.db.db_path) as conn:
+                        cursor = conn.cursor()
+                        
+                        if not context.get("name"):
+                            cursor.execute('SELECT name, mbti, credits FROM users WHERE session_id = ?', (session_id,))
+                            row = cursor.fetchone()
+                            if row:
+                                context["name"] = row[0]
+                                context["mbti"] = row[1]
+                                context["cash"] = row[2]
+                                # 估算总资产
+                                cursor.execute('SELECT SUM(amount) FROM investments WHERE session_id = ? AND remaining_months > 0', (session_id,))
+                                invested = cursor.fetchone()[0] or 0
+                                context["total_assets"] = row[2] + invested
+                                
+                                cursor.execute('SELECT current_month FROM sessions WHERE session_id = ?', (session_id,))
+                                srow = cursor.fetchone()
+                                if srow:
+                                    context["current_month"] = srow[0]
+
+                        if not context.get("current_situation"):
+                            # 获取最新事件
+                            cursor.execute('SELECT description FROM city_events WHERE session_id = ? ORDER BY created_at DESC LIMIT 1', (session_id,))
+                            evt = cursor.fetchone()
+                            if evt:
+                                context["current_situation"] = evt[0]
+                                # 尝试从数据库获取选项 (如果存储了的话，目前 city_events 表结构似乎没有专门存 options，可能在 description 里或者没存)
+                                # 这里暂时不从数据库恢复 options，因为 city_events 主要是日志
+
+            
+            except Exception as e:
+                print(f"[AI Chat] Context build error: {e}")
+
         if self.ai_engine and self.ai_engine.api_key:
             try:
-                return await self.ai_engine.chat(message, session_id=session_id)
+                return await self.ai_engine.chat(message, session_id=session_id, context=context)
             except Exception as e:
                 print(f"[AI Chat] error: {e}")
         
@@ -770,15 +933,195 @@ class GameService:
         }
 
     def get_macro_indicators(self) -> Dict[str, Any]:
-        """获取宏观经济指标（模拟数据）"""
-        # 随机波动
-        inflation = round(random.uniform(1.5, 4.5), 1)
-        interest = round(random.uniform(3.0, 6.0), 1)
-        market_idx = int(random.uniform(11000, 14000))
-        
+        """获取宏观经济指标"""
         return {
-            "inflation": inflation,
-            "interest": interest,
-            "market_idx": market_idx,
-            "market_trend": random.choice(["up", "down", "stable"])
+            "gdp_growth": macro_economy.state.gdp_growth,
+            "inflation": macro_economy.state.inflation,
+            "interest_rate": macro_economy.state.interest_rate,
+            "market_sentiment": macro_economy.state.market_sentiment,
+            "phase": macro_economy.state.phase
+        }
+
+    def delete_character(self, session_id: str) -> bool:
+        """删除角色"""
+        if self.db:
+            # 从内存中移除
+            if session_id in self.game_sessions:
+                del self.game_sessions[session_id]
+            # 从数据库中移除
+            return self.db.delete_user(session_id)
+        return False
+    
+    def get_session_transactions(self, session_id: str, limit: int = 20) -> List[Dict]:
+        """获取会话交易记录"""
+        if not self.db:
+            return []
+        import sqlite3
+        with sqlite3.connect(self.db.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT round_num, transaction_name, amount, created_at, ai_thoughts
+                FROM transactions 
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            
+            transactions = []
+            for row in cursor.fetchall():
+                transactions.append({
+                    'round': row[0],
+                    'type': 'transaction',
+                    'title': row[1],
+                    'amount': row[2],
+                    'timestamp': row[3],
+                    'description': row[4] or ''
+                })
+            return transactions
+
+    def process_decision(self, session_id: str, option_index: int, option_text: str) -> Dict[str, Any]:
+        """处理用户的决策，解析文本并执行资金操作"""
+        if not self.db:
+            raise Exception("数据库未初始化")
+            
+        print(f"[GameService] Processing decision: {option_text}")
+        
+        import re
+        import sqlite3
+        
+        # 1. 解析金额
+        # 匹配 "投资50万", "50万元", "50000", "5万", "50w" 等
+        amount = 0
+        clean_text = option_text.replace(',', '')
+        amount_match = re.search(r'(\d+(?:\.\d+)?)\s*(万|w|W|k|K|亿|元|块)?', clean_text)
+        
+        if amount_match:
+            num = float(amount_match.group(1))
+            unit = amount_match.group(2)
+            
+            if unit in ['万', 'w', 'W']:
+                amount = int(num * 10000)
+            elif unit in ['亿']:
+                amount = int(num * 100000000)
+            elif unit in ['k', 'K']:
+                amount = int(num * 1000)
+            else:
+                # 无单位或 "元"/"块"
+                if num >= 1000:
+                    amount = int(num)
+                elif "万" in option_text:
+                    # 补充检测：如果正则没匹配到单位但文本里有万（例如 "50 万" 中间有特殊字符）
+                    amount = int(num * 10000)
+                elif unit in ['元', '块']:
+                    amount = int(num)
+                # 如果数字很小且无单位，可能是序号，忽略
+        
+        # 2. 解析行为类型
+        action_type = "none"
+        
+        # 明确的投资关键词 (优先级高)
+        invest_keywords = ["股票", "基金", "房产", "债券", "期货", "股权", "理财", "定投", "投资", "买入", "持有", "建仓", "跟投"]
+        # 明确的存款关键词
+        deposit_keywords = ["储蓄", "存入", "存款", "存钱"]
+        # 明确的消费关键词
+        spend_keywords = ["消费", "购买", "花费", "支付", "买", "租"]
+        
+        if any(k in option_text for k in invest_keywords):
+            action_type = "invest"
+        elif any(k in option_text for k in deposit_keywords):
+            action_type = "deposit"
+        elif any(k in option_text for k in spend_keywords):
+            action_type = "spend"
+        
+        print(f"[GameService] Parsed decision: type={action_type}, amount={amount}")
+        
+        # 3. 执行逻辑
+        cash_change = 0
+        ai_thoughts = f"执行操作：{option_text}"
+        
+        with sqlite3.connect(self.db.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 获取当前现金
+            cursor.execute('SELECT credits, username FROM users WHERE session_id = ?', (session_id,))
+            row = cursor.fetchone()
+            if not row:
+                raise Exception("用户不存在")
+            current_cash, username = row
+            
+            if action_type == "invest" and amount > 0:
+                if current_cash >= amount:
+                    cash_change = -amount
+                    # 创建投资记录
+                    # 尝试解析期限
+                    duration = 12 # 默认12个月
+                    if "短期" in option_text or "3个月" in option_text: duration = 3
+                    elif "中期" in option_text or "6个月" in option_text: duration = 6
+                    elif "2年" in option_text: duration = 24
+                    elif "长期" in option_text: duration = 24
+                    
+                    # 尝试解析收益率
+                    return_rate = 0.05 # 默认5%
+                    if "高收益" in option_text or "股票" in option_text or "期货" in option_text: return_rate = 0.15
+                    elif "稳健" in option_text or "债券" in option_text: return_rate = 0.04
+                    elif "基金" in option_text: return_rate = 0.08
+                    elif "房产" in option_text: return_rate = 0.03 # 房产主要是资产增值，收益率低一点
+                    
+                    # 提取投资名称
+                    inv_name = "投资项目"
+                    if "股票" in option_text: inv_name = "股票投资"
+                    elif "基金" in option_text: inv_name = "基金理财"
+                    elif "理财" in option_text: inv_name = "银行理财"
+                    elif "创业" in option_text: inv_name = "创业投资"
+                    elif "房产" in option_text: inv_name = "房产投资"
+                    elif "债券" in option_text: inv_name = "债券投资"
+                    
+                    # 确定投资类型
+                    inv_type = "中期"
+                    if duration <= 3: inv_type = "短期"
+                    elif duration >= 12: inv_type = "长期"
+                    
+                    cursor.execute('''
+                        INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (username, session_id, inv_name, amount, inv_type, duration, 0, return_rate, 1, ai_thoughts))
+                    
+                    ai_thoughts = f"已投入 {amount} 用于 {inv_name}。"
+                else:
+                    ai_thoughts = f"资金不足，无法投资 {amount}。"
+                    
+            elif action_type == "spend" and amount > 0:
+                if current_cash >= amount:
+                    cash_change = -amount
+                    ai_thoughts = f"消费了 {amount}。"
+                else:
+                    ai_thoughts = f"资金不足，无法支付 {amount}。"
+            
+            elif action_type == "deposit" and amount > 0:
+                 if current_cash >= amount:
+                    cash_change = -amount
+                    cursor.execute('''
+                        INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (username, session_id, "定期存款", amount, "短期", 12, 0, 0.03, 1, ai_thoughts))
+                    ai_thoughts = f"存入 {amount} 定期存款。"
+            
+            # 更新现金
+            if cash_change != 0:
+                new_cash = current_cash + cash_change
+                cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
+                # 记录交易
+                cursor.execute('''
+                    INSERT INTO transactions (username, session_id, round_num, transaction_name, amount, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, 1, option_text[:20], cash_change, ai_thoughts))
+                conn.commit()
+                
+        return {
+            "success": True,
+            "ai_thoughts": ai_thoughts,
+            "decision_impact": {
+                "cash_change": cash_change,
+                "trust_change": 0
+            }
         }

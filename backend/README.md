@@ -1,6 +1,6 @@
-# Echopolis 后端 API
+# FinAI 后端 API
 
-基于 FastAPI 的 Echopolis 游戏后端服务。
+基于 FastAPI 的 FinAI 游戏后端服务。
 
 ## 🚀 快速启动
 

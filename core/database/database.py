@@ -5,8 +5,8 @@ import sqlite3
 import os
 from typing import List, Dict, Optional
 
-class EchopolisDatabase:
-    """Echopolis数据库管理器"""
+class FinAIDatabase:
+    """FinAI数据库管理器"""
     
     def __init__(self, db_path: str = "echopolis.db"):
         # 确保数据库文件在项目根目录
@@ -47,6 +47,19 @@ class EchopolisDatabase:
                 if 'ai_thoughts' not in columns:
                     cursor.execute('ALTER TABLE investments ADD COLUMN ai_thoughts TEXT')
                     print("[INFO] 添加 ai_thoughts 列到 investments 表")
+            except:
+                pass
+            
+            # 检查 users 表是否有新属性
+            try:
+                cursor.execute("PRAGMA table_info(users)")
+                columns = [column[1] for column in cursor.fetchall()]
+                if 'happiness' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN happiness INTEGER DEFAULT 70')
+                if 'energy' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN energy INTEGER DEFAULT 75')
+                if 'health' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN health INTEGER DEFAULT 80')
             except:
                 pass
             
@@ -202,13 +215,31 @@ class EchopolisDatabase:
     
     def verify_account(self, username: str, password: str) -> bool:
         """验证账户"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT password FROM accounts WHERE username = ?
-            ''', (username,))
-            result = cursor.fetchone()
-            return result and result[0] == password
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT password FROM accounts WHERE username = ?
+                ''', (username,))
+                result = cursor.fetchone()
+                
+                if result:
+                    if result[0] == password:
+                        print(f"[Login] User '{username}' logged in successfully.")
+                        return True
+                    else:
+                        print(f"[Login] User '{username}' password mismatch.")
+                        return False
+                else:
+                    print(f"[Login] User '{username}' not found.")
+                    # Debug: print all users
+                    cursor.execute('SELECT username FROM accounts')
+                    users = cursor.fetchall()
+                    print(f"[Login] Existing users: {[u[0] for u in users]}")
+                    return False
+        except Exception as e:
+            print(f"[Login] Error verifying account: {e}")
+            return False
     
     def save_user(self, username: str, session_id: str, name: str, mbti: str, fate: str, credits: int):
         """保存用户信息（一个账户可以有多个角色）"""
@@ -647,5 +678,30 @@ class EchopolisDatabase:
             ''', values)
             conn.commit()
 
+    def delete_user(self, session_id: str) -> bool:
+        """删除用户及其所有相关数据"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 删除相关表中的数据
+                tables = [
+                    'investments', 'transactions', 'sessions', 
+                    'monthly_snapshots', 'district_states', 
+                    'achievement_progress', 'city_events'
+                ]
+                
+                for table in tables:
+                    cursor.execute(f'DELETE FROM {table} WHERE session_id = ?', (session_id,))
+                
+                # 最后删除用户表中的记录
+                cursor.execute('DELETE FROM users WHERE session_id = ?', (session_id,))
+                
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"[Delete] Error deleting user {session_id}: {e}")
+            return False
+
 # 全局数据库实例
-db = EchopolisDatabase()
+db = FinAIDatabase()

@@ -1,5 +1,5 @@
 """
-AI化身核心系统 - Echopolis核心模块
+AI化身核心系统 - FinAI核心模块
 实现AI化身的属性、状态管理和决策逻辑
 """
 import random

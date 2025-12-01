@@ -141,7 +141,7 @@
             <div class="item-left">
               <span class="item-icon">🤖</span>
               <div class="item-content">
-                <span class="item-name">EchoPolis Core</span>
+                <span class="item-name">FinAI Core</span>
                 <span class="item-desc">Version</span>
               </div>
             </div>
@@ -249,7 +249,7 @@ const exportData = () => {
 }
 
 const logout = () => {
-  if (confirm('确定要断开与 EchoPolis 的连接吗？')) {
+  if (confirm('确定要断开与 FinAI金融模拟沙盘 的连接吗？')) {
     localStorage.removeItem('username')
     localStorage.removeItem('currentCharacter')
     router.push('/login')

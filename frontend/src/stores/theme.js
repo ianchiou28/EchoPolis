@@ -2,37 +2,26 @@ import { defineStore } from 'pinia'
 
 export const useThemeStore = defineStore('theme', {
   state: () => ({
-    currentTheme: (typeof window !== 'undefined' && localStorage.getItem('theme')) || 'slate',
+    currentTheme: (typeof window !== 'undefined' && localStorage.getItem('theme')) || 'beige',
     themes: {
-      slate: {
-        name: '石墨蓝灰',
-        key: 'slate'
+      orange: {
+        name: '琥珀橙 (Amber)',
+        key: 'orange'
       },
-      silver: {
-        name: '银灰',
-        key: 'silver'
+      black: {
+        name: '深空黑 (Void)',
+        key: 'black'
       },
-      ocean: {
-        name: '海雾蓝',
-        key: 'ocean'
-      },
-      emerald: {
-        name: '祖母绿',
-        key: 'emerald'
-      },
-      royal: {
-        name: '皇家紫',
-        key: 'royal'
-      },
-      pink: {
-        name: '少女粉',
-        key: 'pink'
+      beige: {
+        name: '羊皮纸 (Beige)',
+        key: 'beige'
       }
     }
   }),
 
   getters: {
-    theme: (state) => state.themes[state.currentTheme]
+    theme: (state) => state.themes[state.currentTheme],
+    isDark: (state) => state.currentTheme !== 'beige'
   },
 
   actions: {
@@ -45,11 +34,15 @@ export const useThemeStore = defineStore('theme', {
     },
 
     applyTheme() {
-      const key = this.currentTheme || 'slate'
+      const key = this.currentTheme || 'orange'
       document.documentElement.setAttribute('data-theme', key)
       // background is controlled by CSS variables now
       document.body.style.background = ''
-      document.body.style.color = 'var(--text)'
+      document.body.style.color = 'var(--term-text)'
+    },
+
+    toggleTheme() {
+      this.setTheme(this.isDark ? 'beige' : 'orange')
     }
   }
 })

@@ -1,1 +1,1 @@
-# Echopolis Avatar Module
+# FinAI Avatar Module

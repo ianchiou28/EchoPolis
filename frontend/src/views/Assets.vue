@@ -234,8 +234,20 @@ const portfolioData = computed(() => {
 })
 
 const assetTrendOption = computed(() => {
-  const months = timelineData.value.map(t => `M${t.month}`)
-  const assetData = timelineData.value.map(t => t.total_assets)
+  if (!timelineData.value || timelineData.value.length === 0) return {}
+  
+  let data = [...timelineData.value]
+  // If only one point, add a starting point for visual continuity
+  if (data.length === 1) {
+    data.unshift({
+      month: 0,
+      total_assets: data[0].total_assets,
+      current_month: 0
+    })
+  }
+
+  const months = data.map(t => `M${t.month || t.current_month || 0}`)
+  const assetData = data.map(t => t.total_assets || 0)
   
   return {
     backgroundColor: 'transparent',
@@ -269,8 +281,10 @@ const assetTrendOption = computed(() => {
       type: 'line',
       data: assetData,
       smooth: true,
-      symbol: 'none',
+      symbol: 'circle',
+      symbolSize: 6,
       lineStyle: { color: '#3b82f6', width: 3 },
+      itemStyle: { color: '#3b82f6' },
       areaStyle: {
         color: {
           type: 'linear',

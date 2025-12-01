@@ -1,1366 +1,1411 @@
 <template>
-  <div class="home-container">
-    <!-- 飘字组件 -->
-    <FloatingText ref="floatingTextRef" />
+  <div class="project-echo-interface">
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" v-if="isSidebarOpen" @click="isSidebarOpen = false"></div>
 
-    <!-- Canvas城市背景 -->
-    <CityTopDown 
-      :districts="districts" 
-      :selected-district-id="activeZone"
-      :echo-trigger="echoTrigger"
-      @district-click="handleDistrictClick" 
-    />
-
-    <!-- 左侧角色面板 -->
-    <aside class="left-panel glass-panel tech-border">
-      <div class="panel-decoration top-left"></div>
-      <div class="panel-decoration bottom-right"></div>
+    <!-- Left Sidebar: Directory -->
+    <nav class="sidebar-nav" :class="{ open: isSidebarOpen }">
+      <div class="nav-header">
+        <div class="logo-text">FinAI金融模拟沙盘</div>
+        <div class="sub-header">// 系统终端</div>
+        <button class="close-sidebar-btn" @click="isSidebarOpen = false">×</button>
+      </div>
       
-      <div class="avatar-section">
-        <div class="avatar-portrait-container">
-          <div class="avatar-portrait">
-            <div class="digital-core">
-              <div class="core-ring inner"></div>
-              <div class="core-ring outer"></div>
-              <div class="core-dot"></div>
-            </div>
-          </div>
-          <div class="portrait-ring"></div>
-        </div>
-        <div class="avatar-info">
-          <div class="info-header">
-            <h2>{{ avatar?.name || 'Echo' }}</h2>
-            <span class="mbti-tag">{{ avatar?.mbti_type || 'INTJ' }}</span>
-          </div>
-          <p class="month-indicator">CYCLE: {{ currentMonthDisplay.toString().padStart(3, '0') }} // SYSTEM_ACTIVE</p>
+      <div class="nav-section">
+        <div class="section-label">目录</div>
+        <div 
+          v-for="item in navItems" 
+          :key="item.id"
+          :class="['nav-item', { active: currentView === item.id }]"
+          @click="handleNavClick(item.id)">
+          <span class="icon">{{ item.icon }}</span>
+          {{ item.label }}
         </div>
       </div>
 
-      <div class="stats-grid">
-        <div class="stat-item" v-for="stat in coreStats" :key="stat.label">
-          <div class="stat-label">{{ stat.label }}</div>
-          <div class="stat-value">{{ stat.value }}</div>
-        </div>
-      </div>
+      <div class="nav-spacer"></div>
 
-      <div class="trust-section">
-        <div class="trust-header">
-          <span class="trust-label">NEURAL SYNC RATE // 神经同步率</span>
-          <span class="trust-value">{{ trustLevel }}%</span>
-        </div>
-        <div class="trust-visual">
-          <svg viewBox="0 0 100 10" class="trust-bar-svg">
-            <rect x="0" y="0" width="100" height="10" fill="rgba(255,255,255,0.1)" rx="2" />
-            <rect 
-              x="0" y="0" 
-              :width="trustLevel" 
-              height="10" 
-              fill="url(#trust-gradient)" 
-              rx="2"
-              class="trust-fill-anim"
-            />
-            <defs>
-              <linearGradient id="trust-gradient" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stop-color="#3b82f6" />
-                <stop offset="100%" stop-color="#8b5cf6" />
-              </linearGradient>
-            </defs>
-          </svg>
-          <div class="trust-markers">
-            <span v-for="i in 5" :key="i" class="marker" :style="{ left: (i * 20) + '%' }"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 聊天记录区域 (恢复功能) -->
-      <div class="comm-log-section">
-        <div class="comm-header">
-          <span class="icon">📡</span> SYSTEM LOGS // 系统日志
-        </div>
-        <div class="comm-messages custom-scrollbar" ref="echoMessagesRef">
-          <transition-group name="msg-fade">
-            <div 
-              v-for="msg in recentChatMessages" 
-              :key="msg.timestamp"
-              :class="['comm-message', msg.role]">
-              <div class="msg-content">
-                <span class="msg-role">{{ msg.role === 'user' ? 'USER' : 'CORE' }} >></span>
-                {{ msg.text }}
-              </div>
-            </div>
-          </transition-group>
-        </div>
-      </div>
-    </aside>
-
-    <!-- 右侧投资数据看板 -->
-    <aside class="right-panel">
-      <InvestmentDashboard
-        :total-assets="assets.total"
-        :cash="assets.cash"
-        :invested="avatar?.invested_assets || 0"
-        :investments="assets.investments"
-        :monthly-income="monthlyIncome"
-        :macro-indicators="macroIndicators"
-      />
-    </aside>
-
-    <!-- 中央任务面板 (位置调整 + 可折叠) -->
-    <div class="center-panel-container" :class="{ 'collapsed': isPanelCollapsed }">
-      <button class="collapse-btn" @click="isPanelCollapsed = !isPanelCollapsed">
-        {{ isPanelCollapsed ? 'EXPAND TACTICAL VIEW // 展开战术视图 ▲' : 'MINIMIZE // 最小化 ▼' }}
-      </button>
-
-      <div class="center-mission-panel glass-panel tech-border">
-        <div class="panel-decoration top-right"></div>
-        <div class="panel-decoration bottom-left"></div>
-
-        <div class="panel-content custom-scrollbar">
-        <header class="mission-header">
-          <div class="header-content">
-            <p class="eyebrow">TACTICAL OVERVIEW // 战术概览</p>
-            <h3>{{ currentSituation?.title || '等待指令输入...' }}</h3>
-          </div>
-          <button 
-            class="btn primary ai-btn"
-            :disabled="gameStore.isAiInvesting" 
-            @click="handleAiInvest">
-            <span class="btn-icon">🤖</span>
-            {{ gameStore.isAiInvesting ? 'AI 运算中…' : 'AI 决策辅助' }}
+      <div class="system-config">
+        <div class="section-label">系统配置</div>
+        <div class="config-grid">
+          <button class="config-btn orange active">
+            <span class="icon">🔊</span> BGM: 开
           </button>
-        </header>
-
-        <div class="terminal-display">
-          <p class="story-text">{{ currentSituation?.description || '城市系统待机中。请选择区域接入或推进时间线。' }}</p>
-        </div>
-
-        <!-- AI思考过程 -->
-        <div class="ai-thoughts" v-if="currentSituation?.ai_thoughts">
-          <div class="thoughts-header">
-            <span class="icon-pulse"></span>
-            <strong>AI CORE ANALYSIS</strong>
-          </div>
-          <p class="typing-effect">{{ currentSituation.ai_thoughts }}</p>
-        </div>
-
-        <!-- 决策影响展示 -->
-        <div class="decision-impact" v-if="lastDecisionImpact">
-          <div class="impact-grid">
-            <div class="impact-item" v-if="lastDecisionImpact.cash_change">
-              <span class="icon">CREDITS</span>
-              <span :class="['value', lastDecisionImpact.cash_change > 0 ? 'positive' : 'negative']">
-                {{ lastDecisionImpact.cash_change > 0 ? '▲' : '▼' }}{{ formatNumber(Math.abs(lastDecisionImpact.cash_change)) }}
-              </span>
-            </div>
-            <div class="impact-item" v-if="lastDecisionImpact.happiness_change">
-              <span class="icon">MORALE</span>
-              <span :class="['value', lastDecisionImpact.happiness_change > 0 ? 'positive' : 'negative']">
-                {{ lastDecisionImpact.happiness_change > 0 ? '▲' : '▼' }}{{ Math.abs(lastDecisionImpact.happiness_change) }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 选项选择 -->
-        <div class="options-grid" v-if="situationOptions?.length">
-          <div 
-            v-for="(option, idx) in situationOptions" 
-            :key="idx"
-            @click="handleSelectOption(idx)"
-            :class="['option-card', { 'selected': selectedOption === idx }]">
-            <div class="option-header">
-              <span class="option-id">OPT-{{ idx + 1 }}</span>
-              <div class="selection-indicator"></div>
-            </div>
-            <p>{{ option }}</p>
-          </div>
-        </div>
-
-        <!-- 意识回响输入区 -->
-        <div class="echo-zone">
-          <div class="echo-header">
-            <span class="echo-title">NEURAL UPLINK // 意识上传</span>
-            <div class="echo-types">
-              <button 
-                v-for="type in echoTypes" 
-                :key="type.value"
-                @click="echoType = type.value"
-                :class="['type-btn', { 'active': echoType === type.value }]">
-                {{ type.label }}
-              </button>
-            </div>
-          </div>
-          <div class="echo-input-group">
-            <span class="prompt-char">></span>
-            <textarea 
-              v-model="echoText" 
-              placeholder="输入指令以干预系统演化..."
-              rows="1"
-              class="echo-textarea"
-              @keydown.enter.prevent="handleAdvance"
-            ></textarea>
-            <button class="transmit-btn" @click="handleAdvance" :disabled="gameStore.isAdvancingMonth">
-              TRANSMIT
-            </button>
-          </div>
-        </div>
+          <button class="config-btn green" :class="{ active: isCrtOn }" @click="toggleCrt">
+            <span class="icon">📺</span> CRT: {{ isCrtOn ? '开' : '关' }}
+          </button>
+          <button class="config-btn white" @click="themeStore.toggleTheme">
+            <span class="icon">☀</span> 模式: {{ themeStore.isDark ? '暗色' : '亮色' }}
+          </button>
+          <button class="config-btn yellow">
+            <span class="icon">文</span> CN | EN
+          </button>
+          <button class="config-btn red" @click="exitToSelect">
+            <span class="icon">🔌</span> 断开连接
+          </button>
         </div>
       </div>
-    </div>
+    </nav>
 
-    <!-- 底部AI对话框 -->
-    <div class="bottom-chat-panel glass-panel tech-border">
-      <form class="chat-form" @submit.prevent="sendChat">
-        <span class="chat-prompt">AI_CORE:~$</span>
-        <input 
-          v-model="chatText" 
-          type="text" 
-          placeholder="建立直接通讯链路..." 
-          class="chat-input"
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header -->
+      <header class="top-bar">
+        <button class="menu-btn" @click="isSidebarOpen = true">☰</button>
+        <div class="brand-logo">
+          <span class="highlight">FinAI</span> // 系统
+        </div>
+        <div class="header-meta">
+          <span>{{ currentDate }}</span>
+        </div>
+      </header>
+
+      <!-- Game View Layer -->
+      <div class="game-viewport" v-show="currentView === 'city'">
+        
+        <!-- Mobile View Switcher -->
+        <div class="mobile-view-switch">
+          <button 
+            :class="['switch-btn', { active: !mobileMapMode }]" 
+            @click="mobileMapMode = false">
+            📊 仪表盘
+          </button>
+          <button 
+            :class="['switch-btn', { active: mobileMapMode }]" 
+            @click="mobileMapMode = true">
+            🗺️ 城市地图
+          </button>
+        </div>
+
+        <!-- City Background (Map) -->
+        <section class="city-stage" :class="{ 'mobile-hidden': !mobileMapMode }" @mousemove="onParallax" @mouseleave="resetParallax">
+          <div class="city-sky" :style="parallaxStyles.sky" />
+          <div class="city-grid" :style="parallaxStyles.grid" />
+          
+          <!-- Map Decorations (SVG Layer) -->
+          <svg class="city-connections" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,0,0,0.05)" stroke-width="1"/>
+              </pattern>
+            </defs>
+            <!-- Connection Lines -->
+            <g v-if="!isMobile" stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
+              <!-- Central Hub Connections -->
+              <path d="M 30% 35% L 50% 45%" /> <!-- Learning -> Finance -->
+              <path d="M 70% 35% L 50% 45%" /> <!-- Tech -> Finance -->
+              <path d="M 30% 65% L 50% 45%" /> <!-- Green -> Finance -->
+              <path d="M 70% 65% L 50% 45%" /> <!-- Housing -> Finance -->
+              <path d="M 50% 70% L 50% 45%" /> <!-- Leisure -> Finance -->
+              
+              <!-- Outer Ring -->
+              <path d="M 30% 35% L 70% 35%" /> <!-- Learning -> Tech -->
+              <path d="M 30% 65% L 50% 70% L 70% 65%" /> <!-- Green -> Leisure -> Housing -->
+              <path d="M 30% 35% L 30% 65%" /> <!-- Learning -> Green -->
+              <path d="M 70% 35% L 70% 65%" /> <!-- Tech -> Housing -->
+            </g>
+
+            <g v-else stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
+               <!-- Mobile Hexagon Connections -->
+               <path d="M 50% 28% L 25% 45%" />
+               <path d="M 50% 28% L 75% 45%" />
+               <path d="M 25% 45% L 25% 65%" />
+               <path d="M 75% 45% L 75% 65%" />
+               <path d="M 25% 65% L 50% 82%" />
+               <path d="M 75% 65% L 50% 82%" />
+               <path d="M 25% 45% L 75% 45%" />
+               <path d="M 25% 65% L 75% 65%" />
+            </g>
+            
+            <!-- Zone Circles -->
+            <circle cx="50%" cy="45%" r="120" fill="none" stroke="rgba(0,0,0,0.03)" stroke-width="1" />
+            <circle cx="50%" cy="45%" r="250" fill="none" stroke="rgba(0,0,0,0.02)" stroke-width="1" stroke-dasharray="10 5" />
+          </svg>
+
+          <!-- District Markers (Pixel Art Buildings) -->
+          <div class="district-marker"
+               v-for="district in districts"
+               :key="district.id"
+               :style="pinStyle(district)"
+               @click="handleZoneSelect(district)">
+            <div class="district-visual">
+              <img :src="`/assets/districts/${district.id}.png`" 
+                   class="pixel-building" 
+                   :style="{ animationDelay: `${(district.id.length % 3) * 0.5}s` }"
+                   :alt="district.name"
+                   @error="$event.target.style.display='none'" />
+              <!-- Fallback Marker if image fails or loading -->
+              <div class="marker-box fallback">
+                <span class="marker-code">{{ getDistrictCode(district.id) }}</span>
+                <div class="marker-corner"></div>
+              </div>
+            </div>
+            <div class="marker-label">
+              {{ district.name }}
+            </div>
+          </div>
+        </section>
+
+        <!-- Action Panel Overlay -->
+        <DistrictActionPanel 
+          v-if="selectedDistrict" 
+          :district="selectedDistrict" 
+          @close="selectedDistrict = null" 
         />
-      </form>
-    </div>
 
-    <!-- 顶部控制按钮 (恢复功能) -->
-    <div class="top-controls">
-      <button 
-        class="btn ghost" 
-        :disabled="gameStore.isAdvancingMonth" 
-        @click="handleAdvance">
-        {{ gameStore.isAdvancingMonth ? 'PROCESSING...' : 'NEXT CYCLE // 下个周期 >>' }}
-      </button>
-      <button class="btn primary" @click="$router.push('/world')">
-        WORLD MAP // 世界地图
-      </button>
-      <button class="btn ghost" @click="$router.push('/assets')">
-        ASSETS // 资产管理
-      </button>
-      <button class="btn ghost" @click="showCharacterSelect = true">
-        CHARACTERS // 角色档案
-      </button>
-      <button class="btn ghost" @click="$router.push('/profile')">
-        SYSTEM TERMINAL // 系统终端
-      </button>
-    </div>
-
-    <!-- 角色选择弹窗 (恢复) -->
-    <Teleport to="body">
-      <transition name="modal">
-        <div v-if="showCharacterSelect" class="modal-overlay" @click="showCharacterSelect = false">
-          <div class="character-modal glass-panel" @click.stop>
-            <div class="modal-header">
-              <h2>IDENTITY SELECT // 身份切换</h2>
-              <button class="btn-close" @click="showCharacterSelect = false">✕</button>
-            </div>
-            <div class="modal-body custom-scrollbar">
-              <div class="characters-grid">
-                <div 
-                  v-for="char in availableCharacters" 
-                  :key="char.id"
-                  @click="switchCharacter(char)"
-                  :class="['character-card', { active: char.id === currentCharacterId }]">
-                  <div class="character-avatar">
-                    <div class="avatar-icon">{{ (char.mbti || char.mbti_type || 'IN').substring(0, 2) }}</div>
+        <!-- HUD Overlay (Floating Cards) -->
+        <div class="hud-overlay" :class="{ 'mobile-hidden': mobileMapMode }">
+          <!-- Left: Avatar Status -->
+          <div class="hud-column left">
+            <div class="archive-card">
+              <div class="archive-header">
+                <span>主体状态</span>
+                <span>ID_001</span>
+              </div>
+              <div class="archive-body">
+                <div class="avatar-row">
+                  <div class="avatar-face">
+                    <div class="eye left"></div>
+                    <div class="eye right"></div>
+                    <div class="mouth"></div>
                   </div>
-                  <div class="character-info">
-                    <h4>{{ char.name }}</h4>
-                    <p class="mbti">{{ char.mbti || char.mbti_type || 'INTJ' }}</p>
-                    <p class="assets">ASSETS: ¥{{ formatNumber(char.assets || 0) }}</p>
+                  <div class="avatar-details">
+                    <h3>{{ avatar?.name || 'Echo' }}</h3>
+                    <div class="tags">
+                      <span class="tag">{{ avatar?.mbti_type || 'INTJ' }}</span>
+                      <span class="tag">Lv.{{ Math.floor((avatar?.current_month || 0)/12) + 1 }}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="stat-list">
+                  <div class="stat-item">
+                    <label>总资产</label>
+                    <span class="value">¥{{ formatNumber(assets.total) }}</span>
+                  </div>
+                  <div class="stat-item">
+                    <label>现金流</label>
+                    <span class="value">¥{{ formatNumber(assets.cash) }}</span>
                   </div>
                 </div>
               </div>
-              <button class="btn primary full" @click="$router.push('/character-select')">
-                + INITIALIZE NEW IDENTITY
-              </button>
+            </div>
+            
+            <div class="archive-card">
+              <div class="archive-header">AI 思考</div>
+              <div class="archive-body">
+                <p class="mono-text">{{ aiReflection || '系统等待输入...' }}</p>
+              </div>
             </div>
           </div>
-        </div>
-      </transition>
-    </Teleport>
 
-    <!-- 设置弹窗 (恢复) -->
-    <Teleport to="body">
-      <transition name="modal">
-        <div v-if="showSettings" class="modal-overlay" @click="showSettings = false">
-          <div class="settings-modal glass-panel" @click.stop>
-            <div class="modal-header">
-              <h2>SYSTEM CONFIG // 系统设置</h2>
-              <button class="btn-close" @click="showSettings = false">✕</button>
-            </div>
-            <div class="modal-body custom-scrollbar">
-              <div class="settings-section">
-                <h3>AUDIO</h3>
-                <div class="setting-item">
-                  <span>BGM</span>
-                  <button @click="toggleMusic" :class="['toggle-btn', { active: musicEnabled }]">
-                    <span class="toggle-slider"></span>
+          <!-- Right: Mission Control -->
+          <div class="hud-column right">
+            <div class="archive-card highlight flex-grow-card">
+              <div class="archive-header">
+                <span>当前指令</span>
+                <span class="blink">执行中</span>
+              </div>
+              <div class="archive-body scrollable-body">
+                <h3 class="mission-title">{{ currentSituation?.title || '等待事件' }}</h3>
+                <p class="mission-desc">{{ currentSituation?.description || '当前扇区未检测到异常活动。' }}</p>
+                
+                <div class="ai-log" v-if="currentSituation?.ai_thoughts">
+                  <span class="prefix">> AI 分析:</span> {{ currentSituation.ai_thoughts }}
+                </div>
+
+                <div class="action-grid" v-if="situationOptions?.length">
+                  <button 
+                    v-for="(option, idx) in situationOptions" 
+                    :key="idx"
+                    class="term-btn"
+                    :class="{ active: selectedOptionIndex === idx }"
+                    @click="handleSelectOption(idx)">
+                    [{{ idx + 1 }}] {{ option }}
                   </button>
                 </div>
-                <div class="setting-item">
-                  <span>SFX</span>
-                  <button @click="toggleSound" :class="['toggle-btn', { active: soundEnabled }]">
-                    <span class="toggle-slider"></span>
+
+                <div class="control-bar">
+                  <button class="term-btn primary full" :disabled="gameStore.isAdvancingMonth || isProcessing" @click="handleAdvance">
+                    {{ (gameStore.isAdvancingMonth || isProcessing) ? '处理中...' : '>> 执行下一周期' }}
                   </button>
                 </div>
               </div>
-              <div class="settings-section">
-                <h3>ACCOUNT</h3>
-                <div class="setting-item">
-                  <span>USER</span>
-                  <span class="setting-value">{{ username }}</span>
+            </div>
+
+            <!-- Echo Input -->
+            <div class="archive-card fixed-height-card">
+              <div class="archive-header">
+                <span>注入意识</span>
+                <span class="help-icon" title="向AI植入潜意识，影响其性格与决策倾向">?</span>
+              </div>
+              <div class="archive-body">
+                <div class="echo-types">
+                  <span 
+                    v-for="type in echoTypes" 
+                    :key="type.value"
+                    @click="echoType = type.value"
+                    :class="['type-tag', { active: echoType === type.value }]">
+                    {{ type.label }}
+                  </span>
                 </div>
-                <button class="btn ghost full" @click="handleLogout">
-                  LOGOUT
-                </button>
+                <textarea 
+                  v-model="echoText" 
+                  class="term-input" 
+                  placeholder="输入引导参数 (例如: '激进一点', '关注科技股')..."></textarea>
+                <button class="term-btn full" @click="handleSendEcho">发送指引 // UPLOAD</button>
               </div>
             </div>
           </div>
         </div>
-      </transition>
-    </Teleport>
+
+        <!-- Bottom: Chat -->
+        <div class="chat-dock" :class="{ 'mobile-hidden': mobileMapMode }">
+          <!-- Chat History Panel -->
+          <div class="chat-history" v-if="chatMessages.length > 0" :class="{ collapsed: !isChatExpanded }">
+             <div class="chat-header" @click="isChatExpanded = !isChatExpanded">
+               <span>通讯记录 // COMMS_LOG</span>
+               <span class="toggle-icon">{{ isChatExpanded ? '▼' : '▲' }}</span>
+             </div>
+             <div class="chat-body" ref="chatBodyRef">
+               <div v-for="(msg, idx) in chatMessages" :key="idx" :class="['chat-msg', msg.role]">
+                  <span class="role">[{{ msg.role === 'user' ? 'USER' : 'ECHO' }}]:</span>
+                  <span class="text">{{ msg.text }}</span>
+               </div>
+             </div>
+          </div>
+
+          <div class="cmd-interface">
+            <span class="prompt">用户@ECHO:~$</span>
+            <input 
+              v-model="chatText" 
+              type="text" 
+              class="cmd-input" 
+              placeholder="输入指令..." 
+              @keyup.enter="sendChat"
+            />
+            <button class="term-btn small" @click="sendChat">发送</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Placeholder for other views (Timeline, World, etc.) -->
+      <div class="view-placeholder" v-if="currentView !== 'city'">
+        <ProfileView v-if="currentView === 'profile'" />
+        <TimelineView v-if="currentView === 'timeline'" />
+        <ArchivesView v-if="currentView === 'logs'" />
+      </div>
+
+    </main>
+
+    <!-- CRT Overlay -->
+    <div class="crt-overlay" v-if="isCrtOn"></div>
+    <div class="grid-bg"></div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import CityTopDown from '../components/home/CityTopDown.vue'
-import InvestmentDashboard from '../components/InvestmentDashboard.vue'
-import FloatingText from '../components/FloatingText.vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
+import ProfileView from '../components/views/ProfileView.vue'
+import TimelineView from '../components/views/TimelineView.vue'
+import ArchivesView from '../components/views/ArchivesView.vue'
+import DistrictActionPanel from '../components/DistrictActionPanel.vue'
+import { useRouter } from 'vue-router'
 
 const gameStore = useGameStore()
 const themeStore = useThemeStore()
-const floatingTextRef = ref(null)
-const echoMessagesRef = ref(null)
-
+const router = useRouter()
+const currentView = ref('city')
+const parallax = ref({ x: 0, y: 0 })
+const selectedDistrict = ref(null)
+const selectedOptionIndex = ref(null)
 const chatText = ref('')
 const echoText = ref('')
 const echoType = ref('advisory')
-const selectedOption = ref(null)
-const lastDecisionImpact = ref(null)
-const echoTrigger = ref(null)
-const isPanelCollapsed = ref(false)
-const showCharacterSelect = ref(false)
-const showSettings = ref(false)
-const availableCharacters = ref([])
-const musicEnabled = ref(false)
-const soundEnabled = ref(true)
+const isChatExpanded = ref(true)
+const chatBodyRef = ref(null)
+const isCrtOn = ref(true)
+const isProcessing = ref(false)
+const currentDate = ref(new Date().toLocaleDateString('zh-CN').replace(/\//g, '-'))
+const isSidebarOpen = ref(false)
+const mobileMapMode = ref(true)
 
-const username = computed(() => localStorage.getItem('username') || 'COMMANDER')
-const currentCharacterId = computed(() => {
-  try {
-    const char = JSON.parse(localStorage.getItem('currentCharacter') || '{}')
-    return char.id
-  } catch {
-    return null
-  }
-})
-
-const echoTypes = [
-  { value: 'inspirational', label: '启发', icon: '💡' },
-  { value: 'advisory', label: '建议', icon: '📋' },
-  { value: 'directive', label: '指令', icon: '⚡' },
-  { value: 'emotional', label: '情感', icon: '❤️' }
+const navItems = [
+  { id: 'city', label: '城市概览', icon: '⚡' },
+  { id: 'profile', label: '主体数据', icon: '👤' },
+  { id: 'timeline', label: '时间线', icon: '🕒' },
+  { id: 'logs', label: '档案库', icon: '📖' }
 ]
 
+const echoTypes = [
+  { value: 'inspirational', label: '激励' },
+  { value: 'advisory', label: '建议' },
+  { value: 'directive', label: '指令' },
+  { value: 'emotional', label: '共情' }
+]
+
+// Data Mapping
 const avatar = computed(() => gameStore.avatar)
 const assets = computed(() => ({
   total: gameStore.assets?.total ?? 0,
-  cash: gameStore.assets?.cash ?? 0,
-  investments: Array.isArray(gameStore.assets?.investments) ? gameStore.assets.investments : []
+  cash: gameStore.assets?.cash ?? 0
 }))
 const districts = computed(() => gameStore.districts)
+const aiReflection = computed(() => gameStore.aiReflection)
 const currentSituation = computed(() => gameStore.currentSituation)
 const situationOptions = computed(() => gameStore.situationOptions)
-const activeZone = computed(() => gameStore.selectedDistrictId)
-const trustLevel = computed(() => gameStore.trustLevel || 50)
-
-const monthlyIncome = computed(() => 
-  assets.value.investments.reduce((sum, inv) => sum + (inv.monthly_return || 0), 0)
-)
-
-const currentMonthDisplay = computed(() => avatar.value?.current_month ?? 0)
-
-const coreStats = computed(() => [
-  { label: 'NET WORTH // 净资产', value: `¥${formatNumber(assets.value.total)}` },
-  { label: 'LIQUIDITY // 流动资金', value: `¥${formatNumber(assets.value.cash)}` },
-  { label: 'ASSETS // 总资产', value: `¥${formatNumber(avatar.value?.invested_assets || 0)}` },
-  { label: 'PASSIVE INC // 被动收入', value: `+¥${formatNumber(monthlyIncome.value)}` }
-])
-
-const macroIndicators = computed(() => gameStore.macroIndicators || {
-  inflation: 2.4,
-  interest: 4.5,
-  market_idx: 12450,
-  market_trend: 'up'
-})
-
-const recentChatMessages = computed(() => {
-  return (gameStore.chatMessages || []).slice(-6)
-})
-
-// 自动滚动到最新消息
-watch(() => gameStore.chatMessages?.length, () => {
-  nextTick(() => {
-    if (echoMessagesRef.value) {
-      echoMessagesRef.value.scrollTop = echoMessagesRef.value.scrollHeight
-    }
-  })
-})
+const chatMessages = computed(() => gameStore.chatMessages)
 
 const formatNumber = (num) => Number(num || 0).toLocaleString('zh-CN')
 
+const getDistrictCode = (id) => {
+  const map = {
+    finance: 'FIN',
+    tech: 'TEC',
+    housing: 'EST',
+    learning: 'EDU',
+    leisure: 'ENT',
+    green: 'NRG'
+  }
+  return map[id] || 'UNK'
+}
+
+// Parallax Logic
+const parallaxStyles = computed(() => {
+  const { x, y } = parallax.value
+  const make = (mult) => ({ transform: `translate3d(${x * mult}px, ${y * mult}px, 0)` })
+  return {
+    sky: make(10),
+    grid: make(15),
+    far: make(20),
+    mid: make(30),
+    front: make(40)
+  }
+})
+
+const isMobile = ref(window.innerWidth <= 768)
+
+const updateMobileState = () => {
+  isMobile.value = window.innerWidth <= 768
+}
+
+const pinStyle = (district) => {
+  if (isMobile.value) {
+    const mobileLayout = {
+      finance: { x: 50, y: 28 },
+      learning: { x: 25, y: 45 },
+      tech: { x: 75, y: 45 },
+      green: { x: 25, y: 65 },
+      housing: { x: 75, y: 65 },
+      leisure: { x: 50, y: 82 }
+    }
+    const coords = mobileLayout[district.id] || district.coords || { x: 50, y: 50 }
+    return { left: `${coords.x}%`, top: `${coords.y}%` }
+  }
+  const x = district.coords?.x ?? 50
+  const y = district.coords?.y ?? 50
+  return { left: `${x}%`, top: `${y}%` }
+}
+
+const onParallax = (event) => {
+  // Disable parallax on mobile or if map is hidden
+  if (window.innerWidth <= 768) return
+  
+  const rect = event.currentTarget.getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const offsetX = (event.clientX - centerX) / rect.width
+  const offsetY = (event.clientY - centerY) / rect.height
+  parallax.value = { x: offsetX, y: offsetY }
+}
+
+const resetParallax = () => {
+  parallax.value = { x: 0, y: 0 }
+}
+
+// Actions
+const toggleCrt = () => {
+  isCrtOn.value = !isCrtOn.value
+}
+
+const exitToSelect = () => {
+  try {
+    gameStore.resetState()
+  } catch (e) {
+    console.error('Reset state error:', e)
+  }
+  localStorage.removeItem('currentCharacter')
+  router.push('/character-select')
+}
+
+const handleNavClick = (viewId) => {
+  currentView.value = viewId
+  isSidebarOpen.value = false // Close sidebar on mobile selection
+}
+
 const handleAdvance = async () => {
+  if (isProcessing.value) return
+  isProcessing.value = true
   try {
-    const echo = echoText.value.trim() || null
-    
-    // 触发视觉特效
-    if (echo) {
-      echoTrigger.value = { 
-        timestamp: Date.now(),
-        districtId: activeZone.value || 1 
-      }
+    // Commit decision if selected
+    if (selectedOptionIndex.value !== null) {
+      await gameStore.makeDecision(selectedOptionIndex.value)
     }
 
-    await gameStore.advanceMonth(echo)
-    
-    // 飘字效果
-    await nextTick()
-    if (floatingTextRef.value) {
-      const centerX = window.innerWidth / 2
-      const centerY = window.innerHeight / 2
-      
-      const impact = gameStore.currentSituation?.decision_impact
-      if (impact) {
-        let offsetY = 0
-        if (impact.cash_change) {
-          const type = impact.cash_change > 0 ? 'positive' : 'negative'
-          const prefix = impact.cash_change > 0 ? '+' : ''
-          floatingTextRef.value.addFloatingText(
-            `${prefix}${formatNumber(impact.cash_change)} CR`,
-            centerX - 100,
-            centerY + offsetY,
-            type
-          )
-          offsetY += 40
-        }
-        if (impact.happiness_change) {
-          const type = impact.happiness_change > 0 ? 'positive' : 'negative'
-          const prefix = impact.happiness_change > 0 ? '+' : ''
-          floatingTextRef.value.addFloatingText(
-            `${prefix}${impact.happiness_change} MORALE`,
-            centerX + 50,
-            centerY + offsetY,
-            type
-          )
-        }
-      }
-    }
-
-    echoText.value = ''
-    selectedOption.value = null
-    
-    if (gameStore.currentSituation?.decision_impact) {
-      lastDecisionImpact.value = gameStore.currentSituation.decision_impact
-      setTimeout(() => {
-        lastDecisionImpact.value = null
-      }, 5000)
-    }
-  } catch (error) {
-    alert(error.message)
+    const text = echoText.value
+    echoText.value = '' // Clear immediately
+    await gameStore.advanceMonth(text)
+    // Add feedback
+    // alert('周期推进完成')
+  } catch (e) { 
+    console.error(e)
+    alert('推进失败: ' + e.message)
+  } finally {
+    isProcessing.value = false
   }
 }
 
-const handleSelectOption = (index) => {
-  selectedOption.value = index
+const handleSelectOption = (idx) => {
+  selectedOptionIndex.value = idx
 }
 
-const handleDistrictClick = (district) => {
-  gameStore.exploreDistrict(district.id)
-}
+watch(currentSituation, () => {
+  selectedOptionIndex.value = null
+})
 
-const handleAiInvest = async () => {
-  try {
-    await gameStore.requestAiInvestment()
-  } catch (error) {
-    alert(error.message)
-  }
+const handleSendEcho = async () => {
+  if (!echoText.value) return
+  const text = echoText.value
+  echoText.value = '' // Clear immediately
+  await gameStore.sendEcho(text, echoType.value)
 }
 
 const sendChat = async () => {
-  const text = chatText.value.trim()
-  if (!text) return
-  
-  chatText.value = ''
+  if (!chatText.value) return
+  const text = chatText.value
+  chatText.value = '' // Clear immediately
   await gameStore.talkToAI(text)
 }
 
-const switchCharacter = async (character) => {
-  try {
-    const characterData = {
-      id: character.id,
-      name: character.name,
-      mbti: character.mbti,
-      assets: character.assets
-    }
-    localStorage.setItem('currentCharacter', JSON.stringify(characterData))
-    localStorage.setItem('session_id', character.id)
-    
-    showCharacterSelect.value = false
-    await gameStore.loadAvatar()
-    location.reload()
-  } catch (error) {
-    alert('切换角色失败: ' + error.message)
+const handleZoneSelect = (district) => {
+  selectedDistrict.value = district
+  // gameStore.exploreDistrict(district.id) // Replaced by Action Panel
+}
+
+// Auto-scroll chat
+watch(chatMessages, async () => {
+  await nextTick()
+  if (chatBodyRef.value) {
+    chatBodyRef.value.scrollTop = chatBodyRef.value.scrollHeight
   }
-}
-
-const loadAvailableCharacters = async () => {
-  try {
-    const username = localStorage.getItem('username')
-    if (!username) return
-    
-    const response = await fetch(`/api/characters/${username}`)
-    if (response.ok) {
-      availableCharacters.value = await response.json()
-    }
-  } catch (error) {
-    console.error('加载角色列表失败:', error)
-  }
-}
-
-const toggleMusic = () => {
-  musicEnabled.value = !musicEnabled.value
-  localStorage.setItem('musicEnabled', musicEnabled.value)
-}
-
-const toggleSound = () => {
-  soundEnabled.value = !soundEnabled.value
-  localStorage.setItem('soundEnabled', soundEnabled.value)
-}
-
-const handleLogout = () => {
-  if (confirm('TERMINATE SESSION?')) {
-    localStorage.removeItem('username')
-    localStorage.removeItem('currentCharacter')
-    localStorage.removeItem('session_id')
-    location.href = '/login'
-  }
-}
+}, { deep: true })
 
 onMounted(async () => {
+  window.addEventListener('resize', updateMobileState)
   themeStore.applyTheme()
-  musicEnabled.value = localStorage.getItem('musicEnabled') === 'true'
-  soundEnabled.value = localStorage.getItem('soundEnabled') !== 'false'
-  
   await gameStore.bootstrapHome()
-  await loadAvailableCharacters()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', updateMobileState)
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
-
-.home-container {
-  position: relative;
+.project-echo-interface {
+  display: flex;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: var(--bg-dark);
-  font-family: 'Rajdhani', sans-serif;
-  color: var(--text-primary);
+  background: var(--term-bg);
+  color: var(--term-text);
 }
 
-/* 通用面板样式 - 高级感升级 */
-/* .glass-panel 样式已移至全局 game-theme.css */
+/* Sidebar */
+.sidebar-nav {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 260px; /* Fixed width to prevent shrinking */
+  border-right: 2px solid var(--term-border); /* Add border for separation */
+  background: var(--term-panel-bg);
+}
 
-.glass-panel::before {
-  content: '';
+.nav-section {
+  padding-top: 20px;
+  padding-left: 20px; /* Add padding */
+  padding-right: 20px;
+}
+
+.nav-header {
+  /* Removed local styles to use terminal-theme.css */
+  padding: 20px; /* Add padding */
+  border-bottom: 2px solid var(--term-border);
+}
+
+.logo-text {
+  /* Removed local styles */
+  font-weight: bold;
+}
+
+.sub-header {
+  /* Removed local styles */
+  opacity: 0.7;
+}
+
+.nav-spacer {
+  flex: 1;
+}
+
+.system-config {
+  padding: 24px;
+  border-top: 2px solid var(--term-border);
+}
+
+.config-header {
+  font-size: 10px;
+  margin-bottom: 12px;
+  color: var(--term-text-secondary);
+}
+
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.config-row.clickable {
+  cursor: pointer;
+}
+
+.config-row.clickable:hover {
+  color: var(--term-accent);
+}
+
+.status-badge {
+  background: #333;
+  color: #fff;
+  padding: 2px 6px;
+  font-size: 10px;
+}
+
+.status-badge.on {
+  background: var(--term-accent);
+  color: #000;
+}
+
+/* Main Content */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.header-meta {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  gap: 20px;
+  opacity: 0.7;
+}
+
+/* Game Viewport */
+.game-viewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.city-stage {
   position: absolute;
   inset: 0;
-  border-radius: 16px;
-  background: radial-gradient(
-    800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
-    rgba(255, 255, 255, 0.03),
-    transparent 40%
-  );
+  background: transparent;
+}
+
+/* Reusing city styles */
+.city-sky { 
+  /* Placeholder for sky styles if needed */
+  position: absolute;
+  inset: 0;
+}
+.city-grid {
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: 
+    linear-gradient(var(--term-accent-glow) 1px, transparent 1px),
+    linear-gradient(90deg, var(--term-accent-glow) 1px, transparent 1px);
+  background-size: 80px 80px;
+  transform: perspective(500px) rotateX(60deg);
+  opacity: 0.4;
+}
+
+.city-connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
 }
 
-.tech-border {
-  /* 移除切角效果，改回圆角 */
-  border-radius: 16px;
+/* District Markers */
+.district-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px; /* Increased gap for larger visuals */
 }
 
-.tech-border::after {
+.district-visual {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.pixel-building {
+  width: 160px; /* Significantly larger size */
+  max-width: 25vw; /* Responsive constraint */
+  height: auto;
+  image-rendering: pixelated; /* Crisp pixels */
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,0.5)); /* Deep shadow for pop */
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy spring transition */
+  z-index: 2;
+  animation: building-float 6s ease-in-out infinite; /* Alive breathing effect */
+  will-change: transform;
+}
+
+@keyframes building-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Hide fallback box when image loads successfully */
+.pixel-building:not([style*="display: none"]) + .marker-box.fallback {
   display: none;
 }
 
-.panel-decoration {
-  display: none; /* 移除装饰线 */
+.marker-box {
+  width: 42px;
+  height: 42px;
+  background: var(--term-bg);
+  border: 2px solid var(--term-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
 }
 
-/* 左侧面板 */
-.left-panel {
+.marker-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--term-text);
+  letter-spacing: 1px;
+}
+
+.marker-corner {
   position: absolute;
-  left: 24px;
-  top: 80px;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background: var(--term-text);
+  transition: background 0.2s;
+}
+
+.marker-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; /* Slightly larger text */
+  font-weight: 800;
+  color: var(--term-text);
+  background: var(--term-panel-bg);
+  padding: 6px 12px;
+  border: 2px solid var(--term-border); /* Thicker border */
+  opacity: 0.9;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.2); /* Stronger shadow */
+  z-index: 3;
+  text-transform: uppercase;
+}
+
+/* Hover Effects */
+.district-marker:hover .pixel-building {
+  transform: scale(1.15) translateY(-15px);
+  filter: drop-shadow(0 30px 50px rgba(0,0,0,0.6)) brightness(1.1);
+  z-index: 20;
+  animation-play-state: paused;
+}
+
+.district-marker:hover .marker-box {
+  background: var(--term-accent);
+  border-color: var(--term-text);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+}
+
+.district-marker:hover .marker-code {
+  color: #000;
+}
+
+.district-marker:hover .marker-corner {
+  background: #000;
+}
+
+.district-marker:hover .marker-label {
+  opacity: 1;
+  color: #000;
+  background: var(--term-accent);
+  border-color: #000;
+  transform: translateY(4px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.3);
+}
+
+
+.marker-box {
+  width: 42px;
+  height: 42px;
+  background: var(--term-bg);
+  border: 2px solid var(--term-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+}
+
+.marker-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 900;
+  font-size: 12px;
+  color: var(--term-text);
+  letter-spacing: 1px;
+}
+
+.marker-corner {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  background: var(--term-text);
+  transition: background 0.2s;
+}
+
+.marker-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--term-text-secondary);
+  background: var(--term-panel-bg);
+  padding: 4px 8px;
+  border: 1px solid var(--term-border);
+  opacity: 0.9;
+  transition: all 0.2s;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.05);
+}
+
+/* Hover Effects */
+.district-marker:hover .marker-box {
+  background: var(--term-accent);
+  border-color: var(--term-text);
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.2);
+}
+
+.district-marker:hover .marker-code {
+  color: #000;
+}
+
+.district-marker:hover .marker-corner {
+  background: #000;
+}
+
+.district-marker:hover .marker-label {
+  opacity: 1;
+  color: var(--term-text);
+  border-color: var(--term-accent);
+  transform: translateY(2px);
+}
+
+/* HUD Overlay */
+.hud-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: 32px 40px;
+  display: flex;
+  justify-content: space-between;
+  z-index: 50; /* Ensure HUD sits above map markers */
+}
+
+.hud-column {
   width: 320px;
-  height: calc(100vh - 160px);
-  padding: 24px;
-  z-index: 20; /* 提高层级，确保在地图之上 */
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-height: 100%; /* Ensure column doesn't exceed parent height */
+}
+
+.flex-grow-card {
+  flex: 1;
+  min-height: 0; /* Allow shrinking */
   display: flex;
   flex-direction: column;
 }
 
-.avatar-section {
+.fixed-height-card {
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.scrollable-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px; /* Move padding here from .archive-body */
+}
+
+/* Avatar Styles */
+.avatar-row {
   display: flex;
-  gap: 20px;
-  margin-bottom: 24px;
-  align-items: center;
-  flex-shrink: 0;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.avatar-portrait-container {
+.avatar-face {
+  width: 64px;
+  height: 64px;
+  background: var(--term-accent);
+  border: 2px solid #000;
   position: relative;
-  width: 70px;
-  height: 70px;
 }
 
-.avatar-portrait {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 2px solid rgba(59, 130, 246, 0.5);
-  background: #0f172a;
-}
-
-.portrait-ring {
+.avatar-face .eye {
   position: absolute;
-  inset: -4px;
-  border-radius: 50%;
-  border: 1px dashed rgba(59, 130, 246, 0.3);
-  animation: spin 20s linear infinite;
+  top: 24px;
+  width: 8px;
+  height: 8px;
+  background: #000;
+}
+.avatar-face .eye.left { left: 14px; }
+.avatar-face .eye.right { right: 14px; }
+.avatar-face .mouth {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 4px;
+  background: #000;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.info-header h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  background: linear-gradient(to right, #fff, #94a3b8);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+.avatar-details h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  font-weight: 900;
 }
 
-.mbti-tag {
-  font-size: 12px;
-  background: rgba(59, 130, 246, 0.2);
+.tags {
+  display: flex;
+  gap: 8px;
+}
+
+.tag {
+  background: var(--term-border);
+  color: var(--term-bg);
   padding: 2px 6px;
-  border-radius: 4px;
-  color: #60a5fa;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: bold;
 }
 
-.month-indicator {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
-  font-family: monospace;
-}
-
-.stats-grid {
+.stat-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-  flex-shrink: 0;
+  gap: 8px;
 }
 
 .stat-item {
-  background: rgba(255, 255, 255, 0.03);
-  padding: 10px;
-  border-left: 2px solid rgba(59, 130, 246, 0.3);
-}
-
-.stat-label {
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--text-secondary);
-}
-
-.stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  font-family: 'Rajdhani', monospace;
-  letter-spacing: 1px;
-  color: var(--text-primary);
-  text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
-}
-
-.trust-section {
-  background: rgba(59, 130, 246, 0.05);
-  padding: 16px;
-  border: 1px solid rgba(59, 130, 246, 0.1);
-  margin-bottom: 20px;
-  flex-shrink: 0;
-}
-
-.trust-header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
   font-size: 12px;
-  font-weight: 600;
+  border-bottom: 1px dashed var(--term-border);
+  padding-bottom: 4px;
 }
 
-.trust-value {
-  color: #60a5fa;
-  font-family: monospace;
+.stat-item label {
+  font-weight: 700;
+  color: var(--term-text-secondary);
 }
 
-.trust-visual {
-  position: relative;
-  height: 10px;
+/* Mission Styles */
+.mission-title {
+  font-size: 16px;
+  font-weight: 900;
+  margin: 0 0 8px 0;
+  color: var(--term-accent);
 }
 
-.trust-bar-svg {
-  width: 100%;
-  height: 100%;
+.mission-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 16px;
 }
 
-.trust-markers {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+.ai-log {
+  background: rgba(0,0,0,0.05);
+  border-left: 4px solid var(--term-accent);
+  padding: 10px;
+  font-size: 11px;
+  margin-bottom: 16px;
+  font-style: italic;
 }
 
-.marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(0, 0, 0, 0.5);
+.prefix {
+  font-weight: bold;
+  color: var(--term-accent);
+  font-style: normal;
 }
 
-/* 聊天记录区域 */
-.comm-log-section {
-  flex: 1;
+.action-grid {
   display: flex;
   flex-direction: column;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.full {
+  width: 100%;
+}
+
+/* Echo Input */
+.echo-types {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.type-tag {
+  border: 1px solid var(--term-border);
+  padding: 4px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.type-tag.active {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.term-input {
+  width: 100%;
+  background: transparent;
+  border: 2px solid var(--term-border);
+  padding: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  margin-bottom: 8px;
+  min-height: 60px;
+  color: var(--term-text);
+}
+
+/* Chat Dock */
+.chat-dock {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 90%;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Add gap between history and input */
+  z-index: 100; /* Ensure it is above other elements */
+}
+
+.chat-history {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  transition: height 0.3s ease;
+  height: 200px;
   overflow: hidden;
 }
 
-.comm-header {
-  padding: 8px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: #93c5fd;
-  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+.chat-history.collapsed {
+  height: 36px; /* Only header height */
+  border-bottom: 2px solid var(--term-border);
 }
 
-.comm-messages {
+.chat-header {
+  background: transparent;
+  border-bottom: 2px solid var(--term-border);
+  padding: 8px 12px;
+  font-weight: 800;
+  font-size: 10px;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.chat-header:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.toggle-icon {
+  font-size: 10px;
+}
+
+.chat-body {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.comm-message {
-  font-size: 12px;
-  line-height: 1.4;
-  padding: 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.comm-message.user {
-  border-left: 2px solid #10b981;
-}
-
-.comm-message.assistant {
-  border-left: 2px solid #3b82f6;
-}
-
-.msg-role {
-  font-weight: 700;
-  font-size: 10px;
-  opacity: 0.7;
-  margin-right: 4px;
-}
-
-/* 右侧面板 */
-.right-panel {
-  position: absolute;
-  right: 24px;
-  top: 80px;
-  width: 360px;
-  height: calc(100vh - 160px);
-  z-index: 20; /* 提高层级 */
-}
-
-/* 中央面板容器 - 负责定位 */
-.center-panel-container {
-  position: absolute;
-  bottom: 90px; /* 位于聊天栏上方 */
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(700px, 90vw);
-  z-index: 25; /* 比左右面板更高 */
-  display: flex;
-  flex-direction: column;
+.help-icon {
+  cursor: help;
+  border: 1px solid var(--term-text-secondary);
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
   align-items: center;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* 内部面板 - 负责外观 */
-.center-mission-panel {
-  width: 100%;
-  max-height: 60vh;
-  display: flex;
-  flex-direction: column;
-  transition: all 0.4s ease;
-  /* 确保圆角不被内容溢出破坏 */
-  overflow: hidden; 
-}
-
-.panel-content {
-  padding: 24px;
-  overflow-y: auto;
-  /* 减去头部和底部留白 */
-  max-height: 55vh; 
-}
-
-/* 按钮样式 - 位于面板上方 */
-.collapse-btn {
-  position: relative;
-  margin-bottom: -2px; /* 稍微覆盖面板边框 */
-  background: rgba(5, 8, 16, 0.95);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-bottom: none;
-  color: #60a5fa;
+  justify-content: center;
   font-size: 10px;
-  padding: 6px 24px;
-  border-radius: 8px 8px 0 0;
-  cursor: pointer;
+  color: var(--term-text-secondary);
+}
+
+.chat-msg {
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-msg .role {
+  font-weight: bold;
+  margin-right: 8px;
+  opacity: 0.7;
+}
+
+.chat-msg.user {
+  color: var(--term-text-secondary);
+}
+
+.chat-msg.ai {
+  color: var(--term-accent);
+}
+
+.chat-msg.system {
+  color: var(--term-error);
+}
+
+.cmd-interface {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.15);
   z-index: 20;
-  letter-spacing: 1px;
-  font-weight: 600;
-  box-shadow: 0 -5px 15px rgba(0,0,0,0.3);
-  transition: all 0.3s ease;
 }
 
-.collapse-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
-  color: #fff;
+.prompt {
+  color: var(--term-accent);
+  font-weight: 900;
+  margin-right: 12px;
 }
 
-/* 折叠状态 */
-.center-panel-container.collapsed {
-  /* 仅水平居中，不再下移，避免遮挡底部聊天框 */
-  transform: translateX(-50%); 
-}
-
-/* 折叠时完全隐藏面板内容 */
-.center-panel-container.collapsed .center-mission-panel {
-  max-height: 0;
-  opacity: 0;
-  margin: 0;
-  padding: 0;
+.cmd-input {
+  flex: 1;
+  background: transparent;
   border: none;
-  pointer-events: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--term-text);
 }
 
-.mission-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 12px;
+.cmd-input:focus {
+  outline: none;
 }
 
-.eyebrow {
+.view-placeholder {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.blink {
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Sidebar Updates */
+.section-label {
   font-size: 10px;
-  letter-spacing: 2px;
-  color: #60a5fa;
-  margin-bottom: 6px;
+  font-weight: 900;
+  color: var(--term-text-secondary);
+  margin-bottom: 8px;
+  padding-left: 4px;
 }
 
-.mission-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  text-transform: uppercase;
+.config-grid {
+  display: grid;
+  gap: 8px;
 }
 
-.ai-btn {
-  font-size: 12px;
-  padding: 8px 16px;
+.config-btn {
+  border: 2px solid var(--term-border);
+  padding: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.terminal-display {
-  font-family: monospace;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 16px;
-  border-left: 2px solid #60a5fa;
-  margin-bottom: 20px;
-}
-
-.story-text {
-  line-height: 1.6;
-  color: #cbd5e1;
-  font-size: 14px;
-}
-
-.ai-thoughts {
-  margin: 20px 0;
-  padding: 16px;
-  background: rgba(139, 92, 246, 0.05);
-  border: 1px dashed rgba(139, 92, 246, 0.3);
-}
-
-.thoughts-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: #a78bfa;
-  margin-bottom: 8px;
-  letter-spacing: 1px;
-}
-
-.icon-pulse {
-  width: 6px;
-  height: 6px;
-  background: #a78bfa;
-  border-radius: 50%;
-  animation: pulse 2s infinite;
-}
-
-.decision-impact {
-  margin: 16px 0;
-  animation: slideIn 0.4s ease-out;
-}
-
-.impact-grid {
-  display: flex;
-  gap: 16px;
-}
-
-.impact-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.impact-item .icon {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 10px;
-}
-
-.impact-item .value.positive { color: #34d399; }
-.impact-item .value.negative { color: #f87171; }
-
-.options-grid {
-  display: grid;
-  gap: 12px;
-  margin: 24px 0;
-}
-
-.option-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.option-card:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.option-card.selected {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3b82f6;
-}
-
-.option-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.option-id {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  font-family: monospace;
-}
-
-.selection-indicator {
-  width: 8px;
-  height: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-}
-
-.option-card.selected .selection-indicator {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  box-shadow: 0 0 8px #3b82f6;
-}
-
-.echo-zone {
-  margin-top: 32px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 20px;
-}
-
-.echo-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.echo-title {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 1px;
-}
-
-.type-btn {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.6);
-  padding: 4px 10px;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.type-btn.active {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: #3b82f6;
-  color: #fff;
-}
-
-.echo-input-group {
-  display: flex;
-  align-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  padding: 4px;
-}
-
-.prompt-char {
-  padding: 0 12px;
-  color: #3b82f6;
-  font-weight: bold;
-}
-
-.echo-textarea {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #fff;
-  padding: 12px 0;
-  font-family: monospace;
-  resize: none;
-}
-
-.echo-textarea:focus {
-  outline: none;
-}
-
-.transmit-btn {
-  background: #3b82f6;
-  color: #000;
-  border: none;
-  padding: 8px 16px;
-  font-weight: 700;
-  font-size: 11px;
-  letter-spacing: 1px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.transmit-btn:hover:not(:disabled) {
-  background: #60a5fa;
-  box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
-}
-
-/* 底部对话框 */
-.bottom-chat-panel {
-  position: absolute;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(600px, 90vw);
-  padding: 12px 20px;
-  z-index: 10;
-}
-
-.chat-form {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.chat-prompt {
-  color: #10b981;
-  font-family: monospace;
-  font-size: 13px;
-}
-
-.chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-family: monospace;
-  font-size: 14px;
-}
-
-.chat-input:focus {
-  outline: none;
-}
-
-/* 顶部控制 */
-.top-controls {
-  position: absolute;
-  top: 24px;
-  right: 24px;
-  display: flex;
-  gap: 12px;
-  z-index: 20;
-}
-
-/* .btn 样式已移至全局 game-theme.css */
-.btn {
-  font-family: 'Rajdhani', sans-serif;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+  transition: all 0.1s;
 }
 
-/* Digital Core Styles */
-.digital-core {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+.config-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.1);
 }
 
-.core-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(59, 130, 246, 0.6);
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+.config-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0px 0px 0px;
 }
 
-.core-ring.inner {
-  width: 40%;
-  height: 40%;
-  border-left-color: transparent;
-  border-right-color: transparent;
-  animation: spin 4s linear infinite;
+.config-btn.orange { background: var(--term-accent); color: var(--config-btn-text); }
+.config-btn.green { background: var(--term-success); color: var(--config-btn-text); }
+.config-btn.yellow { background: var(--term-accent-secondary); color: var(--config-btn-text); }
+.config-btn.white { background: #fff; color: #000; }
+.config-btn.red { background: #ef4444; color: #fff; }
+
+/* Header Updates */
+.meta-tag {
+  padding: 4px 8px;
+  font-weight: 800;
+  font-size: 10px;
+  border: 2px solid var(--term-border);
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
 }
 
-.core-ring.outer {
-  width: 70%;
-  height: 70%;
-  border-top-color: transparent;
-  border-bottom-color: transparent;
-  animation: spin 8s linear infinite reverse;
-  opacity: 0.7;
+.meta-tag.yellow {
+  background: var(--term-accent-secondary);
+  color: #000;
 }
 
-.core-dot {
-  width: 6px;
-  height: 6px;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #fff, 0 0 20px #3b82f6;
-  animation: pulse 2s infinite;
+.term-btn.active {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
 }
 
-/* 弹窗样式 */
-.modal-overlay {
+.term-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile Responsive Styles */
+.menu-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--term-accent);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.close-sidebar-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--term-text);
+  font-size: 24px;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.sidebar-overlay {
+  display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(10px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  backdrop-filter: blur(2px);
 }
 
-.character-modal, .settings-modal {
-  width: min(600px, 90vw);
-  max-height: 80vh;
-  overflow-y: auto;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
+.mobile-view-switch {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60; /* Higher than HUD (50) */
+  background: var(--term-panel-bg);
+  border: 1px solid var(--term-border);
+  padding: 4px;
+  gap: 4px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
-.modal-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 18px;
-  letter-spacing: 1px;
-}
-
-.btn-close {
+.switch-btn {
   background: transparent;
   border: none;
-  color: #fff;
-  font-size: 20px;
+  color: var(--term-text-secondary);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
   cursor: pointer;
+  border-radius: 16px;
 }
 
-.modal-body {
-  padding: 20px;
-  flex: 1;
-  overflow-y: auto;
-}
-
-.characters-grid {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.character-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.character-card:hover {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.character-card.active {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.2);
-}
-
-.avatar-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.switch-btn.active {
+  background: var(--term-accent);
+  color: #000;
   font-weight: bold;
 }
 
-.character-info h4 {
-  margin: 0 0 4px 0;
-}
+@media (max-width: 768px) {
+  .menu-btn {
+    display: block;
+  }
 
-.character-info p {
-  margin: 0;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-}
+  .close-sidebar-btn {
+    display: block;
+  }
 
-.settings-section {
-  margin-bottom: 24px;
-}
+  .sidebar-overlay {
+    display: block;
+  }
 
-.settings-section h3 {
-  font-size: 12px;
-  color: #60a5fa;
-  margin-bottom: 12px;
-  letter-spacing: 1px;
-}
+  .sidebar-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 80%;
+    max-width: 300px;
+    /* Remove shadow when closed to prevent bleeding */
+    box-shadow: none;
+  }
 
-.setting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
+  .sidebar-nav.open {
+    transform: translateX(0);
+    box-shadow: 10px 0 20px rgba(0,0,0,0.5);
+  }
 
-.toggle-btn {
-  width: 40px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  position: relative;
-  border: none;
-  cursor: pointer;
-}
+  .nav-header {
+    display: flex;
+    align-items: center;
+  }
 
-.toggle-btn.active {
-  background: #3b82f6;
-}
+  .mobile-view-switch {
+    display: flex;
+  }
 
-.toggle-slider {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  background: #fff;
-  border-radius: 50%;
-  transition: transform 0.2s;
-}
+  .hud-overlay {
+    position: relative;
+    flex-direction: column;
+    padding: 60px 10px 10px 10px; /* Top padding for switch button */
+    gap: 10px;
+    height: calc(100vh - 120px); /* Adjust for header and bottom chat */
+    overflow-y: auto;
+    pointer-events: auto;
+    background: rgba(0, 0, 0, 0.8); /* Dim background */
+  }
 
-.toggle-btn.active .toggle-slider {
-  transform: translateX(20px);
-}
+  .hud-column {
+    width: 100%;
+    gap: 10px;
+  }
 
-.btn.full {
-  width: 100%;
-  margin-top: 12px;
-}
+  .chat-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    transform: none;
+    max-width: 100%;
+    padding: 10px;
+    background: var(--term-bg);
+    border-top: 1px solid var(--term-border);
+  }
+  
+  .chat-history {
+    position: fixed;
+    bottom: 60px; /* Height of input area */
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: 40vh;
+    z-index: 101;
+  }
 
-/* 滚动条样式已移至全局 game-theme.css */
+  .city-stage {
+    position: fixed; /* Keep it fixed as background */
+  }
+
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  /* Adjust font sizes for mobile */
+  .archive-header {
+    font-size: 12px;
+  }
+  
+  .mission-title {
+    font-size: 14px;
+  }
+  
+  .mission-desc {
+    font-size: 12px;
+  }
+
+  /* Allow larger images on mobile */
+  .pixel-building {
+    max-width: 40vw;
+  }
+}
 </style>

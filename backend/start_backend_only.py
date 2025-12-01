@@ -14,7 +14,7 @@ backend_path = os.path.dirname(__file__)
 sys.path.insert(0, backend_path)
 
 def main():
-    print("🚀 启动Echopolis后端服务器...")
+    print("🚀 启动FinAI后端服务器...")
     print("🐍 服务地址: http://localhost:8000")
     print("📖 API文档: http://localhost:8000/docs")
     print("-" * 50)

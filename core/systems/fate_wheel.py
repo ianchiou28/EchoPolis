@@ -1,5 +1,5 @@
 """
-命运轮盘系统 - Echopolis核心模块
+命运轮盘系统 - FinAI核心模块
 决定AI化身的初始出身背景和特殊特质
 """
 import random

@@ -1,111 +1,121 @@
 <template>
-  <div class="character-page">
-    <div class="game-bg"></div>
-    <div class="page-header">
-      <div class="header-content">
-        <h1>IDENTITY ACCESS // 身份接入</h1>
-        <p class="subtitle">SELECT AVATAR // 选择你的数字替身</p>
-      </div>
-      <button class="logout-btn btn ghost" @click="logout">
-        <span class="icon">🔌</span> DISCONNECT // 断开连接
-      </button>
-    </div>
+  <div class="terminal-page-wrapper">
+    <div class="grid-bg"></div>
+    <div class="crt-overlay"></div>
 
-    <div class="characters-list">
-      <div 
-        v-for="char in characters" 
-        :key="char.id"
-        class="character-card glass-panel tech-border"
-        @click="selectCharacter(char)"
-      >
-        <div class="char-avatar-wrapper">
-          <div class="char-avatar">{{ char.name.charAt(0) }}</div>
-          <div class="status-dot online"></div>
+    <div class="content-container">
+      <div class="page-header">
+        <div class="header-left">
+          <h1>IDENTITY ACCESS // 身份接入</h1>
+          <p class="subtitle">SELECT AVATAR // 选择你的数字替身</p>
         </div>
-        <div class="char-info">
-          <div class="char-name">{{ char.name }}</div>
-          <div class="char-meta">
-            <span class="tag mbti">{{ char.mbti }}</span>
-            <span class="tag assets">¥{{ formatNumber(char.assets) }}</span>
-          </div>
-        </div>
-        <div class="hover-effect"></div>
+        <button class="term-btn" @click="logout">
+          DISCONNECT // 断开连接
+        </button>
       </div>
 
-      <div class="character-card create-new glass-panel tech-border" @click="showCreateModal = true">
-        <div class="create-icon">
-          <span class="plus">+</span>
-        </div>
-        <div class="create-text">NEW IDENTITY // 创建新身份</div>
-      </div>
-    </div>
-
-    <!-- 创建角色弹窗 -->
-    <transition name="modal-fade">
-      <div v-if="showCreateModal" class="modal-overlay" @click="showCreateModal = false">
-        <div class="modal-content glass-panel tech-border" @click.stop>
-          <div class="modal-header">
-            <h2>INITIALIZE IDENTITY // 构建新身份</h2>
-            <p>DEFINE CORE PERSONALITY // 定义核心人格</p>
-          </div>
-          
-          <div class="form-section">
-            <div class="form-group">
-              <label>CODENAME // 代号</label>
-              <input v-model="newCharName" type="text" class="input-cyber" placeholder="ENTER CODENAME..." />
+      <div class="characters-grid">
+        <div 
+          v-for="char in characters" 
+          :key="char.id"
+          class="archive-card character-card"
+          @click="selectCharacter(char)"
+        >
+          <div class="archive-header">
+            <span>{{ char.mbti }}</span>
+            <div class="header-actions">
+              <span class="status-indicator online">ONLINE</span>
+              <button class="delete-btn" @click.stop="confirmDelete(char)">[DEL]</button>
             </div>
-
-            <div class="form-group">
-              <label>PERSONALITY MATRIX // 人格矩阵 (MBTI)</label>
-              <div class="mbti-grid custom-scrollbar">
-                <div 
-                  v-for="mbti in mbtiTypes" 
-                  :key="mbti.type"
-                  class="mbti-option"
-                  :class="{ active: newCharMBTI === mbti.type, [getMbtiGroup(mbti.type)]: true }"
-                  @click="newCharMBTI = mbti.type"
-                >
-                  <div class="mbti-type">{{ mbti.type }}</div>
-                  <div class="mbti-name">{{ mbti.name }}</div>
-                </div>
+          </div>
+          <div class="archive-body">
+            <div class="char-avatar-placeholder">
+              {{ char.name.charAt(0) }}
+            </div>
+            <div class="char-details">
+              <h3 class="char-name">{{ char.name }}</h3>
+              <div class="char-assets">
+                <span class="label">ASSETS:</span>
+                <span class="value">¥{{ formatNumber(char.assets) }}</span>
               </div>
             </div>
+          </div>
+          <div class="card-footer">
+            <span class="access-text">>> ACCESS GRANTED</span>
+          </div>
+        </div>
 
-            <div class="form-group">
-              <label>FATE WHEEL // 命运轮盘</label>
-              <div class="fate-section">
-                <button 
-                  class="spin-btn" 
-                  :class="{ 'spinning': isSpinning, 'done': hasSpun }"
-                  @click="spinWheel" 
-                  :disabled="hasSpun || isSpinning"
-                >
-                  <span class="spin-icon">{{ hasSpun ? '✅' : '🎲' }}</span>
-                  <span class="spin-text">{{ getSpinButtonText() }}</span>
-                </button>
-                
-                <transition name="fade-slide">
-                  <div v-if="selectedFate" class="fate-result">
-                    <div class="fate-header">
-                      <span class="fate-title">{{ selectedFate.name }}</span>
-                      <span class="fate-money">¥{{ formatNumber(selectedFate.initial_money) }}</span>
-                    </div>
-                    <div class="fate-desc">{{ selectedFate.description }}</div>
-                  </div>
-                </transition>
+        <!-- Create New Card -->
+        <div class="archive-card create-card" @click="showCreateModal = true">
+          <div class="create-content">
+            <span class="plus-icon">+</span>
+            <span class="create-text">INITIALIZE NEW IDENTITY // 创建新身份</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Character Modal -->
+    <div v-if="showCreateModal" class="modal-overlay">
+      <div class="archive-card modal-card">
+        <div class="archive-header">
+          <span>INITIALIZE IDENTITY // 构建新身份</span>
+          <span class="close-btn" @click="showCreateModal = false">[X]</span>
+        </div>
+        
+        <div class="archive-body">
+          <div class="form-group">
+            <label>CODENAME // 代号</label>
+            <input v-model="newCharName" type="text" class="term-input" placeholder="ENTER CODENAME..." />
+          </div>
+
+          <div class="form-group">
+            <label>PERSONALITY MATRIX // 人格矩阵 (MBTI)</label>
+            <div class="mbti-grid">
+              <div 
+                v-for="mbti in mbtiTypes" 
+                :key="mbti.type"
+                class="mbti-option"
+                :class="{ active: newCharMBTI === mbti.type }"
+                @click="newCharMBTI = mbti.type"
+              >
+                <span class="type-code">{{ mbti.type }}</span>
+                <span class="type-name">{{ mbti.name }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>FATE WHEEL // 命运轮盘</label>
+            <div class="fate-section">
+              <button 
+                class="term-btn full-width" 
+                :class="{ 'disabled': hasSpun || isSpinning }"
+                @click="spinWheel" 
+                :disabled="hasSpun || isSpinning"
+              >
+                {{ getSpinButtonText() }}
+              </button>
+              
+              <div v-if="selectedFate" class="fate-result-box">
+                <div class="result-header">
+                  <span class="fate-name">{{ selectedFate.name }}</span>
+                  <span class="fate-value">¥{{ formatNumber(selectedFate.initial_money) }}</span>
+                </div>
+                <p class="fate-desc">{{ selectedFate.description }}</p>
               </div>
             </div>
           </div>
 
           <div class="modal-actions">
-            <button class="btn ghost" @click="showCreateModal = false">CANCEL // 取消</button>
-            <button class="btn primary" @click="createCharacter" :disabled="!canCreate">
+            <button class="term-btn" @click="showCreateModal = false">CANCEL // 取消</button>
+            <button class="term-btn primary" @click="createCharacter" :disabled="!canCreate">
               CONFIRM ACCESS // 确认接入
             </button>
           </div>
         </div>
       </div>
-    </transition>
+    </div>
   </div>
 </template>
 
@@ -113,9 +123,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '../stores/game'
+import { useThemeStore } from '../stores/theme'
+import axios from 'axios'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const themeStore = useThemeStore()
+
 const characters = ref([])
 const showCreateModal = ref(false)
 const newCharName = ref('')
@@ -154,22 +168,15 @@ const formatNumber = (num) => {
   return num?.toLocaleString('zh-CN') || '0'
 }
 
-const getMbtiGroup = (type) => {
-  if (type.includes('NT')) return 'analysts'
-  if (type.includes('NF')) return 'diplomats'
-  if (type.includes('SJ')) return 'sentinels'
-  if (type.includes('SP')) return 'explorers'
-  return ''
-}
-
 const getSpinButtonText = () => {
-  if (isSpinning.value) return '命运流转中...'
-  if (hasSpun.value) return '命运已定'
-  return '启动命运轮盘'
+  if (isSpinning.value) return 'CALCULATING FATE... // 命运流转中'
+  if (hasSpun.value) return 'FATE DETERMINED // 命运已定'
+  return 'INITIATE FATE WHEEL // 启动命运轮盘'
 }
 
 const loadCharacters = async () => {
   const username = localStorage.getItem('username')
+  console.log('[CharacterSelect] Loading characters for:', username)
   if (!username) {
     router.push('/login')
     return
@@ -177,15 +184,24 @@ const loadCharacters = async () => {
 
   try {
     const data = await gameStore.fetchCharacters(username)
+    console.log('[CharacterSelect] Characters loaded:', data)
     characters.value = data
   } catch (error) {
     console.error('加载角色失败:', error)
+    alert('加载角色失败，请重试')
   }
 }
 
 const selectCharacter = (char) => {
-  localStorage.setItem('currentCharacter', JSON.stringify(char))
-  router.push('/home')
+  console.log('[CharacterSelect] Selecting character:', char)
+  // 切换角色前重置状态
+  try {
+    gameStore.resetState()
+    localStorage.setItem('currentCharacter', JSON.stringify(char))
+    router.push('/home')
+  } catch (e) {
+    console.error('Select character error:', e)
+  }
 }
 
 const spinWheel = async () => {
@@ -204,7 +220,7 @@ const spinWheel = async () => {
     elapsed += interval
     if (elapsed >= duration) {
       clearInterval(timer)
-      // 最终结果（加权随机，这里简化为均匀随机，实际可调整）
+      // 最终结果
       const finalIndex = Math.floor(Math.random() * fateWheel.value.length)
       selectedFate.value = fateWheel.value[finalIndex]
       isSpinning.value = false
@@ -237,186 +253,231 @@ const createCharacter = async () => {
   }
 }
 
+const confirmDelete = async (char) => {
+  if (confirm(`Are you sure you want to delete character "${char.name}"? This action cannot be undone.`)) {
+    try {
+      await gameStore.deleteCharacter(char.id)
+      await loadCharacters()
+    } catch (error) {
+      alert('Failed to delete character: ' + (error.response?.data?.detail || error.message))
+    }
+  }
+}
+
 const logout = () => {
-  localStorage.removeItem('username')
+  console.log('[CharacterSelect] Logging out...')
+  try {
+    gameStore.resetState()
+  } catch (e) {
+    console.error('Reset state error:', e)
+  }
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
   localStorage.removeItem('currentCharacter')
+  // Keep username? No, logout should clear identity.
+  // But Login.vue sets 'username'.
+  // If we want to fully logout, we should clear 'username' too.
+  localStorage.removeItem('username') 
   router.push('/login')
 }
 
 onMounted(() => {
+  try {
+    themeStore.applyTheme()
+  } catch (e) {
+    console.error('Theme apply error:', e)
+  }
   loadCharacters()
 })
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap');
+@import '@/styles/terminal-theme.css';
 
-.character-page {
+.terminal-page-wrapper {
   width: 100%;
   min-height: 100vh;
   padding: 40px;
+  font-family: 'JetBrains Mono', monospace;
   position: relative;
   overflow-x: hidden;
-  font-family: 'Rajdhani', sans-serif;
+  background-color: var(--term-bg);
+  color: var(--term-text);
+}
+
+.content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 10;
 }
 
 .page-header {
-  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   margin-bottom: 40px;
-  z-index: 1;
+  border-bottom: 2px solid var(--term-border);
+  padding-bottom: 20px;
 }
 
-.header-content h1 {
-  color: #e2e8f0;
+.header-left h1 {
   font-size: 32px;
-  font-weight: 700;
+  font-weight: 900;
+  color: var(--term-text);
   margin: 0 0 8px 0;
-  letter-spacing: 0.05em;
-  font-family: 'Rajdhani', sans-serif;
+  text-transform: uppercase;
 }
 
 .subtitle {
-  color: #94a3b8;
+  color: var(--term-text-secondary);
   font-size: 14px;
   margin: 0;
-  font-family: 'Rajdhani', sans-serif;
   letter-spacing: 1px;
 }
 
-.characters-list {
-  position: relative;
+.characters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
-  z-index: 1;
 }
 
 .character-card {
-  position: relative;
-  padding: 24px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  overflow: hidden;
-  background: rgba(15, 23, 42, 0.6);
 }
 
 .character-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(59,130,246,0.4);
-  box-shadow: 0 12px 30px rgba(59,130,246,0.15);
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px rgba(0,0,0,0.2);
+  border-color: var(--term-accent);
 }
 
-.char-avatar-wrapper {
-  position: relative;
-  margin-bottom: 16px;
+.character-card:hover .archive-header {
+  background: var(--term-accent);
+  color: #000;
 }
 
-.char-avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: #ff4444;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  padding: 0;
+  font-weight: bold;
+}
+
+.delete-btn:hover {
+  text-decoration: underline;
+  color: #ff0000;
+}
+
+.character-card:hover .delete-btn {
+  color: #5a0000;
+}
+
+.status-indicator {
+  font-size: 10px;
+  color: var(--term-success);
+}
+
+.character-card:hover .status-indicator {
+  color: #000;
+}
+
+.char-avatar-placeholder {
+  width: 60px;
+  height: 60px;
+  background: var(--term-border);
+  color: var(--term-text);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 32px;
-  font-weight: bold;
-  color: white;
-  box-shadow: 0 8px 16px rgba(59,130,246,0.3);
-  font-family: 'Rajdhani', sans-serif;
+  font-weight: 900;
+  margin-bottom: 16px;
 }
-
-.status-dot {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  border: 2px solid #1e293b;
-}
-
-.status-dot.online { background: #10b981; box-shadow: 0 0 8px #10b981; }
-
-.char-info { text-align: center; width: 100%; }
 
 .char-name {
   font-size: 20px;
-  font-weight: 700;
-  color: #e2e8f0;
-  margin-bottom: 12px;
-  font-family: 'Rajdhani', sans-serif;
-  letter-spacing: 1px;
+  font-weight: 900;
+  margin: 0 0 8px 0;
+  color: var(--term-text);
 }
 
-.char-meta {
+.char-assets {
+  font-size: 14px;
   display: flex;
-  justify-content: center;
   gap: 8px;
 }
 
-.tag {
-  font-size: 11px;
-  padding: 4px 10px;
-  border-radius: 2px;
-  font-weight: 600;
-  font-family: 'Rajdhani', sans-serif;
-  letter-spacing: 0.5px;
+.char-assets .label {
+  color: var(--term-text-secondary);
 }
 
-.tag.mbti { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.2); }
-.tag.assets { background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
-
-.create-new {
-  border: 1px dashed rgba(148,163,184,0.3);
-  background: rgba(30,41,59,0.3);
-  justify-content: center;
-  min-height: 200px;
+.char-assets .value {
+  color: var(--term-accent);
+  font-weight: bold;
 }
 
-.create-new:hover {
-  border-color: #3b82f6;
-  background: rgba(30,41,59,0.5);
+.card-footer {
+  padding: 10px 20px;
+  border-top: 2px solid var(--term-border);
+  font-size: 10px;
+  color: var(--term-text-secondary);
+  text-align: right;
 }
 
-.create-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: rgba(59,130,246,0.1);
+.create-card {
+  border-style: dashed;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
-  transition: all 0.3s ease;
+  min-height: 200px;
+  cursor: pointer;
+  background: transparent;
 }
 
-.create-new:hover .create-icon {
-  background: #3b82f6;
-  color: white;
-  transform: scale(1.1);
+.create-card:hover {
+  border-style: solid;
+  border-color: var(--term-accent);
+  background: rgba(255, 85, 0, 0.05);
+}
+
+.create-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--term-text-secondary);
+}
+
+.plus-icon {
+  font-size: 48px;
+  font-weight: 100;
 }
 
 .create-text {
-  font-size: 14px;
-  color: #94a3b8;
-  font-weight: 600;
-  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 1px;
 }
 
-/* Modal Styles */
+/* Modal */
 .modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(4px);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -424,44 +485,54 @@ onMounted(() => {
   padding: 20px;
 }
 
-.modal-content {
+.modal-card {
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
-  padding: 32px;
-  background: #1e293b;
-  border: 1px solid rgba(59,130,246,0.2);
+  margin: 0;
 }
 
-.modal-header { margin-bottom: 24px; }
-.modal-header h2 { margin: 0 0 8px 0; color: #e2e8f0; font-size: 24px; font-family: 'Rajdhani', sans-serif; }
-.modal-header p { margin: 0; color: #94a3b8; font-size: 14px; font-family: 'Rajdhani', sans-serif; letter-spacing: 1px; }
+.close-btn {
+  cursor: pointer;
+}
 
-.form-group { margin-bottom: 24px; }
-.form-group label { display: block; margin-bottom: 8px; font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; font-family: 'Rajdhani', sans-serif; font-weight: 600; }
+.close-btn:hover {
+  color: var(--term-accent);
+}
 
-.input-cyber {
+.form-group {
+  margin-bottom: 24px;
+}
+
+.form-group label {
+  display: block;
+  color: var(--term-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.term-input {
   width: 100%;
-  padding: 12px 16px;
-  background: rgba(15,23,42,0.6);
-  border: 1px solid rgba(148,163,184,0.2);
-  border-radius: 4px;
-  color: #e2e8f0;
+  padding: 12px;
+  background: var(--term-bg);
+  border: 2px solid var(--term-border);
+  color: var(--term-text);
+  font-family: 'JetBrains Mono', monospace;
   font-size: 14px;
-  transition: all 0.2s;
-  font-family: 'Rajdhani', sans-serif;
 }
 
-.input-cyber:focus {
+.term-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+  border-color: var(--term-accent);
 }
 
 .mbti-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 8px;
   max-height: 200px;
   overflow-y: auto;
@@ -469,68 +540,59 @@ onMounted(() => {
 }
 
 .mbti-option {
-  padding: 10px;
-  border-radius: 4px;
-  background: rgba(15,23,42,0.4);
-  border: 1px solid rgba(148,163,184,0.1);
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.2s;
-}
-
-.mbti-option:hover { background: rgba(30,41,59,0.8); }
-.mbti-option.active { border-color: #3b82f6; background: rgba(59,130,246,0.1); box-shadow: 0 0 12px rgba(59,130,246,0.2); }
-
-.mbti-type { font-weight: 700; font-size: 14px; color: #e2e8f0; font-family: 'Rajdhani', sans-serif; }
-.mbti-name { font-size: 11px; color: #94a3b8; font-family: 'Rajdhani', sans-serif; }
-
-/* MBTI Group Colors */
-.analysts .mbti-type { color: #a78bfa; }
-.diplomats .mbti-type { color: #34d399; }
-.sentinels .mbti-type { color: #60a5fa; }
-.explorers .mbti-type { color: #f59e0b; }
-
-.spin-btn {
-  width: 100%;
-  padding: 16px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  border: none;
-  color: white;
-  font-weight: 600;
+  border: 1px solid var(--term-border);
+  padding: 8px;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.3s;
-  font-family: 'Rajdhani', sans-serif;
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  gap: 4px;
 }
 
-.spin-btn:disabled { opacity: 0.7; cursor: not-allowed; filter: grayscale(0.5); }
-.spin-btn.done { background: #10b981; }
+.mbti-option:hover {
+  border-color: var(--term-text);
+}
 
-.fate-result {
-  margin-top: 16px;
+.mbti-option.active {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.type-code {
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.type-name {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.fate-section {
+  border: 1px solid var(--term-border);
   padding: 16px;
-  background: rgba(15,23,42,0.6);
-  border: 1px solid rgba(245,158,11,0.3);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
-.fate-header {
+.fate-result-box {
+  margin-top: 16px;
+  border-top: 1px dashed var(--term-border);
+  padding-top: 16px;
+}
+
+.result-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   margin-bottom: 8px;
+  font-weight: 900;
+  color: var(--term-accent);
 }
 
-.fate-title { font-weight: 700; color: #f59e0b; font-family: 'Rajdhani', sans-serif; font-size: 16px; }
-.fate-money { font-family: 'Rajdhani', sans-serif; color: #e2e8f0; font-weight: 600; font-size: 16px; }
-.fate-desc { font-size: 13px; color: #94a3b8; line-height: 1.5; font-family: 'Rajdhani', sans-serif; }
+.fate-desc {
+  font-size: 12px;
+  color: var(--term-text-secondary);
+  margin: 0;
+}
 
 .modal-actions {
   display: flex;
@@ -538,42 +600,12 @@ onMounted(() => {
   margin-top: 32px;
 }
 
-.btn.primary { flex: 1; }
-
-/* Tech Border Effect */
-.tech-border {
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-  position: relative;
+.full-width {
+  width: 100%;
 }
 
-.tech-border::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  right: -1px;
-  width: 10px;
-  height: 10px;
-  border-bottom: 2px solid #3b82f6;
-  border-right: 2px solid #3b82f6;
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
-
-.tech-border::before {
-  content: '';
-  position: absolute;
-  top: -1px;
-  left: -1px;
-  width: 10px;
-  height: 10px;
-  border-top: 2px solid #3b82f6;
-  border-left: 2px solid #3b82f6;
-}
-
-/* Transitions */
-.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.3s ease; }
-.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
-
-.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.4s ease; }
-.fade-slide-enter-from { opacity: 0; transform: translateY(10px); }
-.fade-slide-leave-to { opacity: 0; transform: translateY(-10px); }
 </style>

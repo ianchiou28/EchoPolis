@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DeepSeek AI引擎 - Echopolis AI决策模块
+DeepSeek AI引擎 - FinAI AI决策模块
 """
 import requests
 import json
@@ -8,33 +8,61 @@ from typing import Dict, List, Optional
 
 class DeepSeekEngine:
     def __init__(self, api_key: str = None):
-        # 尝试从配置文件读取API key
-        if api_key is None:
+        self.api_key = api_key
+        self.headers = {"Content-Type": "application/json"}
+        self.base_url = "https://api.deepseek.com/chat/completions"
+        
+        # 如果没有传入 key，尝试加载
+        if not self.api_key:
+            self._load_config()
+            
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
+            print(f"[INFO] DeepSeek Engine initialized. Key: {self.api_key[:5]}...")
+        else:
+            print("[WARN] DeepSeek Engine initialized WITHOUT API Key.")
+
+    def _load_config(self):
+        """从环境变量或配置文件加载配置"""
+        import os
+        from dotenv import load_dotenv
+        
+        # 加载环境变量
+        try:
+            env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env")
+            load_dotenv(env_path)
+        except Exception as e:
+            print(f"[WARN] Failed to load .env: {e}")
+        
+        # 1. 尝试从环境变量读取
+        api_key = os.getenv("DEEPSEEK_API_KEY")
+            
+        # 2. 尝试从 config.json 读取 (兼容旧配置)
+        if not api_key:
             try:
                 import json
-                import os
                 config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "config.json")
                 if os.path.exists(config_path):
                     with open(config_path, 'r', encoding='utf-8') as f:
                         config = json.load(f)
                         api_key = config.get('deepseek_api_key')
-            except:
-                pass
+            except Exception as e:
+                print(f"[WARN] Failed to load config.json: {e}")
         
-        if not api_key:
-            print("[WARN] DeepSeek API key not found. Using fallback mode.")
-            self.api_key = None
-        else:
+        if api_key:
             self.api_key = api_key
-            print(f"[INFO] DeepSeek API key loaded: {api_key[:10]}...")
-        self.base_url = "https://api.deepseek.com/v1/chat/completions"
-        if self.api_key:
-            self.headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-        else:
-            self.headers = {}
+            
+        # 配置 Base URL
+        base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+        # 确保 URL 格式正确
+        if not base_url.endswith("/chat/completions"):
+            if base_url.endswith("/"):
+                base_url = base_url + "chat/completions"
+            else:
+                base_url = base_url + "/chat/completions"
+                
+        self.base_url = base_url
+        print(f"[INFO] DeepSeek Base URL: {self.base_url}")
     
     def make_decision(self, context: Dict) -> Dict:
         """强制使用DeepSeek AI做决策"""
@@ -266,12 +294,17 @@ class DeepSeekEngine:
         
         mbti_profile = mbti_profiles.get(context["mbti"], "理性决策者")
         
+        # 动态调整人生阶段描述，避免重复"刚毕业"
+        current_month = context.get('decision_count', 0) + 1
+        if context["life_stage"] == "startup" and current_month > 3:
+            life_stage_desc = f"职场新人，已工作{current_month}个月"
+        
         prompt = f"""你是一个金融游戏的情况生成器。请为以下角色生成一个适合的决策情况：
 
 角色信息：
 - 姓名：{context['name']}
 - 年龄：{context['age']}岁
-- 人生阶段：{life_stage_desc}
+- 人生阶段：{life_stage_desc} (第{current_month}个月)
 - MBTI类型：{context['mbti']} ({mbti_profile})
 - 现金：{context['cash']:,} CP
 - 健康：{context['health']}/100
@@ -282,9 +315,9 @@ class DeepSeekEngine:
 - 已做决策数：{context['decision_count']}
 
 请生成一个符合以下要求的情况：
-1. 与角色的年龄、背景和当前状态相符
-2. 具有金融或生活决策的性质
-3. 提供3个不同的选择方案
+1. 必须与角色的当前状态（第{current_month}个月）相符，不要重复生成"刚毕业"或"刚入职"的初始剧情，除非是第1个月。
+2. 具有金融或生活决策的性质，可以是职场挑战、投资机会、生活琐事或突发意外。
+3. 提供3个不同的选择方案。
 
 请严格按照以下格式回复：
 情况：[详细描述当前面临的情况]
@@ -400,15 +433,54 @@ class DeepSeekEngine:
         
         return random.choice(situations)
 
-    async def chat(self, message: str, session_id: str = None) -> Dict:
+    async def chat(self, message: str, session_id: str = None, context: Dict = None) -> Dict:
         """通用聊天接口"""
+        # 再次检查 API Key，防止初始化失败
         if not self.api_key:
+            print("[WARN] API Key missing in chat(), attempting reload...")
+            self._load_config()
+            if self.api_key:
+                self.headers["Authorization"] = f"Bearer {self.api_key}"
+
+        if not self.api_key:
+            print(f"[ERROR] Chat failed: API Key is missing. Env: {self.base_url}")
             return {
-                "response": f"AI核心离线中... (收到: {message})",
+                "response": f"系统离线中... (收到: {message})",
                 "reflection": "系统自检中",
                 "monologue": "连接断开"
             }
         
+        system_prompt = """身份设定：你是指挥未来城市'FinAI'经济系统的中央AI核心。
+核心指令：
+1. 保持冷静、理性的语气，带有轻微的赛博朋克科技感。
+2. 你的目标是辅助用户在金融沙盘中生存并积累财富。
+3. 分析问题时，请结合用户的财务状况、MBTI性格特质以及当前面临的风险。
+4. 回答应当简练、直击要害，避免空泛的安慰。
+5. 如果用户面临决策，请从风险/收益角度提供数据支持的建议。
+6. 当用户询问“当前情况”或寻求建议时，必须基于【可选行动】推荐一个具体的选项，并说明理由。"""
+        
+        if context:
+            info_parts = []
+            if context.get('name'):
+                info_parts.append(f"【主体档案】\n姓名：{context['name']}\n人格模型：{context.get('mbti', '未知')}")
+            if context.get('current_month'):
+                info_parts.append(f"【时间节点】第 {context['current_month']} 月")
+            if context.get('cash') is not None:
+                cash = context.get('cash')
+                total_assets = context.get('total_assets')
+                if total_assets is None:
+                    total_assets = 0
+                info_parts.append(f"【财务数据】\n流动资金：{cash:,} CP\n总资产估值：{total_assets:,} CP")
+            if context.get('current_situation'):
+                info_parts.append(f"【当前遭遇】\n{context['current_situation']}")
+            if context.get('options'):
+                options_str = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(context['options'])])
+                info_parts.append(f"【可选行动】\n{options_str}")
+            
+            if info_parts:
+                system_prompt += "\n\n=== 实时数据流 ===\n" + "\n".join(info_parts)
+                system_prompt += "\n\n指令：基于上述数据流，对用户的输入进行战术分析与回应。"
+
         try:
             response = requests.post(
                 self.base_url,
@@ -416,11 +488,11 @@ class DeepSeekEngine:
                 json={
                     "model": "deepseek-chat",
                     "messages": [
-                        {"role": "system", "content": "你是一个未来城市'EchoPolis'的中央AI核心。你的名字是ECHO。你冷静、理性，但对人类情感充满好奇。请用简短、富有科技感的语言回答。"},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": message}
                     ],
                     "temperature": 0.7,
-                    "max_tokens": 150
+                    "max_tokens": 200
                 },
                 timeout=30
             )
