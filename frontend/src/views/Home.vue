@@ -1,5 +1,8 @@
 <template>
   <div class="home-container">
+    <!-- 破产弹窗 -->
+    <BankruptcyModal :visible="gameStore.isBankrupt" />
+
     <!-- 飘字组件 -->
     <FloatingText ref="floatingTextRef" />
     
@@ -237,6 +240,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import CityTopDown from '../components/home/CityTopDown.vue'
 import InvestmentDashboard from '../components/InvestmentDashboard.vue'
 import FloatingText from '../components/FloatingText.vue'
+import BankruptcyModal from '../components/BankruptcyModal.vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
 

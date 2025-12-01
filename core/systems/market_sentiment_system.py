@@ -17,6 +17,7 @@ class MarketSentiment:
     us_score: float         # 美国市场分数
     outlook: str            # 市场展望 (震荡/上涨/下跌)
     hot_topics: list[str]   # 热门话题
+    real_events: list[str]  # 真实事件
     timestamp: float        # 数据获取时间
 
 class MarketSentimentSystem:
@@ -46,6 +47,7 @@ class MarketSentimentSystem:
                 us_score=0.0,
                 outlook="震荡",
                 hot_topics=[],
+                real_events=[],
                 timestamp=time.time()
             )
 
@@ -127,6 +129,17 @@ class MarketSentimentSystem:
             filtered_topics = [t for t in topics if len(t) > 1 and t not in ["美股", "铜", "白银", "伦敦金属交易所"]] 
             hot_topics = filtered_topics[:5]
 
+        # 5. 提取关键事件
+        real_events = []
+        # 尝试匹配 "关键事件 ... 热门话题" 之间的内容
+        events_pattern = re.search(r"关键事件\s*\d*\s*条?(.*?)(?:热门话题|市场展望|$)", clean_content)
+        if events_pattern:
+            raw_events = events_pattern.group(1).strip()
+            if raw_events:
+                # 简单的清理，移除多余的标签或来源标识
+                cleaned_event = re.sub(r'Financial Times|Bloomberg|Reuters', '', raw_events)
+                real_events.append(cleaned_event.strip())
+
         return MarketSentiment(
             overall_sentiment=overall_sentiment,
             global_score=global_score,
@@ -134,6 +147,7 @@ class MarketSentimentSystem:
             us_score=us_score,
             outlook=outlook,
             hot_topics=hot_topics,
+            real_events=real_events,
             timestamp=time.time()
         )
 

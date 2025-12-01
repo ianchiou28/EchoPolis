@@ -303,13 +303,19 @@ class DeepSeekEngine:
         # 获取市场情绪
         try:
             sentiment = market_sentiment_system.get_sentiment()
+            
+            # 格式化真实事件
+            real_events_str = ""
+            if hasattr(sentiment, 'real_events') and sentiment.real_events:
+                real_events_str = "\n- 关键现实事件：" + "; ".join(sentiment.real_events)
+
             market_context = f"""
 当前真实市场环境：
 - 总体情绪：{sentiment.overall_sentiment}
 - 全球市场指数：{sentiment.global_score}
 - 市场展望：{sentiment.outlook}
-- 热门话题：{', '.join(sentiment.hot_topics)}
-请将这个市场背景融入到生成的情况中，例如市场消极时可能面临裁员或投资亏损风险，市场积极时可能有更多创业或投资机会。
+- 热门话题：{', '.join(sentiment.hot_topics)}{real_events_str}
+请将这个市场背景融入到生成的情况中。如果存在“关键现实事件”，请优先基于该事件生成一个相关的游戏内情境（例如：如果现实中有战争风险，游戏中可以出现避险资产投资机会或供应链中断危机）。
 """
         except:
             market_context = ""
