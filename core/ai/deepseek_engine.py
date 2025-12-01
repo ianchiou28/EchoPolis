@@ -5,6 +5,7 @@ DeepSeek AI引擎 - Echopolis AI决策模块
 import requests
 import json
 from typing import Dict, List, Optional
+from ..systems.market_sentiment_system import market_sentiment_system
 
 class DeepSeekEngine:
     def __init__(self, api_key: str = None):
@@ -266,6 +267,20 @@ class DeepSeekEngine:
         
         mbti_profile = mbti_profiles.get(context["mbti"], "理性决策者")
         
+        # 获取市场情绪
+        try:
+            sentiment = market_sentiment_system.get_sentiment()
+            market_context = f"""
+当前真实市场环境：
+- 总体情绪：{sentiment.overall_sentiment}
+- 全球市场指数：{sentiment.global_score}
+- 市场展望：{sentiment.outlook}
+- 热门话题：{', '.join(sentiment.hot_topics)}
+请将这个市场背景融入到生成的情况中，例如市场消极时可能面临裁员或投资亏损风险，市场积极时可能有更多创业或投资机会。
+"""
+        except:
+            market_context = ""
+
         prompt = f"""你是一个金融游戏的情况生成器。请为以下角色生成一个适合的决策情况：
 
 角色信息：
@@ -280,7 +295,7 @@ class DeepSeekEngine:
 - 背景：{context['background']}
 - 特质：{context['traits']}
 - 已做决策数：{context['decision_count']}
-
+{market_context}
 请生成一个符合以下要求的情况：
 1. 与角色的年龄、背景和当前状态相符
 2. 具有金融或生活决策的性质
