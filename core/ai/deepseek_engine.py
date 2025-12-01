@@ -5,6 +5,7 @@ DeepSeek AI引擎 - FinAI AI决策模块
 import requests
 import json
 from typing import Dict, List, Optional
+from ..systems.market_sentiment_system import market_sentiment_system
 
 class DeepSeekEngine:
     def __init__(self, api_key: str = None):
@@ -298,7 +299,27 @@ class DeepSeekEngine:
         current_month = context.get('decision_count', 0) + 1
         if context["life_stage"] == "startup" and current_month > 3:
             life_stage_desc = f"职场新人，已工作{current_month}个月"
-        
+
+        # 获取市场情绪
+        try:
+            sentiment = market_sentiment_system.get_sentiment()
+            
+            # 格式化真实事件
+            real_events_str = ""
+            if hasattr(sentiment, 'real_events') and sentiment.real_events:
+                real_events_str = "\n- 关键现实事件：" + "; ".join(sentiment.real_events)
+
+            market_context = f"""
+当前真实市场环境：
+- 总体情绪：{sentiment.overall_sentiment}
+- 全球市场指数：{sentiment.global_score}
+- 市场展望：{sentiment.outlook}
+- 热门话题：{', '.join(sentiment.hot_topics)}{real_events_str}
+请将这个市场背景融入到生成的情况中。如果存在“关键现实事件”，请优先基于该事件生成一个相关的游戏内情境（例如：如果现实中有战争风险，游戏中可以出现避险资产投资机会或供应链中断危机）。
+"""
+        except:
+            market_context = ""
+
         prompt = f"""你是一个金融游戏的情况生成器。请为以下角色生成一个适合的决策情况：
 
 角色信息：
@@ -313,7 +334,7 @@ class DeepSeekEngine:
 - 背景：{context['background']}
 - 特质：{context['traits']}
 - 已做决策数：{context['decision_count']}
-
+{market_context}
 请生成一个符合以下要求的情况：
 1. 必须与角色的当前状态（第{current_month}个月）相符，不要重复生成"刚毕业"或"刚入职"的初始剧情，除非是第1个月。
 2. 具有金融或生活决策的性质，可以是职场挑战、投资机会、生活琐事或突发意外。

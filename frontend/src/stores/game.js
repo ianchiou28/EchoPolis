@@ -63,6 +63,7 @@ export const useGameStore = defineStore('game', {
     trustLevel: 50,
     wealthLevel: '贫困',
     lifeStage: '起步期',
+    isBankrupt: false,
     aiReflection: '正在思考当前的财务状况...',
     aiMonologue: '我需要更谨慎地规划未来的投资方向。',
     aiResponse: '',
@@ -201,6 +202,15 @@ export const useGameStore = defineStore('game', {
         this.trustLevel = this.avatar.trust_level
         this.calculateWealthLevel()
         this.calculateLifeStage()
+        this.checkBankruptcy()
+      }
+    },
+
+    checkBankruptcy() {
+      if (this.assets.cash < 0) {
+        this.isBankrupt = true
+      } else {
+        this.isBankrupt = false
       }
     },
 
@@ -672,7 +682,8 @@ export const useGameStore = defineStore('game', {
       this.trustLevel = 50
       this.wealthLevel = '贫困'
       this.lifeStage = '起步期'
-      this.aiReflection = '正在思考当前的财务状况...'
+      this.isBankrupt = false
+      this.aiReflection = '正在思考当前的财务状况...',
       this.aiMonologue = '我需要更谨慎地规划未来的投资方向。'
       this.aiResponse = ''
       this.currentSituation = ''

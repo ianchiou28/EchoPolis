@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 from enum import Enum
+from .market_sentiment_system import market_sentiment_system
 
 class InvestmentType(Enum):
     """投资类型"""
@@ -95,14 +96,22 @@ class InvestmentSystem:
         """处理月收益，返回总收益"""
         total_return = 0
         
+        # 获取市场情绪修正
+        try:
+            sentiment_modifier = market_sentiment_system.get_influence_modifier()
+        except:
+            sentiment_modifier = 0.0
+            
         for investment in self.investments[:]:  # 使用切片避免修改列表时出错
             if investment.remaining_months <= 0:
                 continue
                 
             # 月收益型投资
             if investment.investment_type == InvestmentType.MONTHLY:
-                total_return += investment.monthly_return
-                self.add_transaction(current_round, f"{investment.name}月收益", investment.monthly_return)
+                # 应用市场情绪修正 (影响浮动收益部分，这里假设月收益受市场影响波动 +/- 20%)
+                adjusted_return = int(investment.monthly_return * (1 + sentiment_modifier))
+                total_return += adjusted_return
+                self.add_transaction(current_round, f"{investment.name}月收益(市场修正:{sentiment_modifier:+.2%})", adjusted_return)
             
             # 减少剩余月数
             investment.remaining_months -= 1
@@ -111,9 +120,11 @@ class InvestmentSystem:
             if investment.remaining_months <= 0:
                 if investment.investment_type != InvestmentType.MONTHLY:
                     # 一次性收益
-                    final_return = int(investment.amount * (1 + investment.total_return_rate))
+                    # 应用市场情绪修正到最终收益率
+                    final_rate = investment.total_return_rate + sentiment_modifier
+                    final_return = int(investment.amount * (1 + final_rate))
                     total_return += final_return
-                    self.add_transaction(current_round, f"{investment.name}到期收益", final_return)
+                    self.add_transaction(current_round, f"{investment.name}到期收益(市场修正:{sentiment_modifier:+.2%})", final_return)
                 
                 # 移除到期投资
                 self.investments.remove(investment)
