@@ -1,1 +1,1 @@
-# Echopolis AI Module
+# FinAI AI Module

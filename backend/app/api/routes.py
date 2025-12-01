@@ -2,7 +2,16 @@
 API路由定义
 """
 from fastapi import APIRouter, HTTPException
-from app.models.requests import CreateAvatarRequest, GenerateSituationRequest, EchoRequest, AutoDecisionRequest
+from app.models.requests import (
+    CreateAvatarRequest,
+    GenerateSituationRequest,
+    EchoRequest,
+    AutoDecisionRequest,
+    SessionStartRequest,
+    SessionAdvanceRequest,
+    SessionFinishRequest,
+    AIChatRequest,
+)
 from app.models.auth import LoginRequest, RegisterRequest, AuthResponse
 from app.services.game_service import GameService
 import sys
@@ -39,7 +48,7 @@ async def create_avatar(request: CreateAvatarRequest):
 @router.post("/generate-situation")
 async def generate_situation(request: GenerateSituationRequest):
     try:
-        return await game_service.generate_situation(request.session_id, request.context)
+        return await game_service.generate_situation(request.session_id, request.context or "")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -138,18 +147,33 @@ async def get_avatar_status(session_id: str = None):
         import sqlite3
         with sqlite3.connect(game_service.db.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('''
-                SELECT name, mbti, credits, username FROM users WHERE session_id = ?
-            ''', (session_id,))
+            # 检查列是否存在
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [col[1] for col in cursor.fetchall()]
+            has_stats = 'happiness' in columns
+            
+            if has_stats:
+                cursor.execute('''
+                    SELECT name, mbti, credits, username, happiness, energy, health FROM users WHERE session_id = ?
+                ''', (session_id,))
+            else:
+                cursor.execute('''
+                    SELECT name, mbti, credits, username FROM users WHERE session_id = ?
+                ''', (session_id,))
             
             row = cursor.fetchone()
             print(f"[Avatar Status] 数据库查询结果: {row}")
             
             if not row:
                 # 尝试用id查询
-                cursor.execute('''
-                    SELECT name, mbti, credits, username FROM users WHERE id = ?
-                ''', (session_id,))
+                if has_stats:
+                    cursor.execute('''
+                        SELECT name, mbti, credits, username, happiness, energy, health FROM users WHERE id = ?
+                    ''', (session_id,))
+                else:
+                    cursor.execute('''
+                        SELECT name, mbti, credits, username FROM users WHERE id = ?
+                    ''', (session_id,))
                 row = cursor.fetchone()
                 print(f"[Avatar Status] 用id查询结果: {row}")
             
@@ -158,12 +182,15 @@ async def get_avatar_status(session_id: str = None):
             
             cash = row[2]
             username = row[3]
+            happiness = row[4] if has_stats and len(row) > 4 else 70
+            energy = row[5] if has_stats and len(row) > 5 else 75
+            health = row[6] if has_stats and len(row) > 6 else 80
             
             # 计算投资资产
             cursor.execute('''
                 SELECT SUM(amount) FROM investments 
-                WHERE username = ? AND remaining_months > 0
-            ''', (username,))
+                WHERE session_id = ? AND remaining_months > 0
+            ''', (session_id,))
             invested = cursor.fetchone()[0] or 0
             
             total_assets = cash + invested
@@ -175,7 +202,10 @@ async def get_avatar_status(session_id: str = None):
                 "cash": cash,
                 "invested_assets": invested,
                 "trust_level": 50,
-                "current_month": 0
+                "current_month": 0,
+                "happiness": happiness,
+                "energy": energy,
+                "health": health
             }
             print(f"[Avatar Status] 返回数据: {result}")
             return result
@@ -198,7 +228,7 @@ async def get_investments(session_id: str = None):
         with sqlite3.connect(game_service.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT username FROM users WHERE id = ?
+                SELECT username FROM users WHERE session_id = ?
             ''', (session_id,))
             user_row = cursor.fetchone()
             
@@ -209,9 +239,9 @@ async def get_investments(session_id: str = None):
             cursor.execute('''
                 SELECT id, name, amount, investment_type, remaining_months, monthly_return, return_rate
                 FROM investments 
-                WHERE username = ?
+                WHERE session_id = ?
                 ORDER BY created_at DESC
-            ''', (username,))
+            ''', (session_id,))
             
             investments = []
             for row in cursor.fetchall():
@@ -242,113 +272,15 @@ async def get_investments(session_id: str = None):
         return []
 
 @router.post("/ai/chat")
-async def ai_chat(message: dict):
+async def ai_chat(request: AIChatRequest):
     try:
-        import json
-        import os
-        
-        user_message = message.get("message", "")
-        print(f"[AI Chat] 收到消息: {user_message}")
-        
-        # 加载API key
-        config_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config.json')
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-            api_key = config.get('deepseek_api_key')
-        
-        if not api_key:
-            raise Exception("API key not found")
-        
-        # 构建对话提示
-        prompt = f"""你是一个INTJ人格的AI化身，正在一个金融模拟游戏中生活。
-玩家对你说：{user_message}
-
-请用以下格式回复：
-回应：[直接回复玩家的话]
-反思：[对当前财务状况的分析]
-独白：[你的内心想法]"""
-        
-        print(f"[AI Chat] 调用DeepSeek API...")
-        response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7,
-                "max_tokens": 300
-            },
-            timeout=30
-        )
-        
-        print(f"[AI Chat] API响应状态: {response.status_code}")
-        
-        if response.status_code == 200:
-            result = response.json()
-            print(f"[AI Chat] 完整响应: {result}")
-            ai_text = result["choices"][0]["message"]["content"]
-            print(f"[AI Chat] AI回复: {ai_text}")
-            
-            # 解析回复
-            lines = ai_text.split('\n')
-            response_text = ""
-            reflection_text = ""
-            monologue_text = ""
-            
-            for line in lines:
-                if '回应：' in line or '回应:' in line:
-                    response_text = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                elif '反思：' in line or '反思:' in line:
-                    reflection_text = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-                elif '独白：' in line or '独白:' in line:
-                    monologue_text = line.split('：', 1)[-1].split(':', 1)[-1].strip()
-            
-            return {
-                "response": response_text or ai_text,
-                "reflection": reflection_text or "正在分析当前的财务状况...",
-                "monologue": monologue_text or "我需要更谨慎地规划未来。"
-            }
-        else:
-            error_msg = f"API错误 {response.status_code}: {response.text}"
-            print(f"[AI Chat] {error_msg}")
-            print(f"[AI Chat] 使用模拟AI回复")
-            
-            # 模拟AI回复
-            responses = {
-                "default": {
-                    "response": f"我听到你说“{user_message}”。作为INTJ，我会理性分析这个建议。",
-                    "reflection": "当前资产配置还算合理，但需要注意流动性风险。我应该保留至少30%的现金应对突发情况。",
-                    "monologue": "长期来看，稳健的投资策略比激进的风险更重要。我需要建立一个长期的财富积累计划。"
-                }
-            }
-            
-            # 根据关键词匹配不同回复
-            if "投资" in user_message or "买" in user_message:
-                return {
-                    "response": f"关于“{user_message}”，我认为需要谨慎评估。任何投资都应该在充分研究后再决定。",
-                    "reflection": "投资决策不能冲动，需要考虑风险收益比、流动性和长期目标。",
-                    "monologue": "我不会让情绪左右投资决策。每一笔投资都应该符合我的整体财务规划。"
-                }
-            elif "风险" in user_message:
-                return {
-                    "response": f"你提到了风险，这很重要。我会把风险控制放在首位。",
-                    "reflection": "风险管理是财富积累的基础。我需要建立多元化的投资组合。",
-                    "monologue": "不把鸡蛋放在一个篮子里，这是最基本的原则。"
-                }
-            else:
-                return responses["default"]
+        if not request.message:
+            raise HTTPException(status_code=400, detail="message required")
+        return await game_service.ai_chat(request.message, session_id=request.session_id)
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"[AI Chat] 错误: {e}")
-        import traceback
-        traceback.print_exc()
-        return {
-            "response": "抱歉，我现在有点困惑...",
-            "reflection": "需要一些时间整理思绪",
-            "monologue": f"系统错误: {str(e)}"
-        }
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/characters/{username}")
 async def get_characters(username: str):
@@ -361,13 +293,13 @@ async def get_characters(username: str):
         with sqlite3.connect(game_service.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, name, mbti, credits FROM users WHERE username = ?
+                SELECT session_id, name, mbti, credits FROM users WHERE username = ?
             ''', (username,))
             
             characters = []
             for row in cursor.fetchall():
                 characters.append({
-                    "id": row[0],
+                    "id": row[0],  # session_id作为id返回
                     "name": row[1],
                     "mbti": row[2],
                     "assets": row[3]
@@ -419,6 +351,19 @@ async def create_character(data: dict):
         print(f"创建角色错误: {e}")
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.delete("/characters/session/{session_id}")
+async def delete_character(session_id: str):
+    try:
+        print(f"Deleting character: {session_id}")
+        success = game_service.delete_character(session_id)
+        if success:
+            return {"success": True, "message": "角色删除成功"}
+        else:
+            raise HTTPException(status_code=404, detail="角色不存在或删除失败")
+    except Exception as e:
+        print(f"Error deleting character: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 async def make_ai_decision(session_id: str, name: str, mbti: str, cash: int, situation: str, options: list, api_key: str):
@@ -726,78 +671,207 @@ async def ai_invest(data: dict):
 async def world_action(action: dict):
     try:
         action_name = action.get("action_name")
+        action_type = action.get("action")
         price = action.get("price", 0)
-        building = action.get("building", "")
+        building = action.get("building", "") # districtId
         session_id = action.get("session_id")
         
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id required")
         
-        # 从数据库获取现金
+        # 从数据库获取用户信息
         import sqlite3
         conn = sqlite3.connect(game_service.db.db_path, timeout=10.0)
         try:
             cursor = conn.cursor()
-            cursor.execute('SELECT credits, username FROM users WHERE id = ?', (session_id,))
+            # 检查列是否存在
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [col[1] for col in cursor.fetchall()]
+            has_stats = 'happiness' in columns
+            
+            if has_stats:
+                cursor.execute('SELECT credits, username, happiness, energy, health FROM users WHERE id = ?', (session_id,))
+            else:
+                cursor.execute('SELECT credits, username FROM users WHERE id = ?', (session_id,))
+            
             row = cursor.fetchone()
             
+            if not row:
+                # Try session_id as string match
+                if has_stats:
+                    cursor.execute('SELECT credits, username, happiness, energy, health FROM users WHERE session_id = ?', (session_id,))
+                else:
+                    cursor.execute('SELECT credits, username FROM users WHERE session_id = ?', (session_id,))
+                row = cursor.fetchone()
+
             if not row:
                 raise HTTPException(status_code=404, detail="User not found")
             
             current_cash = row[0]
             username = row[1]
+            happiness = row[2] if has_stats and len(row) > 2 else 70
+            energy = row[3] if has_stats and len(row) > 3 else 75
+            health = row[4] if has_stats and len(row) > 4 else 80
         finally:
             conn.close()
         
-        # 检查现金
-        if price > current_cash:
+        # 检查现金 (贷款除外)
+        if action_type != 'loan' and price > current_cash:
             return {
                 "success": False,
                 "message": f"🚫 现金不足，无法执行此操作",
                 "ai_advice": f"💰 需要￥{price:,}，但你只有￥{current_cash:,}\n💡 建议：先积累资金或考虑银行贷款"
             }
         
-        # AI审查
+        # 执行操作逻辑
+        new_cash = current_cash
         ai_message = ""
-        if building == "realestate" and price > current_cash * 0.8:
-            return {
-                "success": False,
-                "message": "🚫 风险过高",
-                "ai_advice": "🛡️ 建议保留至少30%现金作为应急储备"
-            }
-        elif building == "business" and price > 100000:
-            ai_message = "⚠️ 创业风险较高，请谨慎考虑"
-        elif building == "stock" and price > current_cash * 0.5:
-            ai_message = "⚠️ 股市波动大，注意风险"
-        
-        # 执行操作
-        new_cash = current_cash - price
+        message = f"成功执行: {action_name}"
         
         conn = sqlite3.connect(game_service.db.db_path, timeout=10.0)
         try:
             cursor = conn.cursor()
-            # 更新现金
-            cursor.execute('UPDATE users SET credits = ? WHERE id = ?', (new_cash, session_id))
             
-            # 保存投资
-            if building in ["stock", "bank"]:
-                type_map = {"stock": "短期", "bank": "中期"}
-                duration = 3 if building == "stock" else 6
-                return_rate = 0.08 if building == "stock" else 0.06
-                
+            # --- 金融区 ---
+            if action_type == 'deposit':
+                new_cash -= price
                 cursor.execute('''
-                    INSERT INTO investments 
-                    (username, session_id, name, amount, investment_type, remaining_months, 
-                     monthly_return, return_rate, created_round, ai_thoughts)
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ''', (username, session_id, action_name, price, type_map.get(building, "短期"),
-                      duration, 0, return_rate, 1, f"在{building}执行: {action_name}"))
+                ''', (username, session_id, "定期存款", price, "短期", 6, 0, 0.04, 1, "稳健理财"))
+                ai_message = "定期存款是安全的资产配置。"
+                
+            elif action_type == 'loan':
+                new_cash += price
+                # 记录负债 (这里简化为只加钱，实际应该记录负债)
+                ai_message = "贷款已到账，请注意按时还款。"
+                
+            elif action_type == 'credit_check':
+                # 不扣钱
+                message = f"当前信用评分: 750 (优秀)"
+                ai_message = "你的信用状况良好。"
+
+            # --- 交易所 ---
+            elif action_type == 'stock_trade':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "股票投资", price, "短期", 3, 0, 0.15, 1, "股市有风险，投资需谨慎"))
+                ai_message = "已买入股票，注意市场波动。"
+                
+            elif action_type == 'fund_invest':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "基金定投", price, "中期", 6, 0, 0.10, 1, "基金适合长期持有"))
+                ai_message = "基金申购成功。"
+                
+            elif action_type == 'futures':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "期货合约", price, "短期", 1, 0, 0.50, 1, "高风险高收益"))
+                ai_message = "期货交易风险极高，请密切关注。"
+
+            # --- 房产中心 ---
+            elif action_type == 'buy_house':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "房产购置", price, "长期", 24, 0, 0.20, 1, "房产是抗通胀的优质资产"))
+                ai_message = "恭喜成为业主！"
+                
+            elif action_type == 'rent':
+                new_cash -= price
+                happiness = min(100, happiness + 2)
+                ai_message = "支付房租，获得居住权。"
+                
+            elif action_type == 'property_manage':
+                message = "当前持有房产市值稳定。"
+                ai_message = "建议定期维护房产。"
+
+            # --- 教育区 ---
+            elif action_type == 'skill_course':
+                new_cash -= price
+                # 提升能力
+                ai_message = "投资自己永远是最好的投资。"
+                
+            elif action_type == 'finance_course':
+                new_cash -= price
+                ai_message = "财商提升了，有助于做出更好的投资决策。"
+                
+            elif action_type == 'certificate':
+                new_cash -= price
+                ai_message = "获得证书，职业竞争力提升。"
+
+            # --- 文娱区 ---
+            elif action_type == 'entertainment':
+                new_cash -= price
+                energy = min(100, energy + 10)
+                happiness = min(100, happiness + 5)
+                ai_message = "适当放松有助于恢复精力。"
+                
+            elif action_type == 'social':
+                new_cash -= price
+                happiness = min(100, happiness + 8)
+                ai_message = "拓展人脉对未来发展有益。"
+                
+            elif action_type == 'luxury':
+                new_cash -= price
+                happiness = min(100, happiness + 15)
+                ai_message = "享受生活，但也要理性消费。"
+            
+            elif action_type == 'start_business':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "创业项目", price, "长期", 12, 0, 0.25, 1, "创业维艰，但也充满希望"))
+                ai_message = "创业项目已启动，期待回报。"
+
+            # --- 能源区 ---
+            elif action_type == 'green_invest':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "绿色基金", price, "长期", 12, 0, 0.08, 1, "支持环保事业"))
+                ai_message = "绿色投资符合未来趋势。"
+                
+            elif action_type == 'energy_stock':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "新能源股票", price, "中期", 6, 0, 0.12, 1, "新能源板块潜力巨大"))
+                ai_message = "已布局新能源赛道。"
+                
+            elif action_type == 'carbon_trade':
+                new_cash -= price
+                cursor.execute('''
+                    INSERT INTO investments (username, session_id, name, amount, investment_type, remaining_months, monthly_return, return_rate, created_round, ai_thoughts)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (username, session_id, "碳权交易", price, "短期", 3, 0, 0.10, 1, "碳交易市场活跃"))
+                ai_message = "参与碳交易，助力碳中和。"
+            
+            # 更新用户状态
+            if has_stats:
+                cursor.execute('''
+                    UPDATE users SET credits = ?, happiness = ?, energy = ?, health = ? WHERE username = ? AND session_id = ?
+                ''', (new_cash, happiness, energy, health, username, session_id))
+            else:
+                cursor.execute('UPDATE users SET credits = ? WHERE username = ? AND session_id = ?', (new_cash, username, session_id))
             
             conn.commit()
             
             # 计算总资产
             cursor.execute('SELECT SUM(amount) FROM investments WHERE username = ? AND remaining_months > 0', (username,))
             invested = cursor.fetchone()[0] or 0
+            
         finally:
             conn.close()
         
@@ -805,12 +879,106 @@ async def world_action(action: dict):
         
         return {
             "success": True,
-            "message": f"成功执行: {action_name}",
+            "message": message,
             "new_balance": new_cash,
             "total_assets": total_assets,
-            "ai_comment": ai_message if ai_message else "这是个合理的决策，符合你的财务状况"
+            "ai_comment": ai_message if ai_message else "操作已完成"
         }
     except Exception as e:
         import traceback
         traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/session/start")
+async def session_start(req: SessionStartRequest):
+    """统一的会话启动接口：创建角色+会话+首月快照"""
+    try:
+      return game_service.start_session(req.username, req.name, req.mbti)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/session/state")
+async def session_state(session_id: str):
+    try:
+      return game_service.get_session_state(session_id)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/session/advance")
+async def session_advance(req: SessionAdvanceRequest):
+    try:
+      print(f"[API] session_advance called for {req.session_id}")
+      result = game_service.advance_session(req.session_id, req.echo_text)
+      print(f"[API] session_advance success: month={result.get('new_month')}")
+      return result
+    except Exception as e:
+      print(f"[session_advance] error: {e}")
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/session/finish")
+async def session_finish(req: SessionFinishRequest):
+    try:
+      return game_service.finish_session(req.session_id)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/session/timeline")
+async def session_timeline(session_id: str, limit: int = 36):
+    try:
+      if not game_service.db:
+        raise Exception("数据库未初始化")
+      return game_service.db.get_session_timeline(session_id, limit)
+    except Exception as e:
+      raise HTTPException(status_code=400, detail=str(e))
+
+@router.get('/city/state')
+async def city_state(session_id: str):
+    try:
+        return game_service.get_city_snapshot(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post('/city/district/{district_id}')
+async def city_district_event(district_id: str, payload: dict):
+    session_id = payload.get('session_id')
+    if not session_id:
+        raise HTTPException(status_code=400, detail='session_id required')
+    try:
+        return game_service.generate_district_event(session_id, district_id, payload.get('context'))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/macro/indicators")
+async def get_macro_indicators():
+    try:
+        return game_service.get_macro_indicators()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/decide")
+async def make_decision(request: dict):
+    try:
+        session_id = request.get("session_id")
+        option_index = request.get("option_index")
+        option_text = request.get("option_text", "")
+        
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id required")
+            
+        print(f"[API] make_decision: {session_id}, index={option_index}, text='{option_text}'")
+        
+        # 调用服务层处理决策
+        result = game_service.process_decision(session_id, option_index, option_text)
+        return result
+    except Exception as e:
+        print(f"[API] make_decision error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/session/transactions")
+async def get_session_transactions(session_id: str, limit: int = 20):
+    try:
+        return game_service.get_session_transactions(session_id, limit)
+    except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

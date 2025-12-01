@@ -50,7 +50,6 @@ UnityFrontend/Temp/
 test_*.py
 
 # Generated files
-*.png
 *.dot
 *.jpg
 *.jpeg
@@ -68,3 +67,6 @@ CLEAN_*.md
 PROJECT_STRUCTURE.md
 UNITY_*.md
 README_STARTUP.md
+finai.db
+DEPLOY.md
+echopolis.db

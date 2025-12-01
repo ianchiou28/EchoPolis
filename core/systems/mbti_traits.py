@@ -1,5 +1,5 @@
 """
-MBTI人格特质系统 - Echopolis核心模块
+MBTI人格特质系统 - FinAI核心模块
 定义16种MBTI人格类型的决策特征和行为模式
 """
 import random

@@ -1,0 +1,298 @@
+/* Dark Mode - Project Echo (High Contrast) */
+:root,
+[data-theme='orange'],
+[data-theme='black'],
+[data-theme='dark'] {
+  --term-bg: #050505; /* Pure Black */
+  --term-grid: rgba(255, 255, 255, 0.05);
+  --term-text: #ffffff; /* Pure White for High Contrast */
+  --term-text-secondary: #cccccc; /* Light Grey */
+  --term-accent: #FF5500; /* Project Echo Orange */
+  --term-accent-glow: rgba(255, 85, 0, 0.4);
+  --term-border: #333333;
+  --term-panel-bg: rgba(10, 10, 10, 0.9);
+  
+  --sidebar-bg: #0a0a0a;
+  --sidebar-border: #333;
+  --sidebar-text: #cccccc;
+  --sidebar-item-bg: #0a0a0a; /* Added */
+  --sidebar-item-active-bg: #FF5500; /* Fixed name */
+  --sidebar-item-active-text: #000000; /* Fixed name */
+  
+  --term-success: #22c55e; /* Green */
+  --term-accent-secondary: #eab308; /* Yellow/Gold */
+  --config-btn-text: #ffffff; /* White text for buttons in dark mode */
+}
+
+/* Light Mode - Archive Style (Beige/Graph Paper) */
+[data-theme='beige'],
+[data-theme='light'] {
+  --term-bg: #F2F0E6; /* Warmer Beige (Paper) */
+  --term-grid: rgba(0, 0, 0, 0.1);
+  --term-text: #111111;
+  --term-text-secondary: #444444;
+  --term-accent: #E04F00; /* Darker Industrial Orange */
+  --term-accent-secondary: #EAB308; /* Muted Warning Yellow */
+  --term-success: #4ADE80; /* Muted Green */
+  --term-border: #000000; /* Pure Black Borders */
+  --term-panel-bg: #FFFFFF;
+  
+  --sidebar-bg: #E8E6DC;
+  --sidebar-border: #000000;
+  --sidebar-header-bg: #E04F00; /* Match accent */
+  --sidebar-header-text: #000000;
+  --sidebar-item-bg: #FFFFFF;
+  --sidebar-item-active-bg: #000000;
+  --sidebar-item-active-text: #FFFFFF;
+  
+  --config-btn-text: #000000;
+}
+
+/* 全局样式重置 */
+body {
+  background-color: var(--term-bg);
+  color: var(--term-text);
+  font-family: 'JetBrains Mono', 'Impact', sans-serif; /* More industrial */
+  margin: 0;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+}
+
+/* Hide default app overlays */
+body::before, body::after {
+  display: none !important;
+}
+
+/* 网格背景 - Graph Paper Effect */
+.grid-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: 
+    linear-gradient(var(--term-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--term-grid) 1px, transparent 1px);
+  background-size: 20px 20px; /* Smaller, tighter grid */
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* CRT 扫描线效果 - Enhanced */
+.crt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.15) 50%
+  );
+  background-size: 100% 3px; /* Tighter scanlines */
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4; /* More visible */
+  mix-blend-mode: multiply; /* Better for light mode */
+}
+
+/* 档案卡片风格 - Brutalist / Industrial */
+.archive-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  border-radius: 0;
+  margin-bottom: 20px;
+  position: relative;
+  box-shadow: 6px 6px 0px rgba(0,0,0,0.15); /* Deeper shadow */
+}
+
+/* Remove decorative corner, use solid borders */
+.archive-card::after {
+  display: none;
+}
+
+.archive-header {
+  background: transparent;
+  border-bottom: 2px solid var(--term-border);
+  padding: 10px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--term-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Highlight header in dark mode or specific cards */
+.archive-card.highlight .archive-header {
+  background: var(--term-accent);
+  color: #000;
+  border-bottom: 2px solid var(--term-border);
+}
+
+.archive-body {
+  padding: 20px;
+}
+
+/* 按钮风格 - Blocky */
+.term-btn {
+  background: transparent;
+  border: 2px solid var(--term-border);
+  color: var(--term-text);
+  padding: 10px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.1s;
+  border-radius: 0; /* Sharp */
+  text-transform: uppercase;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+}
+
+.term-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px var(--term-accent);
+  border-color: var(--term-text);
+}
+
+.term-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0px 0px 0px;
+}
+
+.term-btn.primary {
+  background: var(--term-accent);
+  border-color: var(--term-border); /* Black border even on primary */
+  color: #000;
+}
+
+.term-btn.primary:hover {
+  background: #FF6600;
+  box-shadow: 4px 4px 0px #000;
+}
+
+/* Sidebar Styles */
+.sidebar-nav {
+  width: 260px;
+  background: var(--sidebar-bg);
+  border-right: 3px solid var(--term-border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  z-index: 100;
+}
+
+.nav-header {
+  background: var(--sidebar-header-bg);
+  color: var(--sidebar-header-text);
+  padding: 20px 24px;
+  font-size: 14px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 3px solid var(--term-border);
+  margin-bottom: 20px;
+}
+
+.nav-header .logo-text {
+  font-size: 24px;
+  line-height: 1;
+  margin-bottom: 4px;
+  font-weight: 900;
+}
+
+.nav-header .sub-header {
+  font-size: 10px;
+  opacity: 0.8;
+  font-weight: normal;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.nav-section {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nav-item {
+  background: var(--sidebar-item-bg);
+  border: 2px solid var(--term-border);
+  padding: 12px 16px;
+  color: var(--term-text);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.1s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 3px 3px 0px rgba(0,0,0,0.1);
+}
+
+.nav-item:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0px rgba(0,0,0,0.1);
+}
+
+.nav-item.active {
+  background: var(--sidebar-item-active-bg);
+  color: var(--sidebar-item-active-text);
+  box-shadow: 1px 1px 0px rgba(0,0,0,0.1);
+  transform: translate(2px, 2px);
+}
+
+/* Top Bar */
+.top-bar {
+  height: 70px;
+  background: transparent; /* Transparent to show grid */
+  border-bottom: 3px solid var(--term-border);
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  justify-content: space-between;
+  color: var(--term-text);
+  z-index: 100;
+}
+
+.brand-logo {
+  font-weight: 900;
+  font-size: 32px;
+  letter-spacing: -1px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-transform: uppercase;
+}
+
+.brand-logo span.highlight {
+  color: var(--term-accent);
+}
+
+/* 文本发光效果 */
+.value.positive { 
+  color: #4CAF50; 
+  text-shadow: 0 0 5px rgba(76, 175, 80, 0.4);
+}
+.value.negative { 
+  color: #F44336; 
+  text-shadow: 0 0 5px rgba(244, 67, 54, 0.4);
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--term-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--term-border);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--term-accent);
+}

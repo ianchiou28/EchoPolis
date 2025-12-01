@@ -16,6 +16,30 @@ body {
   color: var(--text);
 }
 
+/* holographic game overlays */
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -2;
+}
+
+body::before {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(59,130,246,0.15), transparent 45%),
+    radial-gradient(circle at 80% 0%, rgba(14,165,233,0.18), transparent 50%);
+  filter: blur(30px);
+}
+
+body::after {
+  background:
+    repeating-linear-gradient(90deg, rgba(59,130,246,0.05) 0, rgba(59,130,246,0.05) 1px, transparent 1px, transparent 80px),
+    repeating-linear-gradient(0deg, rgba(15,118,236,0.05) 0, rgba(15,118,236,0.05) 1px, transparent 1px, transparent 80px);
+  opacity: 0.2;
+}
+
 #app {
   width: 100%;
   min-height: 100vh;

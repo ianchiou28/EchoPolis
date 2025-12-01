@@ -1,1 +1,1 @@
-# Echopolis Core Module
+# FinAI Core Module
