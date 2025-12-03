@@ -259,9 +259,9 @@ const close = () => {
 const setTheme = (dark) => {
   isDark.value = dark
   if (dark) {
-    themeStore.setDark()
+    themeStore.setTheme('orange')
   } else {
-    themeStore.setLight()
+    themeStore.setTheme('beige')
   }
 }
 
@@ -366,7 +366,7 @@ defineExpose({
 
 .settings-content {
   position: relative;
-  width: 450px;
+  width: 520px;
   max-width: 95vw;
   max-height: 85vh;
   background: var(--term-panel-bg);
@@ -461,7 +461,9 @@ defineExpose({
 
 .setting-control.wide {
   flex: 1;
-  max-width: 150px;
+  max-width: 180px;
+  display: flex;
+  gap: 10px;
 }
 
 /* Toggle buttons */
@@ -471,6 +473,7 @@ defineExpose({
   font-weight: 700;
   border: 1px solid var(--term-border);
   background: var(--term-bg);
+  color: var(--term-text);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -555,8 +558,10 @@ input:checked + .slider:before {
 .volume-value {
   font-size: 11px;
   font-weight: 700;
-  min-width: 36px;
+  min-width: 42px;
   text-align: right;
+  flex-shrink: 0;
+  color: var(--term-text);
 }
 
 /* Select */
@@ -577,6 +582,7 @@ input:checked + .slider:before {
   font-weight: 700;
   border: 1px solid var(--term-border);
   background: var(--term-panel-bg);
+  color: var(--term-text);
   cursor: pointer;
   transition: all 0.2s;
 }

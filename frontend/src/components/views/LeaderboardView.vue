@@ -195,6 +195,7 @@ onMounted(() => {
   font-weight: 700;
   border: 2px solid var(--term-border);
   background: var(--term-panel-bg);
+  color: var(--term-text);
   cursor: pointer;
   font-size: 13px;
   transition: all 0.15s;
@@ -252,6 +253,7 @@ onMounted(() => {
   font-weight: 700;
   border: 1px solid var(--term-border);
   background: transparent;
+  color: var(--term-text);
   cursor: pointer;
 }
 .refresh-btn:hover { background: var(--term-accent); color: #000; }
