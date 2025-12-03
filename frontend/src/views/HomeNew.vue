@@ -25,27 +25,31 @@
 
       <div class="nav-spacer"></div>
 
-      <div class="system-config">
-        <div class="section-label">系统配置</div>
-        <div class="config-grid">
-          <button class="config-btn orange active">
-            <span class="icon">🔊</span> BGM: 开
-          </button>
-          <button class="config-btn green" :class="{ active: isCrtOn }" @click="toggleCrt">
-            <span class="icon">📺</span> CRT: {{ isCrtOn ? '开' : '关' }}
-          </button>
-          <button class="config-btn white" @click="themeStore.toggleTheme">
-            <span class="icon">☀</span> 模式: {{ themeStore.isDark ? '暗色' : '亮色' }}
-          </button>
-          <button class="config-btn yellow">
-            <span class="icon">文</span> CN | EN
-          </button>
-          <button class="config-btn red" @click="exitToSelect">
-            <span class="icon">🔌</span> 断开连接
-          </button>
-        </div>
+      <!-- 音乐播放器 -->
+      <div class="music-section">
+        <MusicPlayer ref="musicPlayerRef" @stateChange="isBgmPlaying = $event" />
+      </div>
+
+      <!-- 底部操作按钮 -->
+      <div class="system-actions">
+        <button class="action-btn settings-btn" @click="showSettings = true">
+          <span class="icon">⚙️</span>
+          <span class="label">设置</span>
+        </button>
+        <button class="action-btn exit-btn" @click="exitToSelect">
+          <span class="icon">🔌</span>
+          <span class="label">断开</span>
+        </button>
       </div>
     </nav>
+
+    <!-- 设置面板 -->
+    <SettingsPanel 
+      :isOpen="showSettings" 
+      @close="showSettings = false"
+      @bgmToggle="handleBgmToggle"
+      @crtToggle="handleCrtToggle"
+    />
 
     <!-- Main Content Area -->
     <main class="main-content">
@@ -355,6 +359,8 @@ import HousingView from '../components/views/HousingView.vue'
 import LifestyleView from '../components/views/LifestyleView.vue'
 import DistrictPreviewPanel from '../components/DistrictPreviewPanel.vue'
 import EventModal from '../components/EventModal.vue'
+import MusicPlayer from '../components/MusicPlayer.vue'
+import SettingsPanel from '../components/SettingsPanel.vue'
 import { useRouter } from 'vue-router'
 
 const gameStore = useGameStore()
@@ -374,6 +380,11 @@ const isProcessing = ref(false)
 const currentDate = ref(new Date().toLocaleDateString('zh-CN').replace(/\//g, '-'))
 const isSidebarOpen = ref(false)
 const mobileMapMode = ref(true)
+
+// 音乐播放器和设置面板
+const musicPlayerRef = ref(null)
+const showSettings = ref(false)
+const isBgmPlaying = ref(false)
 
 // 事件系统
 const eventModalRef = ref(null)
@@ -481,6 +492,22 @@ const resetParallax = () => {
 // Actions
 const toggleCrt = () => {
   isCrtOn.value = !isCrtOn.value
+}
+
+// 处理设置面板的BGM切换
+const handleBgmToggle = (enabled) => {
+  if (musicPlayerRef.value) {
+    if (enabled && !isBgmPlaying.value) {
+      musicPlayerRef.value.togglePlay()
+    } else if (!enabled && isBgmPlaying.value) {
+      musicPlayerRef.value.togglePlay()
+    }
+  }
+}
+
+// 处理设置面板的CRT切换
+const handleCrtToggle = (enabled) => {
+  isCrtOn.value = enabled
 }
 
 const exitToSelect = () => {
@@ -685,15 +712,19 @@ onUnmounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  width: 260px; /* Fixed width to prevent shrinking */
-  border-right: 2px solid var(--term-border); /* Add border for separation */
+  width: 260px;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+  border-right: 2px solid var(--term-border);
   background: var(--term-panel-bg);
 }
 
 .nav-section {
-  padding-top: 20px;
-  padding-left: 20px; /* Add padding */
-  padding-right: 20px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  min-height: 0; /* 重要：允许flex子项收缩 */
 }
 
 .nav-header {
@@ -713,7 +744,60 @@ onUnmounted(() => {
 }
 
 .nav-spacer {
+  display: none; /* 移除spacer，使用flex布局 */
+}
+
+/* 音乐播放器区域 */
+.music-section {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 2px solid var(--term-border);
+}
+
+/* 底部操作按钮 */
+.system-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-top: 2px solid var(--term-border);
+}
+
+.action-btn {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 2px solid var(--term-border);
+  background: var(--term-panel-bg);
+  color: var(--term-text);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.action-btn .icon {
+  font-size: 14px;
+}
+
+.action-btn.exit-btn {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.action-btn.exit-btn:hover {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
 }
 
 .system-config {
