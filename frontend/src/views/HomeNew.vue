@@ -643,7 +643,12 @@ const getGroupItems = (groupId) => {
 }
 
 const openView = (viewId) => {
+  // 如果是排行榜，清除分组选中状态
+  if (viewId === 'leaderboard') {
+    activeGroup.value = null
+  }
   currentView.value = viewId
+  isSidebarOpen.value = false
 }
 
 const backToCards = () => {
