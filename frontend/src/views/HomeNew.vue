@@ -6,7 +6,7 @@
     <!-- Left Sidebar: Directory -->
     <nav class="sidebar-nav" :class="{ open: isSidebarOpen }">
       <div class="nav-header">
-        <div class="logo-text">FinAI金融模拟沙盘</div>
+        <div class="logo-text">EchoPolis金融模拟沙盘</div>
         <div class="sub-header">// 系统终端</div>
         <button class="close-sidebar-btn" @click="isSidebarOpen = false">×</button>
       </div>
@@ -57,7 +57,7 @@
       <header class="top-bar">
         <button class="menu-btn" @click="isSidebarOpen = true">☰</button>
         <div class="brand-logo">
-          <span class="highlight">FinAI</span> // 系统
+          <span class="highlight">EchoPolis</span> // 系统
         </div>
         <div class="header-meta">
           <span>{{ currentDate }}</span>
@@ -96,29 +96,30 @@
             <!-- Connection Lines -->
             <g v-if="!isMobile" stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
               <!-- Central Hub Connections -->
-              <path d="M 30% 35% L 50% 45%" /> <!-- Learning -> Finance -->
-              <path d="M 70% 35% L 50% 45%" /> <!-- Tech -> Finance -->
-              <path d="M 30% 65% L 50% 45%" /> <!-- Green -> Finance -->
-              <path d="M 70% 65% L 50% 45%" /> <!-- Housing -> Finance -->
-              <path d="M 50% 70% L 50% 45%" /> <!-- Leisure -> Finance -->
+              <line x1="30%" y1="35%" x2="50%" y2="45%" /> <!-- Learning -> Finance -->
+              <line x1="70%" y1="35%" x2="50%" y2="45%" /> <!-- Tech -> Finance -->
+              <line x1="30%" y1="65%" x2="50%" y2="45%" /> <!-- Green -> Finance -->
+              <line x1="70%" y1="65%" x2="50%" y2="45%" /> <!-- Housing -> Finance -->
+              <line x1="50%" y1="70%" x2="50%" y2="45%" /> <!-- Leisure -> Finance -->
               
               <!-- Outer Ring -->
-              <path d="M 30% 35% L 70% 35%" /> <!-- Learning -> Tech -->
-              <path d="M 30% 65% L 50% 70% L 70% 65%" /> <!-- Green -> Leisure -> Housing -->
-              <path d="M 30% 35% L 30% 65%" /> <!-- Learning -> Green -->
-              <path d="M 70% 35% L 70% 65%" /> <!-- Tech -> Housing -->
+              <line x1="30%" y1="35%" x2="70%" y2="35%" /> <!-- Learning -> Tech -->
+              <line x1="30%" y1="65%" x2="50%" y2="70%" /> <!-- Green -> Leisure -->
+              <line x1="50%" y1="70%" x2="70%" y2="65%" /> <!-- Leisure -> Housing -->
+              <line x1="30%" y1="35%" x2="30%" y2="65%" /> <!-- Learning -> Green -->
+              <line x1="70%" y1="35%" x2="70%" y2="65%" /> <!-- Tech -> Housing -->
             </g>
 
             <g v-else stroke="rgba(0,0,0,0.1)" stroke-width="2" fill="none" stroke-dasharray="4 4">
                <!-- Mobile Hexagon Connections -->
-               <path d="M 50% 28% L 25% 45%" />
-               <path d="M 50% 28% L 75% 45%" />
-               <path d="M 25% 45% L 25% 65%" />
-               <path d="M 75% 45% L 75% 65%" />
-               <path d="M 25% 65% L 50% 82%" />
-               <path d="M 75% 65% L 50% 82%" />
-               <path d="M 25% 45% L 75% 45%" />
-               <path d="M 25% 65% L 75% 65%" />
+               <line x1="50%" y1="28%" x2="25%" y2="45%" />
+               <line x1="50%" y1="28%" x2="75%" y2="45%" />
+               <line x1="25%" y1="45%" x2="25%" y2="65%" />
+               <line x1="75%" y1="45%" x2="75%" y2="65%" />
+               <line x1="25%" y1="65%" x2="50%" y2="82%" />
+               <line x1="75%" y1="65%" x2="50%" y2="82%" />
+               <line x1="25%" y1="45%" x2="75%" y2="45%" />
+               <line x1="25%" y1="65%" x2="75%" y2="65%" />
             </g>
             
             <!-- Zone Circles -->
@@ -226,10 +227,15 @@
 
           <!-- Right: Mission Control -->
           <div class="hud-column right">
-            <div class="archive-card highlight flex-grow-card">
+            <div class="archive-card highlight flex-grow-card command-panel" :class="{ expanded: isCommandPanelExpanded }">
               <div class="archive-header">
                 <span>当前指令</span>
-                <span class="blink">执行中</span>
+                <div class="header-actions">
+                  <span class="blink">执行中</span>
+                  <button class="expand-btn" @click="isCommandPanelExpanded = !isCommandPanelExpanded" :title="isCommandPanelExpanded ? '收起面板' : '展开面板'">
+                    {{ isCommandPanelExpanded ? '▶' : '◀' }}
+                  </button>
+                </div>
               </div>
               <div class="archive-body scrollable-body">
                 <h3 class="mission-title">{{ currentSituation?.title || '等待事件' }}</h3>
@@ -380,6 +386,7 @@ const isProcessing = ref(false)
 const currentDate = ref(new Date().toLocaleDateString('zh-CN').replace(/\//g, '-'))
 const isSidebarOpen = ref(false)
 const mobileMapMode = ref(true)
+const isCommandPanelExpanded = ref(false)  // 当前指令面板展开状态
 
 // 音乐播放器和设置面板
 const musicPlayerRef = ref(null)
@@ -397,6 +404,7 @@ const navItems = [
   { id: 'banking', label: '银行系统', icon: '🏦' },
   { id: 'trading', label: '股票交易', icon: '📈' },
   { id: 'career', label: '职业发展', icon: '💼' },
+  { id: 'insights', label: '行为洞察', icon: '🧠' },
   { id: 'logs', label: '档案库', icon: '📖' },
   { id: 'timeline', label: '时间线', icon: '🕒' },
   { id: 'leaderboard', label: '排行榜', icon: '🏅' },
@@ -521,6 +529,11 @@ const exitToSelect = () => {
 }
 
 const handleNavClick = (viewId) => {
+  // 如果是行为洞察，跳转到新路由
+  if (viewId === 'insights') {
+    router.push('/insights')
+    return
+  }
   currentView.value = viewId
   isSidebarOpen.value = false // Close sidebar on mobile selection
 }
@@ -1104,6 +1117,78 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 24px;
   max-height: 100%; /* Ensure column doesn't exceed parent height */
+}
+
+.hud-column.right {
+  z-index: 60; /* 高于底部聊天框 */
+}
+
+/* 当前指令面板展开样式 */
+.command-panel {
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 100;
+}
+
+.command-panel.expanded {
+  position: fixed;
+  top: 80px;
+  right: 40px;
+  bottom: 100px;
+  width: 700px;
+  max-height: none;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 3px solid var(--term-accent);
+}
+
+.command-panel.expanded .archive-body.scrollable-body {
+  max-height: none;
+  overflow-y: auto;
+}
+
+.command-panel.expanded .mission-title {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+.command-panel.expanded .mission-desc {
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+.command-panel.expanded .action-grid {
+  gap: 12px;
+}
+
+.command-panel.expanded .term-btn {
+  padding: 16px 20px;
+  font-size: 15px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.expand-btn {
+  background: var(--term-accent);
+  border: 2px solid #000;
+  color: #000;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.expand-btn:hover {
+  background: #000;
+  color: var(--term-accent);
 }
 
 .flex-grow-card {

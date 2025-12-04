@@ -300,6 +300,26 @@ class DeepSeekEngine:
         if context["life_stage"] == "startup" and current_month > 3:
             life_stage_desc = f"职场新人，已工作{current_month}个月"
 
+        # 构建职业状态描述
+        career_info = context.get("career", {})
+        if career_info.get("has_job"):
+            job_title = career_info.get("job_title", "员工")
+            company = career_info.get("company", "")
+            salary = career_info.get("salary", 0)
+            months_employed = career_info.get("months_employed", 0)
+            company_str = f"在{company}" if company else ""
+            career_desc = f"目前{company_str}担任{job_title}，月薪{salary:,}CP，已工作{months_employed}个月"
+        else:
+            job_history_count = career_info.get("job_history_count", 0)
+            if job_history_count > 0:
+                career_desc = f"目前处于无业状态（曾有{job_history_count}份工作经历），正在寻找新的工作机会"
+            else:
+                career_desc = "目前没有工作，正在寻找第一份工作机会"
+        
+        # 构建技能描述
+        skills = career_info.get("skills", [])
+        skills_desc = f"掌握技能：{', '.join(skills)}" if skills else "暂无专业技能"
+
         # 获取市场情绪
         try:
             sentiment = market_sentiment_system.get_sentiment()
@@ -327,6 +347,8 @@ class DeepSeekEngine:
 - 年龄：{context['age']}岁
 - 人生阶段：{life_stage_desc} (第{current_month}个月)
 - MBTI类型：{context['mbti']} ({mbti_profile})
+- 职业状态：{career_desc}
+- {skills_desc}
 - 现金：{context['cash']:,} CP
 - 健康：{context['health']}/100
 - 幸福感：{context['happiness']}/100
@@ -336,9 +358,10 @@ class DeepSeekEngine:
 - 已做决策数：{context['decision_count']}
 {market_context}
 请生成一个符合以下要求的情况：
-1. 必须与角色的当前状态（第{current_month}个月）相符，不要重复生成"刚毕业"或"刚入职"的初始剧情，除非是第1个月。
-2. 具有金融或生活决策的性质，可以是职场挑战、投资机会、生活琐事或突发意外。
-3. 提供3个不同的选择方案。
+1. 必须与角色的当前职业状态相符：如果角色无业，不要生成与工作相关的场景（如"同事邀请"、"老板提拔"）；如果角色有工作，可以生成职场相关场景。
+2. 必须与角色的当前状态（第{current_month}个月）相符，不要重复生成"刚毕业"或"刚入职"的初始剧情，除非是第1个月。
+3. 具有金融或生活决策的性质，可以是职场挑战、投资机会、生活琐事或突发意外。
+4. 提供3个不同的选择方案。
 
 请严格按照以下格式回复：
 情况：[详细描述当前面临的情况]

@@ -182,6 +182,42 @@ class AIAvatar:
             "decision_count": self.attributes.decision_count
         }
         
+        # 添加行为画像数据（如果有）
+        if hasattr(self, 'behavior_profile') and self.behavior_profile:
+            context["behavior_profile"] = {
+                "risk_preference": self.behavior_profile.get("risk_preference", "moderate"),
+                "decision_style": self.behavior_profile.get("decision_style", "rational"),
+                "avg_risk_score": self.behavior_profile.get("avg_risk_score", 0.5),
+                "avg_rationality": self.behavior_profile.get("avg_rationality", 0.5),
+                "action_count": self.behavior_profile.get("action_count", 0)
+            }
+        
+        # 添加职业状态数据（如果有）
+        if hasattr(self, 'career_status') and self.career_status:
+            current_job = self.career_status.get("current_job") or {}
+            # 检查是否有有效的工作（title 不为 None）
+            has_valid_job = current_job and current_job.get("title") is not None
+            context["career"] = {
+                "has_job": has_valid_job,
+                "job_title": current_job.get("title", "无业") if has_valid_job else "无业",
+                "company": current_job.get("company", "") if has_valid_job else "",
+                "salary": current_job.get("salary", 0) if has_valid_job else 0,
+                "months_employed": current_job.get("months", 0) if has_valid_job else 0,
+                "skills": self.career_status.get("skills", []),
+                "job_history_count": len(self.career_status.get("job_history", []))
+            }
+        else:
+            # 默认无业状态
+            context["career"] = {
+                "has_job": False,
+                "job_title": "无业",
+                "company": "",
+                "salary": 0,
+                "months_employed": 0,
+                "skills": [],
+                "job_history_count": 0
+            }
+        
         try:
             print(f"[DEBUG] 调用AI情况生成，API Key可用: {ai_engine.api_key is not None}")
             ai_situation = ai_engine.generate_situation(context)
@@ -196,6 +232,14 @@ class AIAvatar:
             print(f"[ERROR] AI情况生成失败: {e}")
         
         return None
+    
+    def set_behavior_profile(self, profile: dict):
+        """设置行为画像数据"""
+        self.behavior_profile = profile
+    
+    def set_career_status(self, career_info: dict):
+        """设置职业状态数据"""
+        self.career_status = career_info
     
     def make_decision(self, player_echo: Optional[str] = None, ai_engine=None) -> Dict:
         """AI做出决策"""

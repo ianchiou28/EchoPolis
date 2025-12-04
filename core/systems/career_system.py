@@ -773,7 +773,17 @@ class CareerSystem:
         """获取玩家当前职业状态"""
         career = self.careers.get(session_id)
         if not career:
-            return None
+            # 返回空职业状态而不是 None，避免调用方出错
+            return {
+                "job_id": None,
+                "title": None,
+                "industry": None,
+                "level": None,
+                "level_name": None,
+                "salary": 0,
+                "months": 0,
+                "performance": None
+            }
         
         return {
             "job_id": f"{career.industry.value}_{career.level.value}",

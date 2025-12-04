@@ -419,6 +419,60 @@ class FinAIDatabase:
                     UNIQUE(session_id, achievement_id)
                 )
             ''')
+            
+            # 行为日志表（记录用户每次操作）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS behavior_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    month INTEGER NOT NULL,
+                    action_type TEXT NOT NULL,
+                    action_category TEXT NOT NULL,
+                    amount REAL,
+                    risk_score REAL,
+                    rationality_score REAL,
+                    market_condition TEXT,
+                    decision_context TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 行为画像表（每个用户的行为特征）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS behavior_profiles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL UNIQUE,
+                    risk_preference TEXT,
+                    decision_style TEXT,
+                    loss_aversion REAL,
+                    overconfidence REAL,
+                    herding_tendency REAL,
+                    planning_ability REAL,
+                    action_count INTEGER DEFAULT 0,
+                    avg_risk_score REAL DEFAULT 0,
+                    avg_rationality REAL DEFAULT 0,
+                    last_updated_month INTEGER,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 群体洞察表（Z世代群体的行为模式）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS cohort_insights (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    insight_type TEXT NOT NULL,
+                    insight_category TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    data_source TEXT,
+                    sample_size INTEGER,
+                    confidence_level REAL,
+                    tags TEXT,
+                    generated_month INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
 
             conn.commit()
     
@@ -1388,6 +1442,157 @@ class FinAIDatabase:
                     'interest_rate': r[3], 'unemployment': r[4], 'cpi_index': r[5],
                     'house_price_index': r[6], 'stock_index': r[7],
                     'economic_phase': r[8], 'active_event': r[9]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    # ============ 行为洞察系统方法 ============
+    
+    def log_behavior(self, session_id: str, month: int, action_type: str,
+                    action_category: str, amount: float = None, risk_score: float = None,
+                    rationality_score: float = None, market_condition: str = None,
+                    decision_context: str = None) -> None:
+        """记录用户行为日志"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO behavior_logs (
+                    session_id, month, action_type, action_category, amount,
+                    risk_score, rationality_score, market_condition, decision_context
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (session_id, month, action_type, action_category, amount,
+                  risk_score, rationality_score, market_condition, decision_context))
+            conn.commit()
+    
+    def get_behavior_logs(self, session_id: str, months: int = None) -> List[Dict]:
+        """获取行为日志"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            if months:
+                cursor.execute('''
+                    SELECT month, action_type, action_category, amount, risk_score,
+                           rationality_score, market_condition, decision_context, created_at
+                    FROM behavior_logs
+                    WHERE session_id = ?
+                    ORDER BY month DESC
+                    LIMIT ?
+                ''', (session_id, months * 10))  # 假设每月约10条记录
+            else:
+                cursor.execute('''
+                    SELECT month, action_type, action_category, amount, risk_score,
+                           rationality_score, market_condition, decision_context, created_at
+                    FROM behavior_logs
+                    WHERE session_id = ?
+                    ORDER BY month DESC
+                ''', (session_id,))
+            return [
+                {
+                    'month': r[0], 'action_type': r[1], 'action_category': r[2],
+                    'amount': r[3], 'risk_score': r[4], 'rationality_score': r[5],
+                    'market_condition': r[6], 'decision_context': r[7], 'created_at': r[8]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def update_behavior_profile(self, session_id: str, profile_data: Dict) -> None:
+        """更新行为画像"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO behavior_profiles (
+                    session_id, risk_preference, decision_style, loss_aversion,
+                    overconfidence, herding_tendency, planning_ability,
+                    action_count, avg_risk_score, avg_rationality, last_updated_month
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    risk_preference = excluded.risk_preference,
+                    decision_style = excluded.decision_style,
+                    loss_aversion = excluded.loss_aversion,
+                    overconfidence = excluded.overconfidence,
+                    herding_tendency = excluded.herding_tendency,
+                    planning_ability = excluded.planning_ability,
+                    action_count = excluded.action_count,
+                    avg_risk_score = excluded.avg_risk_score,
+                    avg_rationality = excluded.avg_rationality,
+                    last_updated_month = excluded.last_updated_month,
+                    updated_at = CURRENT_TIMESTAMP
+            ''', (
+                session_id, profile_data['risk_preference'], profile_data['decision_style'],
+                profile_data['loss_aversion'], profile_data['overconfidence'],
+                profile_data['herding_tendency'], profile_data['planning_ability'],
+                profile_data['action_count'], profile_data['avg_risk_score'],
+                profile_data['avg_rationality'], profile_data['last_updated_month']
+            ))
+            conn.commit()
+    
+    def get_behavior_profile(self, session_id: str) -> Dict:
+        """获取行为画像"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT risk_preference, decision_style, loss_aversion, overconfidence,
+                       herding_tendency, planning_ability, action_count, avg_risk_score,
+                       avg_rationality, last_updated_month, updated_at
+                FROM behavior_profiles
+                WHERE session_id = ?
+            ''', (session_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'risk_preference': row[0], 'decision_style': row[1],
+                    'loss_aversion': row[2], 'overconfidence': row[3],
+                    'herding_tendency': row[4], 'planning_ability': row[5],
+                    'action_count': row[6], 'avg_risk_score': row[7],
+                    'avg_rationality': row[8], 'last_updated_month': row[9],
+                    'updated_at': row[10]
+                }
+            return None
+    
+    def save_cohort_insight(self, insight_data: Dict) -> None:
+        """保存群体洞察"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO cohort_insights (
+                    insight_type, insight_category, title, description,
+                    data_source, sample_size, confidence_level, tags, generated_month
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                insight_data['insight_type'], insight_data['insight_category'],
+                insight_data['title'], insight_data['description'],
+                insight_data.get('data_source'), insight_data.get('sample_size'),
+                insight_data.get('confidence_level'), insight_data.get('tags'),
+                insight_data['generated_month']
+            ))
+            conn.commit()
+    
+    def get_cohort_insights(self, insight_type: str = None, limit: int = 20) -> List[Dict]:
+        """获取群体洞察列表"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            if insight_type:
+                cursor.execute('''
+                    SELECT id, insight_type, insight_category, title, description,
+                           data_source, sample_size, confidence_level, tags, generated_month, created_at
+                    FROM cohort_insights
+                    WHERE insight_type = ?
+                    ORDER BY generated_month DESC
+                    LIMIT ?
+                ''', (insight_type, limit))
+            else:
+                cursor.execute('''
+                    SELECT id, insight_type, insight_category, title, description,
+                           data_source, sample_size, confidence_level, tags, generated_month, created_at
+                    FROM cohort_insights
+                    ORDER BY generated_month DESC
+                    LIMIT ?
+                ''', (limit,))
+            return [
+                {
+                    'id': r[0], 'insight_type': r[1], 'insight_category': r[2],
+                    'title': r[3], 'description': r[4], 'data_source': r[5],
+                    'sample_size': r[6], 'confidence_level': r[7], 'tags': r[8],
+                    'generated_month': r[9], 'created_at': r[10]
                 }
                 for r in cursor.fetchall()
             ]

@@ -504,6 +504,101 @@ ACHIEVEMENTS: List[Achievement] = [
         reward_exp=10000,
         reward_title="人生赢家"
     ),
+    
+    # ============ 行为洞察成就 ============
+    Achievement(
+        id="BEHAVIOR_RATIONAL",
+        name="理性投资者",
+        description="连续保持高理性决策评分",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.RARE,
+        icon="🧠",
+        condition_desc="平均理性评分 ≥ 80%",
+        reward_coins=1000,
+        reward_exp=500,
+        reward_title="理性投资者"
+    ),
+    Achievement(
+        id="BEHAVIOR_DIVERSE",
+        name="多元配置师",
+        description="展现出色的资产多元化能力",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.UNCOMMON,
+        icon="🎨",
+        condition_desc="持有3类以上不同资产",
+        reward_coins=500,
+        reward_exp=250
+    ),
+    Achievement(
+        id="BEHAVIOR_STABLE",
+        name="稳健派",
+        description="风险偏好稳定，不受市场情绪影响",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.RARE,
+        icon="⚖️",
+        condition_desc="风险偏好波动率 < 10%",
+        reward_coins=800,
+        reward_exp=400
+    ),
+    Achievement(
+        id="BEHAVIOR_PLANNER",
+        name="财务规划师",
+        description="展现出色的财务规划能力",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.UNCOMMON,
+        icon="📋",
+        condition_desc="规划能力评分 ≥ 70%",
+        reward_coins=600,
+        reward_exp=300
+    ),
+    Achievement(
+        id="BEHAVIOR_NO_HERD",
+        name="独立思考者",
+        description="不盲目跟风，保持独立判断",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.RARE,
+        icon="🦅",
+        condition_desc="羊群倾向 < 30%",
+        reward_coins=1000,
+        reward_exp=500,
+        reward_title="独行侠"
+    ),
+    Achievement(
+        id="BEHAVIOR_LOW_RISK",
+        name="风控达人",
+        description="持续保持低风险行为",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.UNCOMMON,
+        icon="🛡️",
+        condition_desc="平均风险评分 < 30%",
+        reward_coins=500,
+        reward_exp=250
+    ),
+    Achievement(
+        id="BEHAVIOR_CONSISTENT",
+        name="一致性大师",
+        description="决策风格保持高度一致",
+        category=AchievementCategory.SKILL,
+        rarity=AchievementRarity.LEGENDARY,
+        icon="🎯",
+        condition_desc="决策一致性 ≥ 90%",
+        reward_coins=2000,
+        reward_exp=1000,
+        reward_title="始终如一",
+        hidden=True
+    ),
+    Achievement(
+        id="BEHAVIOR_IMPROVED",
+        name="自我提升者",
+        description="行为评分持续改善",
+        category=AchievementCategory.SPECIAL,
+        rarity=AchievementRarity.UNCOMMON,
+        icon="📈",
+        condition_desc="3个月内理性评分提升20%",
+        reward_coins=600,
+        reward_exp=300,
+        hidden=True
+    ),
 ]
 
 
@@ -719,6 +814,95 @@ class AchievementSystem:
         
         return unlocked
     
+    def check_behavior_achievements(self, behavior_profile: Dict, game_month: int) -> List[Dict]:
+        """基于行为洞察检查成就
+        
+        Args:
+            behavior_profile: 行为画像数据
+            game_month: 游戏月份
+            
+        Returns:
+            新解锁的成就列表
+        """
+        unlocked = []
+        
+        if not behavior_profile:
+            return unlocked
+        
+        # 理性投资者 - 平均理性评分 >= 80%
+        avg_rationality = behavior_profile.get('avg_rationality', 0)
+        if avg_rationality >= 0.8:
+            r = self.check_and_unlock("BEHAVIOR_RATIONAL", game_month)
+            if r: unlocked.append(r)
+        
+        # 规划能力评分 >= 70%
+        planning_ability = behavior_profile.get('planning_ability', 0)
+        if planning_ability >= 0.7:
+            r = self.check_and_unlock("BEHAVIOR_PLANNER", game_month)
+            if r: unlocked.append(r)
+        
+        # 独立思考者 - 羊群倾向 < 30%
+        herding_tendency = behavior_profile.get('herding_tendency', 1)
+        if herding_tendency < 0.3:
+            r = self.check_and_unlock("BEHAVIOR_NO_HERD", game_month)
+            if r: unlocked.append(r)
+        
+        # 风控达人 - 平均风险评分 < 30%
+        avg_risk = behavior_profile.get('avg_risk_score', 1)
+        if avg_risk < 0.3:
+            r = self.check_and_unlock("BEHAVIOR_LOW_RISK", game_month)
+            if r: unlocked.append(r)
+        
+        return unlocked
+    
+    def check_behavior_diversity(self, portfolio: Dict, game_month: int) -> Optional[Dict]:
+        """检查资产多元化成就
+        
+        Args:
+            portfolio: 投资组合
+            game_month: 游戏月份
+        """
+        asset_types = set()
+        
+        # 检查各类资产
+        if portfolio.get('stocks') and len(portfolio['stocks']) > 0:
+            asset_types.add('stocks')
+        if portfolio.get('deposits') and any(d.get('amount', 0) > 0 for d in portfolio.get('deposits', [])):
+            asset_types.add('deposits')
+        if portfolio.get('bonds') and len(portfolio.get('bonds', [])) > 0:
+            asset_types.add('bonds')
+        if portfolio.get('funds') and len(portfolio.get('funds', [])) > 0:
+            asset_types.add('funds')
+        if portfolio.get('real_estate') and len(portfolio.get('real_estate', [])) > 0:
+            asset_types.add('real_estate')
+        if portfolio.get('insurance') and len(portfolio.get('insurance', [])) > 0:
+            asset_types.add('insurance')
+        
+        if len(asset_types) >= 3:
+            return self.check_and_unlock("BEHAVIOR_DIVERSE", game_month)
+        return None
+    
+    def check_behavior_improvement(self, 
+                                   current_rationality: float, 
+                                   history: List[float],
+                                   game_month: int) -> Optional[Dict]:
+        """检查行为改善成就
+        
+        Args:
+            current_rationality: 当前理性评分
+            history: 历史理性评分
+            game_month: 游戏月份
+        """
+        if len(history) >= 3:
+            # 3个月前的评分
+            old_score = history[-3] if len(history) >= 3 else history[0]
+            improvement = current_rationality - old_score
+            
+            # 提升超过20%
+            if improvement >= 0.2:
+                return self.check_and_unlock("BEHAVIOR_IMPROVED", game_month)
+        return None
+
     def record_first_action(self, action: str, game_month: int) -> Optional[Dict]:
         """记录首次行动"""
         action_map = {

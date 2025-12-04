@@ -6,6 +6,7 @@ import Home from '../views/HomeNew.vue'
 import Assets from '../views/Assets.vue'
 import World from '../views/World.vue'
 import Profile from '../views/Profile.vue'
+import Insights from '../views/Insights.vue'
 
 const routes = [
   {
@@ -47,6 +48,12 @@ const routes = [
     path: '/profile',
     name: 'Profile',
     component: Profile,
+    meta: { requiresAuth: true, requiresCharacter: true }
+  },
+  {
+    path: '/insights',
+    name: 'Insights',
+    component: Insights,
     meta: { requiresAuth: true, requiresCharacter: true }
   }
 ]

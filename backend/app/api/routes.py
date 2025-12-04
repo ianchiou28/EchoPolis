@@ -1161,6 +1161,24 @@ async def buy_stock(data: dict):
             
             conn.commit()
         
+        # 记录行为日志
+        try:
+            if game_service.behavior_system:
+                from core.systems.macro_economy import macro_economy
+                market_state = {
+                    'economic_phase': macro_economy.current_phase,
+                }
+                action_data = {
+                    'amount': total_cost,
+                    'cash': cash,
+                    'monthly_expense': 3000,  # 可以从数据库获取
+                }
+                game_service.behavior_system.log_action(
+                    session_id, current_month, 'stock_buy', action_data, market_state
+                )
+        except Exception as e:
+            print(f"[BehaviorLog] Failed to log stock buy: {e}")
+        
         return {
             "success": True,
             "message": f"成功买入 {stock['name']} {shares}股",
@@ -1236,6 +1254,24 @@ async def sell_stock(data: dict):
             ''', (session_id, stock_id, stock["name"], shares, price, total_revenue, current_month, profit))
             
             conn.commit()
+        
+        # 记录行为日志
+        try:
+            if game_service.behavior_system:
+                from core.systems.macro_economy import macro_economy
+                market_state = {
+                    'economic_phase': macro_economy.current_phase,
+                }
+                action_data = {
+                    'amount': total_revenue,
+                    'cash': cash,
+                    'reason': 'stop_loss' if profit < 0 else 'take_profit'
+                }
+                game_service.behavior_system.log_action(
+                    session_id, current_month, 'stock_sell', action_data, market_state
+                )
+        except Exception as e:
+            print(f"[BehaviorLog] Failed to log stock sell: {e}")
         
         return {
             "success": True,
@@ -1375,6 +1411,23 @@ async def apply_loan(data: dict):
                 cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
                 conn.commit()
             
+            # 记录行为日志
+            try:
+                if game_service.behavior_system:
+                    from core.systems.macro_economy import macro_economy
+                    market_state = {'economic_phase': macro_economy.current_phase}
+                    action_data = {
+                        'amount': amount,
+                        'cash': cash,
+                        'use_loan': True,
+                        'term_months': term_months
+                    }
+                    game_service.behavior_system.log_action(
+                        session_id, current_month, 'loan_apply', action_data, market_state
+                    )
+            except Exception as e:
+                print(f"[BehaviorLog] Failed to log loan apply: {e}")
+            
             return {
                 "success": True,
                 "message": f"贷款审批通过，¥{amount:,}已到账",
@@ -1470,6 +1523,22 @@ async def purchase_insurance(data: dict):
                 "remaining_months": policy.remaining_months,
                 "max_claims": policy.max_claims
             })
+            
+            # 记录行为日志
+            try:
+                if game_service.behavior_system:
+                    from core.systems.macro_economy import macro_economy
+                    market_state = {'economic_phase': macro_economy.current_phase}
+                    action_data = {
+                        'amount': policy.monthly_premium,
+                        'coverage': policy.coverage_amount,
+                        'insurance_type': policy.insurance_type.value
+                    }
+                    game_service.behavior_system.log_action(
+                        session_id, current_month, 'insurance_buy', action_data, market_state
+                    )
+            except Exception as e:
+                print(f"[BehaviorLog] Failed to log insurance buy: {e}")
             
             return {
                 "success": True,
@@ -1827,6 +1896,8 @@ async def make_deposit(request: dict):
         if not assets or assets.get('cash', 0) < amount:
             return {"success": False, "error": "现金不足"}
         
+        cash = assets.get('cash', 0)
+        
         # 扣除现金
         game_service.db.update_cash(session_id, -amount, "存款")
         
@@ -1836,6 +1907,24 @@ async def make_deposit(request: dict):
         
         if hasattr(game_service.db, 'add_deposit'):
             game_service.db.add_deposit(session_id, amount, deposit_type, rate)
+        
+        # 记录行为日志
+        try:
+            if game_service.behavior_system:
+                from core.systems.macro_economy import macro_economy
+                market_state = {'economic_phase': macro_economy.current_phase}
+                action_data = {
+                    'amount': amount,
+                    'cash': cash,
+                    'deposit_type': deposit_type,
+                    'rate': rate
+                }
+                current_month = game_service.db.get_session_month(session_id)
+                game_service.behavior_system.log_action(
+                    session_id, current_month, 'bank_deposit', action_data, market_state
+                )
+        except Exception as e:
+            print(f"[BehaviorLog] Failed to log deposit: {e}")
         
         return {"success": True, "message": f"成功存入 ¥{amount}"}
     except Exception as e:
@@ -2251,6 +2340,24 @@ async def buy_property(request: dict):
             cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
             conn.commit()
         
+        # 记录行为日志
+        try:
+            if game_service.behavior_system:
+                from core.systems.macro_economy import macro_economy
+                market_state = {'economic_phase': macro_economy.current_phase}
+                action_data = {
+                    'amount': price,
+                    'cash': cash,
+                    'use_loan': payment_method != 'full',
+                    'property_type': prop['type']
+                }
+                current_month = game_service.db.get_session_month(session_id)
+                game_service.behavior_system.log_action(
+                    session_id, current_month, 'house_buy', action_data, market_state
+                )
+        except Exception as e:
+            print(f"[BehaviorLog] Failed to log house buy: {e}")
+        
         return {"success": True, "message": f"成功购买{prop['name']}！", "new_cash": new_cash}
     except Exception as e:
         print(f"[Housing] Buy error: {e}")
@@ -2302,6 +2409,23 @@ async def rent_house(request: dict):
                     updated_at = CURRENT_TIMESTAMP
             ''', (session_id, rental['name'], rental['monthly'], rental['happiness']))
             conn.commit()
+        
+        # 记录行为日志
+        try:
+            if game_service.behavior_system:
+                from core.systems.macro_economy import macro_economy
+                market_state = {'economic_phase': macro_economy.current_phase}
+                action_data = {
+                    'amount': rental['monthly'],
+                    'happiness_effect': rental['happiness'],
+                    'rental_type': rental_id
+                }
+                current_month = game_service.db.get_session_month(session_id)
+                game_service.behavior_system.log_action(
+                    session_id, current_month, 'house_rent', action_data, market_state
+                )
+        except Exception as e:
+            print(f"[BehaviorLog] Failed to log house rent: {e}")
         
         return {"success": True, "message": f"已租住{rental['name']}"}
     except Exception as e:
@@ -2517,6 +2641,25 @@ async def do_lifestyle_activity(request: dict):
             
             conn.commit()
         
+        # 记录行为日志
+        try:
+            if game_service.behavior_system:
+                from core.systems.macro_economy import macro_economy
+                market_state = {'economic_phase': macro_economy.current_phase}
+                action_data = {
+                    'amount': cost,
+                    'cash': cash,
+                    'activity_type': activity_id,
+                    'happiness_effect': effects.get('happiness', 0)
+                }
+                current_month = game_service.db.get_session_month(session_id)
+                action_type = 'lifestyle_luxury' if cost > 1000 else 'lifestyle_basic'
+                game_service.behavior_system.log_action(
+                    session_id, current_month, action_type, action_data, market_state
+                )
+        except Exception as e:
+            print(f"[BehaviorLog] Failed to log lifestyle activity: {e}")
+        
         return {
             "success": True,
             "message": "活动完成",
@@ -2613,3 +2756,195 @@ async def get_side_businesses(session_id: str):
         return {"success": True, "businesses": businesses}
     except Exception as e:
         return {"success": True, "businesses": []}
+
+# ============ 行为洞察API ============
+
+@router.get("/insights/personal/{session_id}")
+async def get_personal_insights(session_id: str):
+    """获取个人行为洞察"""
+    try:
+        if not game_service.behavior_system:
+            return {"success": False, "error": "行为洞察系统未初始化"}
+        
+        insights = game_service.behavior_system.get_personal_insights(session_id)
+        return {
+            "success": True,
+            "data": insights
+        }
+    except Exception as e:
+        print(f"[Insights] Personal insights error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/insights/cohort")
+async def get_cohort_insights(insight_type: str = None, limit: int = 20):
+    """获取群体洞察"""
+    try:
+        if not game_service.db:
+            return {"success": False, "error": "数据库未初始化"}
+        
+        insights = game_service.db.get_cohort_insights(insight_type, limit)
+        return {
+            "success": True,
+            "data": insights
+        }
+    except Exception as e:
+        print(f"[Insights] Cohort insights error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/insights/statistics/{session_id}")
+async def get_behavior_statistics(session_id: str):
+    """获取行为统计数据（用于图表）"""
+    try:
+        if not game_service.behavior_system:
+            return {"success": False, "error": "行为洞察系统未初始化"}
+        
+        stats = game_service.behavior_system.get_behavior_statistics(session_id)
+        return {
+            "success": True,
+            "data": stats
+        }
+    except Exception as e:
+        print(f"[Insights] Statistics error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/insights/ai/{session_id}")
+async def get_ai_insight(session_id: str):
+    """获取AI生成的个性化洞察"""
+    try:
+        if not game_service.behavior_system:
+            return {"success": False, "error": "行为洞察系统未初始化"}
+        
+        # 设置AI引擎
+        if game_service.ai_engine and not game_service.behavior_system.ai_engine:
+            game_service.behavior_system.set_ai_engine(game_service.ai_engine)
+        
+        current_month = game_service.db.get_session_month(session_id)
+        insight = await game_service.behavior_system.generate_ai_insight(session_id, current_month)
+        
+        if insight:
+            return {"success": True, "data": insight}
+        else:
+            return {"success": False, "error": "无法生成AI洞察，请确保有足够的行为数据"}
+    except Exception as e:
+        print(f"[Insights] AI insight error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 行为预警 API ==========
+@router.get("/insights/warnings/{session_id}")
+async def get_behavior_warnings(session_id: str):
+    """获取行为预警信息"""
+    try:
+        if not game_service.behavior_system:
+            return {"success": False, "error": "行为洞察系统未初始化"}
+        
+        # 获取当前月份作为游戏状态
+        current_month = game_service.db.get_session_month(session_id) if game_service.db else 0
+        state = {'current_month': current_month or 0}
+        
+        # 获取预警
+        warnings = game_service.behavior_system.get_warnings(session_id, state)
+        
+        # 按严重程度排序
+        severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
+        warnings.sort(key=lambda w: severity_order.get(w.get('severity', 'low'), 4))
+        
+        # 统计
+        stats = {
+            'total': len(warnings),
+            'critical': len([w for w in warnings if w.get('severity') == 'critical']),
+            'high': len([w for w in warnings if w.get('severity') == 'high']),
+            'medium': len([w for w in warnings if w.get('severity') == 'medium']),
+            'low': len([w for w in warnings if w.get('severity') == 'low'])
+        }
+        
+        return {
+            "success": True,
+            "warnings": warnings,
+            "stats": stats
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Warnings] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 同龄人对比 API ==========
+@router.get("/insights/peer-comparison/{session_id}")
+async def get_peer_comparison(session_id: str):
+    """获取与同龄人的行为对比"""
+    try:
+        if not game_service.behavior_system:
+            return {"success": False, "error": "行为洞察系统未初始化"}
+        
+        # 获取对比数据
+        comparison_data = game_service.behavior_system.get_peer_comparison(session_id)
+        
+        return {
+            "success": True,
+            "data": comparison_data
+        }
+        
+    except Exception as e:
+        print(f"[PeerComparison] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 行为演变趋势 API ==========
+@router.get("/insights/evolution/{session_id}")
+async def get_behavior_evolution(session_id: str):
+    """获取行为演变趋势数据"""
+    try:
+        if not game_service.behavior_system:
+            return {"success": False, "error": "行为洞察系统未初始化"}
+        
+        evolution_data = game_service.behavior_system.get_behavior_evolution(session_id)
+        
+        return {
+            "success": True,
+            "data": evolution_data
+        }
+        
+    except Exception as e:
+        print(f"[Evolution] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== 行为日志列表 API ==========
+@router.get("/behavior-logs/{session_id}")
+async def get_behavior_logs_list(session_id: str, limit: int = 50):
+    """获取行为日志列表（用于时间线展示）"""
+    try:
+        if not game_service.db:
+            return {"success": False, "error": "数据库未初始化"}
+        
+        logs = game_service.db.get_behavior_logs(session_id, months=999)  # 获取所有
+        
+        # 只返回最近的记录
+        recent_logs = logs[:limit] if logs else []
+        
+        return {
+            "success": True,
+            "data": recent_logs,
+            "total": len(logs) if logs else 0
+        }
+        
+    except Exception as e:
+        print(f"[BehaviorLogs] Error: {e}")
+        return {
+            "success": True,
+            "data": [],
+            "total": 0
+        }
