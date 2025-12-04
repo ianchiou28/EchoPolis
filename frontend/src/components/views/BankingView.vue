@@ -513,6 +513,7 @@ onMounted(() => {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .col-left, .col-right {
@@ -889,7 +890,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 280px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 </style>
