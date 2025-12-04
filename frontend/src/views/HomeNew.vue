@@ -25,11 +25,6 @@
 
       <div class="nav-spacer"></div>
 
-      <!-- 音乐播放器 -->
-      <div class="music-section">
-        <MusicPlayer ref="musicPlayerRef" @stateChange="isBgmPlaying = $event" />
-      </div>
-
       <!-- 底部操作按钮 -->
       <div class="system-actions">
         <button class="action-btn settings-btn" @click="showSettings = true">
@@ -59,8 +54,11 @@
         <div class="brand-logo">
           <span class="highlight">EchoPolis</span> // 系统
         </div>
-        <div class="header-meta">
-          <span>{{ currentDate }}</span>
+        <div class="header-right">
+          <div class="header-meta">
+            <span>{{ currentDate }}</span>
+          </div>
+          <MusicPlayer ref="musicPlayerRef" @stateChange="isBgmPlaying = $event" />
         </div>
       </header>
 
@@ -757,14 +755,7 @@ onUnmounted(() => {
 }
 
 .nav-spacer {
-  display: none; /* 移除spacer，使用flex布局 */
-}
-
-/* 音乐播放器区域 */
-.music-section {
-  flex-shrink: 0;
-  padding: 8px;
-  border-top: 2px solid var(--term-border);
+  flex: 1; /* 填充剩余空间 */
 }
 
 /* 底部操作按钮 */
@@ -858,6 +849,13 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   position: relative;
+}
+
+/* 顶栏右侧区域 */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .header-meta {
