@@ -173,7 +173,7 @@ export const useGameStore = defineStore('game', {
     async loadCityState() {
       const character = this.getCurrentCharacter()
       if (!character) return
-      if (!this.avatar) await this.loadAvatar()
+      // 移除阻塞的 loadAvatar 调用，让 bootstrapHome 并行处理
       const res = await axios.get('/api/city/state', { 
         params: { 
           session_id: character.id,
@@ -552,6 +552,7 @@ export const useGameStore = defineStore('game', {
     },
 
     async bootstrapHome() {
+      console.log('[Game Store] bootstrapHome 开始')
       // 检查并修复旧的localStorage数据（数字id → session_id）
       const character = this.getCurrentCharacter()
       if (character && typeof character.id === 'number') {
@@ -589,13 +590,24 @@ export const useGameStore = defineStore('game', {
         }
       }
       
-      await this.loadAvatar()
-      await this.loadCityState()
-      await this.loadTransactions()
-      await this.loadMacroIndicators()
+      console.log('[Game Store] 开始并行加载数据（非阻塞）')
+      
+      // 并行加载核心数据（不阻塞页面渲染）
+      // 使用独立的 Promise，不等待完成
+      this.loadAvatar().catch(err => console.error('[Game Store] loadAvatar 失败:', err))
+      this.loadCityState().catch(err => console.error('[Game Store] loadCityState 失败:', err))
+      this.loadTransactions().catch(err => console.error('[Game Store] loadTransactions 失败:', err))
+      this.loadMacroIndicators().catch(err => console.error('[Game Store] loadMacroIndicators 失败:', err))
+      
+      // 情境生成放在后台，不阻塞
       if (!this.currentSituation) {
-        await this.generateSituation()
+        console.log('[Game Store] 开始后台生成情境')
+        this.generateSituation().catch(err => {
+          console.error('[Game Store] 情境生成失败:', err)
+        })
       }
+      
+      console.log('[Game Store] bootstrapHome 立即返回（数据在后台加载）')
     },
 
     async sendEcho(echoText, echoType = 'advisory') {

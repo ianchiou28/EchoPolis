@@ -814,13 +814,18 @@ watch(chatMessages, async () => {
   }
 }, { deep: true })
 
-onMounted(async () => {
+onMounted(() => {
+  console.log('[HomeNew] onMounted 开始执行')
   window.addEventListener('resize', updateMobileState)
   themeStore.applyTheme()
-  await gameStore.bootstrapHome()
   
-  // 加载活跃效果
-  await loadActiveEffects()
+  // 后台加载，不阻塞页面渲染
+  console.log('[HomeNew] 开始后台加载数据')
+  gameStore.bootstrapHome()
+  
+  // 加载活跃效果（后台执行）
+  loadActiveEffects()
+  console.log('[HomeNew] onMounted 执行完毕，页面应该已经渲染')
 })
 
 // 加载活跃效果
