@@ -38,6 +38,31 @@
                 </div>
               </div>
 
+              <!-- 行为日志样式 -->
+              <div v-else-if="item.source === 'behavior'" class="event-card behavior">
+                <div class="event-header">
+                  <span class="event-type behavior-type">🧠 行为</span>
+                  <span class="event-time">第{{ item.game_month }}月</span>
+                </div>
+                <div class="behavior-content">
+                  <div class="event-title">{{ item.title }}</div>
+                  <div class="behavior-scores">
+                    <span class="score-item">
+                      <span class="score-label">风险</span>
+                      <span class="score-value" :class="getRiskLevel(item.risk_score)">
+                        {{ (item.risk_score * 100).toFixed(0) }}%
+                      </span>
+                    </span>
+                    <span class="score-item">
+                      <span class="score-label">理性</span>
+                      <span class="score-value" :class="getRationalityLevel(item.rationality_score)">
+                        {{ (item.rationality_score * 100).toFixed(0) }}%
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <!-- 事件记录样式 -->
               <div v-else class="event-card event">
                 <div class="event-header">
@@ -66,6 +91,43 @@ import { useGameStore } from '../../stores/game'
 
 const gameStore = useGameStore()
 const loading = ref(true)
+const behaviorLogs = ref([])
+const showBehavior = ref(true)  // 是否显示行为日志
+
+// 获取 session ID
+const getSessionId = () => {
+  const character = gameStore.getCurrentCharacter()
+  return character?.id || null
+}
+
+// 加载行为日志
+const loadBehaviorLogs = async () => {
+  const sessionId = getSessionId()
+  if (!sessionId) return
+  
+  try {
+    const response = await fetch(`http://localhost:8000/api/insights/statistics/${sessionId}`)
+    const result = await response.json()
+    if (result.success && result.data) {
+      // 从统计数据中获取行为日志
+      // 这里简化处理，实际可以新增专门的行为日志API
+    }
+  } catch (error) {
+    console.error('Failed to load behavior logs:', error)
+  }
+  
+  // 直接从数据库获取行为日志
+  try {
+    const response = await fetch(`http://localhost:8000/api/behavior-logs/${sessionId}`)
+    const result = await response.json()
+    if (result.success) {
+      behaviorLogs.value = result.data || []
+    }
+  } catch (error) {
+    // 如果API不存在，使用空数组
+    behaviorLogs.value = []
+  }
+}
 
 // 合并并排序所有时间线项目
 const timelineItems = computed(() => {
@@ -83,7 +145,16 @@ const timelineItems = computed(() => {
     description: t.description || t.ai_thoughts || ''
   }))
 
-  return [...events, ...transactions].sort((a, b) => b.timestamp - a.timestamp)
+  // 添加行为日志
+  const behaviors = showBehavior.value ? behaviorLogs.value.map(b => ({
+    ...b,
+    source: 'behavior',
+    timestamp: new Date(b.created_at || Date.now()).getTime(),
+    title: getCategoryLabel(b.action_category),
+    description: b.action_data ? JSON.stringify(b.action_data).slice(0, 100) : ''
+  })) : []
+
+  return [...events, ...transactions, ...behaviors].sort((a, b) => b.timestamp - a.timestamp)
 })
 
 onMounted(async () => {
@@ -91,7 +162,8 @@ onMounted(async () => {
     console.log('Loading timeline events...')
     await Promise.all([
       gameStore.loadCityState(),
-      gameStore.loadTransactions()
+      gameStore.loadTransactions(),
+      loadBehaviorLogs()
     ])
   } catch (e) {
     console.error('Failed to load timeline:', e)
@@ -109,6 +181,34 @@ const getEventType = (type) => {
     'action': '行动'
   }
   return map[type] || '记录'
+}
+
+const getCategoryLabel = (category) => {
+  const labels = {
+    'stock_buy': '买入股票',
+    'stock_sell': '卖出股票',
+    'loan_apply': '申请贷款',
+    'loan_repay': '偿还贷款',
+    'insurance_buy': '购买保险',
+    'house_buy': '购买房产',
+    'house_rent': '租房',
+    'lifestyle_change': '生活方式变更',
+    'deposit': '存款',
+    'investment': '投资决策'
+  }
+  return labels[category] || category || '行为'
+}
+
+const getRiskLevel = (score) => {
+  if (score >= 0.7) return 'high-risk'
+  if (score >= 0.4) return 'medium-risk'
+  return 'low-risk'
+}
+
+const getRationalityLevel = (score) => {
+  if (score >= 0.7) return 'high-rationality'
+  if (score >= 0.4) return 'medium-rationality'
+  return 'low-rationality'
 }
 
 const formatDate = (ts) => {
@@ -268,5 +368,79 @@ const formatDate = (ts) => {
   text-align: center;
   padding: 40px;
   color: var(--term-text-secondary);
+}
+
+/* 行为日志样式 */
+.dot.behavior {
+  background: #9c27b0;
+  border-radius: 50%;
+}
+
+.event-card.behavior {
+  border-left: 4px solid #9c27b0;
+  background: rgba(156, 39, 176, 0.05);
+}
+
+.behavior-type {
+  background: #9c27b0 !important;
+}
+
+.behavior-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.behavior-scores {
+  display: flex;
+  gap: 16px;
+}
+
+.score-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.score-label {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.score-value {
+  font-weight: 900;
+  font-size: 14px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.score-value.high-risk {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+.score-value.medium-risk {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+}
+
+.score-value.low-risk {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.score-value.high-rationality {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.score-value.medium-rationality {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+}
+
+.score-value.low-rationality {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
 }
 </style>

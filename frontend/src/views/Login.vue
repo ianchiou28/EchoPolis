@@ -5,7 +5,7 @@
 
     <div class="login-container">
       <div class="brand-header">
-        <h1 class="brand-logo">FinAI<span class="highlight">金融模拟沙盘</span></h1>
+        <h1 class="brand-logo">ECHOPOLIS</h1>
         <p class="subtitle">WEALTH SIMULATION SYSTEM // 财富人生沙盘</p>
       </div>
 
@@ -150,19 +150,20 @@ const register = async () => {
 .brand-header {
   text-align: center;
   margin-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .brand-logo {
+  font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
   font-weight: 900;
-  font-size: 56px;
-  letter-spacing: -1px;
+  font-size: 52px;
+  letter-spacing: -2px;
   text-transform: uppercase;
-  color: var(--term-text);
-  margin: 0;
-}
-
-.brand-logo .highlight {
   color: var(--term-accent);
+  margin: 0;
+  font-style: italic;
 }
 
 .subtitle {

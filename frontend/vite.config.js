@@ -2,8 +2,10 @@ import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [vue()],
+  // 只在生产构建时使用子路径，开发时使用根路径
+  base: command === 'build' ? '/echopolis/' : '/',
   envDir: '..',
   resolve: {
     alias: {
@@ -19,4 +21,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

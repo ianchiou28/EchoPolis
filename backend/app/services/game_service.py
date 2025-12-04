@@ -13,6 +13,7 @@ try:
     from core.systems.asset_calculator import asset_calculator
     from core.systems.investment_system import investment_system
     from core.systems.macro_economy import macro_economy
+    from core.systems.behavior_insight_system import BehaviorInsightSystem
     from core.ai.deepseek_engine import DeepSeekEngine
     AI_AVAILABLE = True
 except ImportError as e:
@@ -23,6 +24,7 @@ class GameService:
     def __init__(self):
         self.game_sessions = {}
         self.ai_engine = None
+        self.behavior_system = None
         
         # 初始化数据库
         try:
@@ -40,6 +42,15 @@ class GameService:
             except Exception as e:
                 print(f"AI Engine failed to initialize: {e}")
                 self.ai_engine = None
+            
+            # 初始化行为洞察系统
+            try:
+                if self.db:
+                    self.behavior_system = BehaviorInsightSystem(self.db)
+                    print("Behavior Insight System initialized successfully")
+            except Exception as e:
+                print(f"Behavior Insight System failed to initialize: {e}")
+                self.behavior_system = None
 
     def get_mbti_types(self) -> Dict[str, Any]:
         if AI_AVAILABLE:
@@ -219,6 +230,31 @@ class GameService:
             try:
                 print(f"[DEBUG] Trying AI situation generation...")
                 avatar = session["avatar"]
+                
+                # 设置行为画像数据到 avatar
+                if self.behavior_system:
+                    try:
+                        behavior_profile = self.db.get_behavior_profile(session_id)
+                        if behavior_profile:
+                            avatar.set_behavior_profile(behavior_profile)
+                            print(f"[DEBUG] Set behavior profile: {behavior_profile.get('risk_preference')}")
+                    except Exception as e:
+                        print(f"[DEBUG] Failed to get behavior profile: {e}")
+                
+                # 设置职业状态到 avatar
+                try:
+                    from core.systems.career_system import career_system
+                    career_info = career_system.get_career_status(session_id)
+                    # career_info 可能为 None（玩家无业时），需要转换为标准格式
+                    if career_info:
+                        avatar.set_career_status({"current_job": career_info})
+                        print(f"[DEBUG] Set career status: {career_info.get('title', '未知')}")
+                    else:
+                        avatar.set_career_status({"current_job": None})
+                        print(f"[DEBUG] Set career status: 无业")
+                except Exception as e:
+                    print(f"[DEBUG] Failed to get career status: {e}")
+                
                 situation = avatar.generate_situation(self.ai_engine)
                 if situation:
                     print(f"[DEBUG] AI situation generated successfully")
@@ -879,6 +915,43 @@ class GameService:
                 "ai_generated": False,
             }
             
+        # ============ 12. 行为洞察分析 ============
+        behavior_profile = None
+        behavior_achievements = []
+        try:
+            if self.behavior_system:
+                # 每3个月更新一次行为画像
+                if new_month % 3 == 0:
+                    behavior_profile = self.behavior_system.analyze_profile(session_id, new_month)
+                    print(f"[GameService] Behavior profile updated: {behavior_profile['risk_preference']} / {behavior_profile['decision_style']}")
+                    
+                    # 检查行为相关成就
+                    if behavior_profile:
+                        behavior_achievements = self.achievement_system.check_behavior_achievements(
+                            behavior_profile, new_month
+                        )
+                        
+                        # 检查资产多元化成就
+                        portfolio = {
+                            'stocks': session.portfolio.get('stocks', {}),
+                            'deposits': session.portfolio.get('time_deposits', []),
+                            'real_estate': session.portfolio.get('houses', []),
+                            'insurance': session.portfolio.get('insurances', [])
+                        }
+                        diverse_ach = self.achievement_system.check_behavior_diversity(portfolio, new_month)
+                        if diverse_ach:
+                            behavior_achievements.append(diverse_ach)
+                        
+                        if behavior_achievements:
+                            print(f"[GameService] Behavior achievements unlocked: {[a['name'] for a in behavior_achievements]}")
+                
+                # 每6个月生成一次群体洞察
+                if new_month % 6 == 0:
+                    cohort_insights = self.behavior_system.generate_cohort_insights(new_month)
+                    print(f"[GameService] Generated {len(cohort_insights)} cohort insights")
+        except Exception as e:
+            print(f"[GameService] Behavior insight analysis failed: {e}")
+        
         print(f"[GameService] advance_session completed. New month: {new_month}, Cash: {new_cash}, Total: {total_assets}")
         
         return {
@@ -920,8 +993,8 @@ class GameService:
             "macro_economy": macro_stats,
             # 触发的事件
             "events": triggered_events,
-            # 解锁的成就
-            "achievements": new_achievements
+            # 解锁的成就（包括行为成就）
+            "achievements": new_achievements + behavior_achievements
         }
 
     def finish_session(self, session_id: str) -> Dict[str, Any]:
@@ -1200,11 +1273,13 @@ class GameService:
         action_type = "none"
         
         # 明确的投资关键词 (优先级高)
-        invest_keywords = ["股票", "基金", "房产", "债券", "期货", "股权", "理财", "定投", "投资", "买入", "持有", "建仓", "跟投"]
+        invest_keywords = ["股票", "基金", "房产", "债券", "期货", "股权", "理财", "定投", "投资", "买入", "持有", "建仓", "跟投", "投入", "支持项目", "众筹", "入股", "注资", "项目", "回报", "收益"]
         # 明确的存款关键词
         deposit_keywords = ["储蓄", "存入", "存款", "存钱"]
         # 明确的消费关键词
         spend_keywords = ["消费", "购买", "花费", "支付", "买", "租"]
+        # 资金关键词（表示涉及金钱操作）
+        money_keywords = ["CP", "元", "块钱", "资金", "费用", "成本"]
         
         if any(k in option_text for k in invest_keywords):
             action_type = "invest"
@@ -1212,6 +1287,13 @@ class GameService:
             action_type = "deposit"
         elif any(k in option_text for k in spend_keywords):
             action_type = "spend"
+        elif amount > 0 and any(k in option_text for k in money_keywords):
+            # 如果有金额且有资金关键词，默认当作投资/支出
+            # 检查是否有正面词汇（投入、支持）暗示是投资
+            if any(k in option_text for k in ["投入", "支持", "贡献", "赞助"]):
+                action_type = "invest"
+            else:
+                action_type = "spend"
         
         print(f"[GameService] Parsed decision: type={action_type}, amount={amount}")
         
