@@ -1092,6 +1092,63 @@ class FinAIDatabase:
                 'win_rate': winning_trades / total_trades if total_trades > 0 else 0
             }
     
+    # ============ 存款系统方法 ============
+    
+    def add_deposit(self, session_id: str, amount: int, deposit_type: str, rate: float, current_month: int = 1) -> None:
+        """添加存款记录"""
+        import uuid
+        
+        # 计算到期月份
+        term_map = {'demand': 0, 'fixed_3m': 3, 'fixed_1y': 12, 'fixed_3y': 36}
+        term = term_map.get(deposit_type, 0)
+        maturity_month = current_month + term if term > 0 else None
+        
+        name_map = {'demand': '活期存款', 'fixed_3m': '3个月定期', 'fixed_1y': '1年定期', 'fixed_3y': '3年定期'}
+        product_name = name_map.get(deposit_type, '活期存款')
+        
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            product_id = f"deposit_{deposit_type}_{uuid.uuid4().hex[:8]}"
+            cursor.execute('''
+                INSERT INTO financial_holdings (
+                    session_id, product_id, product_name, product_type, amount, 
+                    buy_price, current_value, buy_month, maturity_month, is_active
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ''', (
+                session_id, product_id, product_name, 'deposit', amount,
+                rate, amount, current_month, maturity_month
+            ))
+            conn.commit()
+    
+    def get_deposits(self, session_id: str) -> List[Dict]:
+        """获取存款列表"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT product_id, product_name, amount, buy_price, current_value, 
+                       buy_month, maturity_month
+                FROM financial_holdings
+                WHERE session_id = ? AND product_type = 'deposit' AND is_active = 1
+            ''', (session_id,))
+            return [
+                {
+                    'id': r[0], 'name': r[1], 'amount': r[2], 'rate': r[3],
+                    'value': r[4], 'buy_month': r[5], 'maturity_month': r[6]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def get_total_deposits(self, session_id: str) -> int:
+        """获取存款总额"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COALESCE(SUM(amount), 0)
+                FROM financial_holdings
+                WHERE session_id = ? AND product_type = 'deposit' AND is_active = 1
+            ''', (session_id,))
+            return cursor.fetchone()[0]
+
     # ============ 贷款系统方法 ============
     
     def save_loan(self, session_id: str, loan_data: Dict) -> None:

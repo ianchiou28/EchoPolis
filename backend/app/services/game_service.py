@@ -545,6 +545,8 @@ class GameService:
         if not self.db:
             raise Exception("数据库未初始化")
         import sqlite3
+        from core.systems.market_engine import market_engine
+        
         with sqlite3.connect(self.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('SELECT name, mbti, credits, username FROM users WHERE session_id = ?', (session_id,))
@@ -555,13 +557,45 @@ class GameService:
             cursor.execute('SELECT current_month FROM sessions WHERE session_id = ?', (session_id,))
             srow = cursor.fetchone()
             current_month = srow[0] if srow else 1
-            # 当前投资
+            
+            # 当前投资（非股票类）
             cursor.execute('''
                 SELECT SUM(amount) FROM investments
                 WHERE session_id = ? AND remaining_months > 0
             ''', (session_id,))
             invested = cursor.fetchone()[0] or 0
-            total_assets = credits + invested
+            
+            # 存款总额
+            cursor.execute('''
+                SELECT COALESCE(SUM(amount), 0) FROM financial_holdings
+                WHERE session_id = ? AND product_type = 'deposit' AND is_active = 1
+            ''', (session_id,))
+            deposits = cursor.fetchone()[0] or 0
+            
+            # 股票持仓市值
+            cursor.execute('''
+                SELECT stock_id, shares, avg_cost FROM stock_holdings
+                WHERE session_id = ? AND shares > 0
+            ''', (session_id,))
+            stock_holdings = cursor.fetchall()
+            stock_value = 0
+            for stock_id, shares, avg_cost in stock_holdings:
+                stock = market_engine.get_stock_quote(stock_id)
+                if stock:
+                    stock_value += int(stock["price"] * shares)
+                else:
+                    stock_value += int(avg_cost * shares)  # fallback to cost
+            
+            # 贷款负债
+            cursor.execute('''
+                SELECT COALESCE(SUM(remaining_principal), 0) FROM loans
+                WHERE session_id = ? AND remaining_months > 0
+            ''', (session_id,))
+            loans = cursor.fetchone()[0] or 0
+            
+            # 总资产 = 现金 + 存款 + 投资 + 股票市值 - 贷款
+            total_assets = credits + deposits + invested + stock_value - loans
+            
         timeline = self.db.get_session_timeline(session_id, limit=36)
         return {
             "session_id": session_id,
@@ -570,7 +604,10 @@ class GameService:
             "username": username,
             "current_month": current_month,
             "cash": credits,
-            "invested_assets": invested,
+            "invested_assets": invested + stock_value,
+            "deposits": deposits,
+            "loans": loans,
+            "stock_value": stock_value,
             "total_assets": total_assets,
             "timeline": timeline,
         }
