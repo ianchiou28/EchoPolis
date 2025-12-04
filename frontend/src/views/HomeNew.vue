@@ -12,14 +12,33 @@
       </div>
       
       <div class="nav-section">
-        <div class="section-label">目录</div>
+        <div class="section-label">导航</div>
+        
+        <!-- 主页按钮 -->
         <div 
-          v-for="item in navItems" 
-          :key="item.id"
-          :class="['nav-item', { active: currentView === item.id }]"
-          @click="handleNavClick(item.id)">
-          <span class="icon">{{ item.icon }}</span>
-          {{ item.label }}
+          :class="['nav-item', { active: currentView === 'city' && !activeGroup }]"
+          @click="goToCity">
+          <span class="icon">🏠</span>
+          主页
+        </div>
+
+        <!-- 分组导航 -->
+        <div 
+          v-for="group in navGroups" 
+          :key="group.id"
+          :class="['nav-item', { active: activeGroup === group.id }]"
+          @click="selectGroup(group.id)">
+          <span class="icon">{{ group.icon }}</span>
+          {{ group.label }}
+          <span class="arrow">›</span>
+        </div>
+
+        <!-- 排行榜单独导航 -->
+        <div 
+          :class="['nav-item', { active: currentView === 'leaderboard' }]"
+          @click="openView('leaderboard')">
+          <span class="icon">🏅</span>
+          排行榜
         </div>
       </div>
 
@@ -51,6 +70,15 @@
       <!-- Top Header -->
       <header class="top-bar">
         <button class="menu-btn" @click="isSidebarOpen = true">☰</button>
+        
+        <!-- 返回按钮（当在子页面时显示） -->
+        <button 
+          v-if="(activeGroup && !currentView) || (currentView && currentView !== 'city')" 
+          class="header-back-btn" 
+          @click="handleBack">
+          ← 返回
+        </button>
+        
         <div class="brand-logo">
           <span class="highlight">EchoPolis</span> // 系统
         </div>
@@ -63,7 +91,7 @@
       </header>
 
       <!-- Game View Layer -->
-      <div class="game-viewport" v-show="currentView === 'city'">
+      <div class="game-viewport" v-show="currentView === 'city' && !activeGroup">
         
         <!-- Mobile View Switcher -->
         <div class="mobile-view-switch">
@@ -318,8 +346,30 @@
         </div>
       </div>
 
+      <!-- 分组卡片选择面板 -->
+      <div class="group-cards-panel" v-if="activeGroup && !currentView">
+        <div class="cards-header">
+          <button class="back-btn" @click="goToCity">
+            <span>←</span> 返回主页
+          </button>
+          <h2 class="cards-title">{{ getGroupLabel(activeGroup) }}</h2>
+        </div>
+        <div class="cards-grid">
+          <div 
+            v-for="item in getGroupItems(activeGroup)" 
+            :key="item.id"
+            class="view-card"
+            @click="openView(item.id)"
+          >
+            <div class="card-icon">{{ item.icon }}</div>
+            <div class="card-label">{{ item.label }}</div>
+            <div class="card-desc">{{ item.desc }}</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Placeholder for other views (Timeline, World, etc.) -->
-      <div class="view-placeholder" v-if="currentView !== 'city'">
+      <div class="view-placeholder" v-if="currentView && currentView !== 'city'">
         <ProfileView v-if="currentView === 'profile'" />
         <BankingView v-if="currentView === 'banking'" />
         <HousingView v-if="currentView === 'housing'" />
@@ -395,7 +445,39 @@ const isBgmPlaying = ref(false)
 const eventModalRef = ref(null)
 const pendingEvents = ref([])
 const activeEffects = ref([])
+const activeGroup = ref(null)
 
+// 导航分组
+const navGroups = [
+  { id: 'personal', label: '个人中心', icon: '👤' },
+  { id: 'finance', label: '金融服务', icon: '💰' },
+  { id: 'life', label: '生活规划', icon: '🏠' },
+  { id: 'system', label: '系统档案', icon: '📊' }
+]
+
+// 分组内的页面项
+const groupItems = {
+  personal: [
+    { id: 'profile', label: '主体数据', icon: '👤', desc: '查看角色属性与状态' },
+    { id: 'insights', label: '行为洞察', icon: '🧠', desc: 'AI分析你的决策模式' },
+    { id: 'achievements', label: '成就系统', icon: '🏆', desc: '解锁的成就与里程碑' }
+  ],
+  finance: [
+    { id: 'banking', label: '银行系统', icon: '🏦', desc: '存款、贷款与理财' },
+    { id: 'trading', label: '股票交易', icon: '📈', desc: '股票投资与交易' }
+  ],
+  life: [
+    { id: 'career', label: '职业发展', icon: '💼', desc: '工作与职业规划' },
+    { id: 'housing', label: '房产管理', icon: '🏘️', desc: '房产购买与投资' },
+    { id: 'lifestyle', label: '生活方式', icon: '🎯', desc: '消费与生活品质' }
+  ],
+  system: [
+    { id: 'logs', label: '档案库', icon: '📖', desc: '历史记录与存档' },
+    { id: 'timeline', label: '时间线', icon: '🕒', desc: '人生轨迹回顾' }
+  ]
+}
+
+// 旧的 navItems 保留兼容
 const navItems = [
   { id: 'city', label: '城市概览', icon: '⚡' },
   { id: 'profile', label: '主体数据', icon: '👤' },
@@ -534,6 +616,57 @@ const handleNavClick = (viewId) => {
   }
   currentView.value = viewId
   isSidebarOpen.value = false // Close sidebar on mobile selection
+}
+
+// 新的分组导航函数
+const goToCity = () => {
+  activeGroup.value = null
+  currentView.value = 'city'
+  isSidebarOpen.value = false
+}
+
+const selectGroup = (groupId) => {
+  activeGroup.value = groupId
+  currentView.value = null
+  isSidebarOpen.value = false
+}
+
+const getGroupLabel = (groupId) => {
+  const group = navGroups.find(g => g.id === groupId)
+  return group ? group.label : ''
+}
+
+const getGroupItems = (groupId) => {
+  return groupItems[groupId] || []
+}
+
+const openView = (viewId) => {
+  if (viewId === 'insights') {
+    router.push('/insights')
+    return
+  }
+  currentView.value = viewId
+}
+
+const backToCards = () => {
+  if (activeGroup.value) {
+    // 有分组，返回卡片选择
+    currentView.value = null
+  } else {
+    // 没有分组，返回主页
+    currentView.value = 'city'
+  }
+}
+
+// 全局返回按钮处理
+const handleBack = () => {
+  if (currentView.value && currentView.value !== 'city') {
+    // 在具体页面，返回到卡片或主页
+    backToCards()
+  } else if (activeGroup.value) {
+    // 在卡片面板，返回主页
+    goToCity()
+  }
 }
 
 const handleAdvance = async () => {
@@ -733,9 +866,8 @@ onUnmounted(() => {
 
 .nav-section {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 16px;
-  min-height: 0; /* 重要：允许flex子项收缩 */
 }
 
 .nav-header {
@@ -756,6 +888,121 @@ onUnmounted(() => {
 
 .nav-spacer {
   flex: 1; /* 填充剩余空间 */
+}
+
+/* 导航项箭头 */
+.nav-item .arrow {
+  margin-left: auto;
+  font-size: 16px;
+  opacity: 0.5;
+  transition: transform 0.2s;
+}
+
+.nav-item:hover .arrow {
+  transform: translateX(3px);
+  opacity: 1;
+}
+
+/* 分组卡片面板 */
+.group-cards-panel {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.cards-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.cards-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--term-accent);
+  margin: 0;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 2px solid var(--term-border);
+  color: var(--term-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.view-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
+}
+
+.view-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.15);
+  border-color: var(--term-accent);
+}
+
+.card-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.card-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--term-text);
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  font-size: 12px;
+  color: var(--term-dim);
+  line-height: 1.4;
+}
+
+/* 顶栏返回按钮 */
+.header-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 2px solid var(--term-border);
+  color: var(--term-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-right: 12px;
+}
+
+.header-back-btn:hover {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
 }
 
 /* 底部操作按钮 */
