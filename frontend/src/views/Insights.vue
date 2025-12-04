@@ -1,45 +1,48 @@
 <template>
-  <div class="insights-container">
-    <div class="terminal-header">
-      <div class="header-tabs">
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'personal' }"
-          @click="activeTab = 'personal'">
-          个人画像
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'statistics' }"
-          @click="activeTab = 'statistics'; loadStatistics()">
-          行为统计
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'ai' }"
-          @click="activeTab = 'ai'">
-          AI洞察
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'cohort' }"
-          @click="activeTab = 'cohort'">
-          群体洞察
-        </button>
-        <button 
-          class="tab-btn warning-tab" 
-          :class="{ active: activeTab === 'warnings' }"
-          @click="activeTab = 'warnings'; loadWarnings()">
-          ⚠️ 预警
-          <span v-if="warningStats.critical > 0" class="warning-badge critical">
-            {{ warningStats.critical }}
-          </span>
-          <span v-else-if="warningStats.total > 0" class="warning-badge">
-            {{ warningStats.total }}
-          </span>
-        </button>
-        <button class="back-btn" @click="goBack">← 返回</button>
-      </div>
+  <div class="view-container">
+    <div class="view-header">
+      <h2>行为洞察 // BEHAVIOR_INSIGHTS</h2>
+      <div class="header-line"></div>
+    </div>
+
+    <!-- 标签页导航 -->
+    <div class="tabs-nav">
+      <button 
+        class="tab-btn" 
+        :class="{ active: activeTab === 'personal' }"
+        @click="activeTab = 'personal'">
+        📊 个人画像
+      </button>
+      <button 
+        class="tab-btn" 
+        :class="{ active: activeTab === 'statistics' }"
+        @click="activeTab = 'statistics'; loadStatistics()">
+        📈 行为统计
+      </button>
+      <button 
+        class="tab-btn" 
+        :class="{ active: activeTab === 'ai' }"
+        @click="activeTab = 'ai'">
+        🤖 AI洞察
+      </button>
+      <button 
+        class="tab-btn" 
+        :class="{ active: activeTab === 'cohort' }"
+        @click="activeTab = 'cohort'">
+        👥 群体洞察
+      </button>
+      <button 
+        class="tab-btn warning-tab" 
+        :class="{ active: activeTab === 'warnings' }"
+        @click="activeTab = 'warnings'; loadWarnings()">
+        ⚠️ 预警
+        <span v-if="warningStats.critical > 0" class="warning-badge critical">
+          {{ warningStats.critical }}
+        </span>
+        <span v-else-if="warningStats.total > 0" class="warning-badge">
+          {{ warningStats.total }}
+        </span>
+      </button>
     </div>
 
     <!-- 个人画像标签页 -->
@@ -48,89 +51,126 @@
         <div class="scanline-loader">分析行为数据中...</div>
       </div>
 
-      <div v-else-if="personalData && personalData.profile" class="personal-insights">
-        <!-- 行为画像卡片 -->
-        <div class="insight-card profile-card">
-          <div class="card-title">您的行为画像</div>
-          <div class="profile-grid">
-            <div class="profile-item">
-              <span class="item-label">风险偏好</span>
-              <span class="item-value" :class="`risk-${personalData.profile.risk_preference}`">
-                {{ getRiskLabel(personalData.profile.risk_preference) }}
-              </span>
-            </div>
-            <div class="profile-item">
-              <span class="item-label">决策风格</span>
-              <span class="item-value">{{ getStyleLabel(personalData.profile.decision_style) }}</span>
-            </div>
-            <div class="profile-item">
-              <span class="item-label">损失厌恶</span>
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: (personalData.profile.loss_aversion * 100) + '%' }"></div>
+      <div v-else-if="personalData && personalData.profile" class="content-grid">
+        <!-- 左列：行为画像 -->
+        <div class="col-left">
+          <div class="archive-card">
+            <div class="archive-header">行为画像</div>
+            <div class="archive-body">
+              <div class="profile-grid">
+                <div class="profile-item">
+                  <span class="item-label">风险偏好</span>
+                  <span class="item-value" :class="`risk-${personalData.profile.risk_preference}`">
+                    {{ getRiskLabel(personalData.profile.risk_preference) }}
+                  </span>
+                </div>
+                <div class="profile-item">
+                  <span class="item-label">决策风格</span>
+                  <span class="item-value">{{ getStyleLabel(personalData.profile.decision_style) }}</span>
+                </div>
               </div>
-              <span class="percent-value">{{ (personalData.profile.loss_aversion * 100).toFixed(0) }}%</span>
-            </div>
-            <div class="profile-item">
-              <span class="item-label">过度自信</span>
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: (personalData.profile.overconfidence * 100) + '%' }"></div>
+              
+              <div class="profile-bars">
+                <div class="bar-item">
+                  <div class="bar-label">
+                    <span>损失厌恶</span>
+                    <span>{{ (personalData.profile.loss_aversion * 100).toFixed(0) }}%</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" :style="{ width: (personalData.profile.loss_aversion * 100) + '%' }"></div>
+                  </div>
+                </div>
+                <div class="bar-item">
+                  <div class="bar-label">
+                    <span>过度自信</span>
+                    <span>{{ (personalData.profile.overconfidence * 100).toFixed(0) }}%</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill warning" :style="{ width: (personalData.profile.overconfidence * 100) + '%' }"></div>
+                  </div>
+                </div>
+                <div class="bar-item">
+                  <div class="bar-label">
+                    <span>羊群倾向</span>
+                    <span>{{ (personalData.profile.herding_tendency * 100).toFixed(0) }}%</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" :style="{ width: (personalData.profile.herding_tendency * 100) + '%' }"></div>
+                  </div>
+                </div>
+                <div class="bar-item">
+                  <div class="bar-label">
+                    <span>规划能力</span>
+                    <span>{{ (personalData.profile.planning_ability * 100).toFixed(0) }}%</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill success" :style="{ width: (personalData.profile.planning_ability * 100) + '%' }"></div>
+                  </div>
+                </div>
               </div>
-              <span class="percent-value">{{ (personalData.profile.overconfidence * 100).toFixed(0) }}%</span>
-            </div>
-            <div class="profile-item">
-              <span class="item-label">羊群倾向</span>
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: (personalData.profile.herding_tendency * 100) + '%' }"></div>
+              
+              <div class="profile-stats">
+                <div class="stat-box">
+                  <span class="stat-value">{{ personalData.profile.action_count }}</span>
+                  <span class="stat-label">行为记录</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-value">{{ (personalData.profile.avg_risk_score * 100).toFixed(0) }}%</span>
+                  <span class="stat-label">平均风险</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-value">{{ (personalData.profile.avg_rationality * 100).toFixed(0) }}%</span>
+                  <span class="stat-label">平均理性</span>
+                </div>
               </div>
-              <span class="percent-value">{{ (personalData.profile.herding_tendency * 100).toFixed(0) }}%</span>
-            </div>
-            <div class="profile-item">
-              <span class="item-label">规划能力</span>
-              <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: (personalData.profile.planning_ability * 100) + '%' }"></div>
-              </div>
-              <span class="percent-value">{{ (personalData.profile.planning_ability * 100).toFixed(0) }}%</span>
             </div>
           </div>
-          <div class="profile-stats">
-            <span>行为记录: {{ personalData.profile.action_count }}次</span>
-            <span>平均风险: {{ (personalData.profile.avg_risk_score * 100).toFixed(0) }}%</span>
-            <span>平均理性: {{ (personalData.profile.avg_rationality * 100).toFixed(0) }}%</span>
+
+          <!-- 近期行为统计 -->
+          <div v-if="personalData.recent_actions && personalData.recent_actions.total_actions" class="archive-card flex-grow">
+            <div class="archive-header">近期行为（3个月）</div>
+            <div class="archive-body">
+              <div class="stats-row">
+                <div class="stat-box">
+                  <span class="stat-value accent">{{ personalData.recent_actions.total_actions }}</span>
+                  <span class="stat-label">总行为数</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-value">{{ (personalData.recent_actions.avg_risk * 100).toFixed(0) }}%</span>
+                  <span class="stat-label">平均风险</span>
+                </div>
+                <div class="stat-box">
+                  <span class="stat-value success">{{ (personalData.recent_actions.avg_rationality * 100).toFixed(0) }}%</span>
+                  <span class="stat-label">平均理性</span>
+                </div>
+              </div>
+              <div class="category-list">
+                <div class="list-title">行为分布</div>
+                <div v-for="(count, category) in personalData.recent_actions.by_category" :key="category" class="category-row">
+                  <span class="category-name">{{ getCategoryLabel(category) }}</span>
+                  <span class="category-count">{{ count }}次</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- 近期行为统计 -->
-        <div v-if="personalData.recent_actions && personalData.recent_actions.total_actions" class="insight-card">
-          <div class="card-title">近期行为统计（3个月）</div>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-value">{{ personalData.recent_actions.total_actions }}</div>
-              <div class="stat-label">总行为数</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ (personalData.recent_actions.avg_risk * 100).toFixed(0) }}%</div>
-              <div class="stat-label">平均风险</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ (personalData.recent_actions.avg_rationality * 100).toFixed(0) }}%</div>
-              <div class="stat-label">平均理性</div>
+        <!-- 右列：个性化建议 -->
+        <div class="col-right">
+          <div v-if="personalData.recommendations && personalData.recommendations.length" class="archive-card flex-grow">
+            <div class="archive-header">💡 个性化建议</div>
+            <div class="archive-body scrollable">
+              <div v-for="(rec, idx) in personalData.recommendations" :key="idx" class="recommendation-item">
+                <div class="rec-number">{{ idx + 1 }}</div>
+                <div class="rec-text">{{ rec }}</div>
+              </div>
             </div>
           </div>
-          <div class="category-breakdown">
-            <div class="card-subtitle">行为分布</div>
-            <div v-for="(count, category) in personalData.recent_actions.by_category" :key="category" class="category-item">
-              <span class="category-name">{{ getCategoryLabel(category) }}</span>
-              <span class="category-count">{{ count }}次</span>
+          <div v-else class="archive-card flex-grow">
+            <div class="archive-header">💡 个性化建议</div>
+            <div class="archive-body">
+              <div class="empty-state-small">暂无建议，继续游戏获取更多数据</div>
             </div>
-          </div>
-        </div>
-
-        <!-- 个性化建议 -->
-        <div v-if="personalData.recommendations && personalData.recommendations.length" class="insight-card recommendations">
-          <div class="card-title">个性化建议</div>
-          <div v-for="(rec, idx) in personalData.recommendations" :key="idx" class="recommendation-item">
-            <div class="rec-icon">💡</div>
-            <div class="rec-text">{{ rec }}</div>
           </div>
         </div>
       </div>
@@ -932,378 +972,181 @@ export default {
 </script>
 
 <style scoped>
-.insights-container {
+.view-container {
+  padding: 24px;
   height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background: var(--term-bg);
-  color: var(--term-text);
 }
 
-.terminal-header {
-  padding: 1rem;
-  border-bottom: 1px solid var(--term-border);
+.view-header h2 {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0 0 8px 0;
 }
 
-.header-tabs {
+.header-line {
+  height: 2px;
+  background: var(--term-border);
+  margin-bottom: 16px;
+}
+
+/* 标签页导航 */
+.tabs-nav {
   display: flex;
-  gap: 0.5rem;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .tab-btn {
-  padding: 0.5rem 1rem;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid var(--term-border);
   background: transparent;
   color: var(--term-text);
-  border: 1px solid var(--term-border);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .tab-btn:hover {
-  background: var(--term-border);
+  border-color: var(--term-accent);
 }
 
 .tab-btn.active {
   background: var(--term-accent);
   border-color: var(--term-accent);
+  color: #000;
 }
 
+.warning-tab {
+  position: relative;
+}
+
+.warning-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  background: var(--term-accent);
+  color: #000;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warning-badge.critical {
+  background: #ef4444;
+  color: #fff;
+}
+
+/* 内容区域 */
 .insights-content {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  min-height: 0;
 }
 
-.loading-state {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 300px;
+.content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  height: 100%;
 }
 
-.scanline-loader {
-  font-size: 1.2rem;
-  opacity: 0.7;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-
-.personal-insights, .cohort-insights {
+.col-left, .col-right {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 16px;
+  min-height: 0;
 }
 
-.insight-card {
-  background: rgba(var(--term-accent-rgb, 0, 255, 0), 0.05);
-  border: 1px solid var(--term-border);
-  padding: 1.5rem;
-  border-radius: 4px;
+.flex-grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.scrollable { flex: 1; overflow-y: auto; }
+
+/* Archive Card 统一样式 */
+.archive-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
 }
 
-.card-title {
-  font-size: 1.3rem;
-  font-weight: bold;
-  margin-bottom: 1rem;
-  color: var(--term-accent);
+.archive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.03);
+  border-bottom: 1px solid var(--term-border);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
 }
 
-.card-subtitle {
-  font-size: 1rem;
-  font-weight: bold;
-  margin: 1rem 0 0.5rem;
-  opacity: 0.8;
+.archive-body {
+  padding: 16px;
 }
 
+/* 画像样式 */
 .profile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .profile-item {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 4px;
 }
 
 .item-label {
-  font-size: 0.9rem;
-  opacity: 0.7;
+  font-size: 11px;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
 }
 
 .item-value {
-  font-size: 1.1rem;
-  font-weight: bold;
+  font-size: 16px;
+  font-weight: 800;
 }
 
-.risk-conservative {
-  color: #4caf50;
-}
+.risk-conservative { color: #10b981; }
+.risk-moderate { color: var(--term-accent); }
+.risk-aggressive { color: #ef4444; }
 
-.risk-moderate {
-  color: #ff9800;
-}
-
-.risk-aggressive {
-  color: #f44336;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--term-accent);
-  transition: width 0.5s;
-}
-
-.percent-value {
-  font-size: 0.9rem;
-  opacity: 0.8;
-}
-
-.profile-stats {
-  display: flex;
-  gap: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--term-border);
-  font-size: 0.9rem;
-  opacity: 0.7;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.stat-item {
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: bold;
-  color: var(--term-accent);
-}
-
-.stat-label {
-  font-size: 0.9rem;
-  opacity: 0.7;
-  margin-top: 0.5rem;
-}
-
-.category-breakdown {
-  margin-top: 1rem;
-}
-
-.category-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.category-name {
-  opacity: 0.8;
-}
-
-.category-count {
-  color: var(--term-accent);
-  font-weight: bold;
-}
-
-.recommendations {
-  background: rgba(var(--term-accent-rgb, 0, 255, 0), 0.08);
-}
-
-.recommendation-item {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-  margin-bottom: 0.75rem;
-}
-
-.rec-icon {
-  font-size: 1.5rem;
-}
-
-.rec-text {
-  flex: 1;
-  line-height: 1.6;
-}
-
-.insight-filters {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.filter-btn {
-  padding: 0.4rem 0.8rem;
-  background: transparent;
-  color: var(--term-text);
-  border: 1px solid var(--term-border);
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.3s;
-}
-
-.filter-btn:hover {
-  background: var(--term-border);
-}
-
-.filter-btn.active {
-  background: var(--term-accent);
-  border-color: var(--term-accent);
-}
-
-.cohort-list {
+/* 进度条 */
+.profile-bars {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.cohort-card {
-  padding: 1.2rem;
-}
-
-.cohort-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.cohort-tag {
-  padding: 0.25rem 0.75rem;
-  background: var(--term-accent);
-  color: var(--term-bg);
-  border-radius: 3px;
-  font-size: 0.8rem;
-  font-weight: bold;
-}
-
-.cohort-confidence {
-  font-size: 0.85rem;
-  opacity: 0.7;
-}
-
-.cohort-title {
-  font-size: 1.1rem;
-  font-weight: bold;
-  margin-bottom: 0.75rem;
-}
-
-.cohort-description {
-  line-height: 1.6;
-  opacity: 0.85;
-  margin-bottom: 1rem;
-}
-
-.cohort-meta {
-  display: flex;
-  gap: 1.5rem;
-  font-size: 0.85rem;
-  opacity: 0.6;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--term-border);
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 400px;
-  opacity: 0.6;
-}
-
-.empty-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
-}
-
-.empty-text {
-  font-size: 1.3rem;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-
-.empty-hint {
-  font-size: 0.95rem;
-  opacity: 0.7;
-}
-
-/* 返回按钮 */
-.back-btn {
-  margin-left: auto;
-  padding: 0.5rem 1rem;
-  background: transparent;
-  color: var(--term-text);
-  border: 1px solid var(--term-border);
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.back-btn:hover {
-  background: var(--term-border);
-}
-
-/* 行为统计图表样式 */
-.statistics-insights {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.radar-chart {
-  display: flex;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.radar-svg {
-  width: 300px;
-  height: 300px;
-}
-
-.bar-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .bar-item {
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .bar-label {
-  width: 60px;
-  font-size: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
 }
 
-.bar-container {
-  flex: 1;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.1);
+.bar-track {
+  height: 8px;
+  background: var(--term-border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -1314,84 +1157,655 @@ export default {
   transition: width 0.5s;
 }
 
-.bar-value {
-  width: 50px;
-  text-align: right;
-  font-size: 0.9rem;
+.bar-fill.success { background: #10b981; }
+.bar-fill.warning { background: #f59e0b; }
+
+/* 统计盒子 */
+.profile-stats, .stats-row {
+  display: flex;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--term-border);
+}
+
+.stat-box {
+  flex: 1;
+  text-align: center;
+  padding: 12px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--term-border);
+}
+
+.stat-value {
+  display: block;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.stat-value.accent { color: var(--term-accent); }
+.stat-value.success { color: #10b981; }
+
+.stat-label {
+  display: block;
+  font-size: 10px;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+/* 分类列表 */
+.category-list {
+  margin-top: 16px;
+}
+
+.list-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed var(--term-border);
+}
+
+.category-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  font-size: 12px;
+}
+
+.category-count {
+  font-weight: 700;
   color: var(--term-accent);
 }
 
-.trend-chart {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.trend-line {
+/* 建议列表 */
+.recommendation-item {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--term-border);
+  margin-bottom: 8px;
 }
 
-.trend-label {
-  font-size: 0.9rem;
-  opacity: 0.7;
-}
-
-.mini-chart {
+.rec-number {
+  width: 24px;
+  height: 24px;
+  background: var(--term-accent);
+  color: #000;
+  border-radius: 50%;
   display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 60px;
-  padding: 0.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.chart-bar {
+.rec-text {
   flex: 1;
-  min-height: 4px;
-  border-radius: 2px;
-  transition: height 0.3s;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-.risk-bar {
-  background: #f44336;
-}
-
-.rationality-bar {
-  background: #4caf50;
-}
-
-.activity-chart {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  height: 120px;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
-}
-
-.activity-item {
+/* 空状态 */
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  height: 300px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.empty-hint {
+  font-size: 13px;
+  color: var(--term-text-secondary);
+}
+
+.empty-state-small {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--term-text-secondary);
+  font-size: 13px;
+}
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px;
+}
+
+.scanline-loader {
+  font-size: 14px;
+  color: var(--term-text-secondary);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* 旧版样式兼容 - insight-card */
+.insight-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 16px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  color: var(--term-accent);
+  text-transform: uppercase;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 16px 0 8px;
+  color: var(--term-text-secondary);
+}
+
+/* 筛选按钮 */
+.insight-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  background: transparent;
+  color: var(--term-text);
+  border: 2px solid var(--term-border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  border-color: var(--term-accent);
+}
+
+.filter-btn.active {
+  background: var(--term-accent);
+  border-color: var(--term-accent);
+  color: #000;
+}
+
+/* 群体洞察 */
+.cohort-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cohort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cohort-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 16px;
+}
+
+.cohort-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.cohort-tag {
+  padding: 4px 10px;
+  background: var(--term-accent);
+  color: #000;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.cohort-confidence {
+  font-size: 11px;
+  color: var(--term-text-secondary);
+}
+
+.cohort-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.cohort-description {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--term-text-secondary);
+  margin-bottom: 12px;
+}
+
+.cohort-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  color: var(--term-text-secondary);
+  padding-top: 12px;
+  border-top: 1px dashed var(--term-border);
+}
+
+/* 统计图表 */
+.statistics-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.radar-chart {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.radar-svg {
+  width: 280px;
+  height: 280px;
+}
+
+/* AI 洞察 */
+.ai-insights {
+  max-width: 800px;
+}
+
+.ai-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 20px;
+}
+
+.ai-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+.ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  justify-content: center;
+  color: var(--term-text-secondary);
+}
+
+.ai-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--term-border);
+  border-top-color: var(--term-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-content {
+  margin-top: 16px;
+}
+
+.ai-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.ai-summary {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(0,0,0,0.03);
+  border-left: 3px solid var(--term-accent);
+}
+
+.ai-analysis {
+  font-size: 13px;
+  line-height: 1.7;
+  margin-bottom: 16px;
+}
+
+.ai-suggestions {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--term-border);
+}
+
+.suggestions-title {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.ai-suggestions ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ai-suggestions li {
+  font-size: 12px;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.ai-alert {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ai-meta {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--term-border);
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--term-text-secondary);
+}
+
+.generate-btn, .refresh-btn {
+  margin-top: 16px;
+  padding: 10px 20px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--term-accent);
+  color: #000;
+  border: 2px solid #000;
+  cursor: pointer;
+}
+
+.generate-btn:hover, .refresh-btn:hover {
+  opacity: 0.9;
+}
+
+/* 预警样式 */
+.warnings-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.warnings-summary {
+  display: flex;
+  gap: 16px;
+}
+
+.summary-card {
+  flex: 1;
+  padding: 16px;
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  text-align: center;
+}
+
+.summary-card.critical {
+  border-color: #ef4444;
+}
+
+.summary-value {
+  font-size: 28px;
+  font-weight: 900;
+}
+
+.summary-value.critical { color: #ef4444; }
+.summary-value.warning { color: #f59e0b; }
+
+.summary-label {
+  font-size: 11px;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.warnings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.warning-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  padding: 16px;
+}
+
+.warning-card.critical {
+  border-color: #ef4444;
+}
+
+.warning-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.warning-type {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.warning-severity {
+  font-size: 10px;
+  padding: 3px 8px;
+  font-weight: 700;
+}
+
+.warning-severity.critical {
+  background: #ef4444;
+  color: #fff;
+}
+
+.warning-severity.warning {
+  background: #f59e0b;
+  color: #000;
+}
+
+.warning-message {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.warning-details {
+  font-size: 11px;
+  color: var(--term-text-secondary);
+  padding-top: 8px;
+  border-top: 1px dashed var(--term-border);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+/* 进化图表 */
+.evolution-section {
+  margin-top: 16px;
+}
+
+.section-subtitle {
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--term-text-secondary);
+}
+
+.evolution-chart {
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--term-border);
+  padding: 16px;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot.risk { background: #ef4444; }
+.legend-dot.rationality { background: #10b981; }
+
+/* 里程碑 */
+.milestones-section {
+  margin-top: 20px;
+}
+
+.milestones-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.milestone-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--term-border);
+}
+
+.milestone-icon {
+  font-size: 20px;
+}
+
+.milestone-content {
   flex: 1;
 }
 
-.activity-bar {
-  width: 100%;
-  background: var(--term-accent);
-  border-radius: 2px;
-  min-height: 4px;
-  transition: height 0.3s;
+.milestone-title {
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.activity-label {
-  font-size: 0.75rem;
-  opacity: 0.6;
+.milestone-desc {
+  font-size: 11px;
+  color: var(--term-text-secondary);
+}
+
+.milestone-month {
+  font-size: 11px;
+  color: var(--term-accent);
+  font-weight: 700;
+}
+
+/* 同伴比较 */
+.peer-comparison {
+  margin-top: 16px;
+}
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.comparison-item {
+  padding: 12px;
+  background: rgba(0,0,0,0.02);
+  border: 1px solid var(--term-border);
+  text-align: center;
+}
+
+.comparison-label {
+  font-size: 10px;
+  color: var(--term-text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.comparison-values {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.your-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--term-accent);
+}
+
+.vs-text {
+  font-size: 10px;
+  color: var(--term-text-secondary);
+}
+
+.peer-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--term-text-secondary);
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .tabs-nav {
+    overflow-x: auto;
+  }
+  
+  .comparison-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* AI洞察样式 */

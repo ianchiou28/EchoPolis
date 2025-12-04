@@ -380,6 +380,7 @@
         <CareerView v-if="currentView === 'career'" />
         <LeaderboardView v-if="currentView === 'leaderboard'" />
         <AchievementView v-if="currentView === 'achievements'" />
+        <InsightsView v-if="currentView === 'insights'" />
       </div>
 
     </main>
@@ -411,6 +412,7 @@ import LeaderboardView from '../components/views/LeaderboardView.vue'
 import BankingView from '../components/views/BankingView.vue'
 import HousingView from '../components/views/HousingView.vue'
 import LifestyleView from '../components/views/LifestyleView.vue'
+import InsightsView from '../components/views/InsightsView.vue'
 import DistrictPreviewPanel from '../components/DistrictPreviewPanel.vue'
 import EventModal from '../components/EventModal.vue'
 import MusicPlayer from '../components/MusicPlayer.vue'
@@ -641,10 +643,6 @@ const getGroupItems = (groupId) => {
 }
 
 const openView = (viewId) => {
-  if (viewId === 'insights') {
-    router.push('/insights')
-    return
-  }
   currentView.value = viewId
 }
 

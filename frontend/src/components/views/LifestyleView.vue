@@ -76,20 +76,26 @@
         </div>
       </div>
 
-      <!-- Right: Activities & Business -->
-      <div class="col-right">
-        <!-- Entertainment -->
-        <div class="archive-card">
-          <div class="archive-header">
-            <span>休闲娱乐</span>
-            <span class="cash-display">💰 ¥{{ formatNumber(cash) }}</span>
+      <!-- Right: Activities & Business (Accordion) -->
+      <div class="col-right accordion-column">
+        <!-- 休闲娱乐 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'entertainment', collapsed: rightPanel && rightPanel !== 'entertainment' }"
+          @click="rightPanel !== 'entertainment' && (rightPanel = 'entertainment')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🎮</span>
+            <span class="accordion-title">休闲娱乐</span>
+            <span class="cash-display" v-if="rightPanel === 'entertainment'">💰 ¥{{ formatNumber(cash) }}</span>
+            <span class="accordion-arrow">{{ rightPanel === 'entertainment' ? '▼' : '▶' }}</span>
           </div>
-          <div class="archive-body">
+          <div class="accordion-body" v-show="rightPanel === 'entertainment'">
             <div class="activity-grid">
               <div v-for="act in entertainments" :key="act.id" 
                 class="activity-card"
                 :class="{ disabled: cash < act.cost }"
-                @click="doActivity(act)">
+                @click.stop="doActivity(act)">
                 <div class="card-icon">{{ act.icon }}</div>
                 <div class="card-name">{{ act.name }}</div>
                 <div class="card-cost">¥{{ act.cost }}</div>
@@ -102,15 +108,23 @@
           </div>
         </div>
 
-        <!-- Social Activities -->
-        <div class="archive-card">
-          <div class="archive-header">社交活动</div>
-          <div class="archive-body">
+        <!-- 社交活动 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'social', collapsed: rightPanel && rightPanel !== 'social' }"
+          @click="rightPanel !== 'social' && (rightPanel = 'social')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🤝</span>
+            <span class="accordion-title">社交活动</span>
+            <span class="accordion-arrow">{{ rightPanel === 'social' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'social'">
             <div class="social-list">
               <div v-for="act in socialActivities" :key="act.id" 
                 class="social-item"
                 :class="{ disabled: cash < act.cost }"
-                @click="doActivity(act)">
+                @click.stop="doActivity(act)">
                 <div class="social-main">
                   <div class="social-icon">{{ act.icon }}</div>
                   <div class="social-info">
@@ -130,10 +144,18 @@
           </div>
         </div>
 
-        <!-- Side Business -->
-        <div class="archive-card flex-grow">
-          <div class="archive-header">创业项目</div>
-          <div class="archive-body scrollable">
+        <!-- 创业项目 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'business', collapsed: rightPanel && rightPanel !== 'business' }"
+          @click="rightPanel !== 'business' && (rightPanel = 'business')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🚀</span>
+            <span class="accordion-title">创业项目</span>
+            <span class="accordion-arrow">{{ rightPanel === 'business' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'business'">
             <div v-for="biz in businesses" :key="biz.id" class="business-card">
               <div class="biz-header">
                 <span class="biz-icon">{{ biz.icon }}</span>
@@ -155,7 +177,7 @@
                   <span class="value" :class="'risk-' + biz.risk">{{ biz.riskText }}</span>
                 </div>
               </div>
-              <button class="term-btn" @click="startBusiness(biz)" 
+              <button class="term-btn" @click.stop="startBusiness(biz)" 
                 :disabled="cash < biz.investment || biz.status === 'running'">
                 {{ biz.status === 'running' ? '运营中' : '启动项目' }}
               </button>
@@ -179,6 +201,9 @@ import { useGameStore } from '../../stores/game'
 
 const gameStore = useGameStore()
 const cash = computed(() => gameStore.assets?.cash || 0)
+
+// 右侧面板切换
+const rightPanel = ref('entertainment')  // 'entertainment', 'social', or 'business'
 
 // 从store同步生活状态
 const happiness = computed(() => gameStore.avatar?.happiness || 60)
@@ -455,4 +480,41 @@ onMounted(async () => {
 .positive { color: #10b981; }
 .negative { color: #ef4444; }
 .empty-state { text-align: center; padding: 30px; color: var(--term-text-secondary); }
+
+/* Accordion Styles */
+.accordion-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.accordion-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.accordion-card.expanded { flex: 1; }
+.accordion-card.collapsed { flex: 0 0 auto; cursor: pointer; }
+.accordion-card.collapsed:hover { border-color: var(--term-accent); }
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.03);
+  border-bottom: 1px solid var(--term-border);
+  font-weight: 700;
+}
+
+.accordion-icon { font-size: 16px; }
+.accordion-title { flex: 1; font-size: 12px; text-transform: uppercase; }
+.accordion-arrow { font-size: 10px; color: var(--term-text-secondary); }
+.accordion-body { flex: 1; overflow-y: auto; padding: 16px; }
 </style>

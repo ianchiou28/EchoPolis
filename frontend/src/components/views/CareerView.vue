@@ -66,19 +66,25 @@
         </div>
       </div>
 
-      <!-- Right: Jobs & Side Business -->
-      <div class="col-right">
-        <!-- Available Jobs -->
-        <div class="archive-card">
-          <div class="archive-header">
-            <span>招聘市场</span>
-            <div class="filter-tabs">
+      <!-- Right: Jobs & Side Business (Accordion) -->
+      <div class="col-right accordion-column">
+        <!-- 招聘市场 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'jobs', collapsed: rightPanel && rightPanel !== 'jobs' }"
+          @click="rightPanel !== 'jobs' && (rightPanel = 'jobs')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">💼</span>
+            <span class="accordion-title">招聘市场</span>
+            <div class="filter-tabs" v-if="rightPanel === 'jobs'" @click.stop>
               <span v-for="ind in industries" :key="ind.id"
                 :class="['tab', { active: currentIndustry === ind.id }]"
                 @click="currentIndustry = ind.id">{{ ind.name }}</span>
             </div>
+            <span class="accordion-arrow">{{ rightPanel === 'jobs' ? '▼' : '▶' }}</span>
           </div>
-          <div class="archive-body scrollable" style="max-height: 200px;">
+          <div class="accordion-body" v-show="rightPanel === 'jobs'">
             <div v-for="job in filteredJobs" :key="job.id" class="job-row">
               <div class="job-info">
                 <div class="job-name">{{ job.title }}</div>
@@ -86,17 +92,25 @@
               </div>
               <div class="job-salary">
                 <div class="salary-range">¥{{ formatNumber(job.base_salary) }}/月</div>
-                <button class="term-btn small" @click="applyJob(job.id)" 
+                <button class="term-btn small" @click.stop="applyJob(job.id)" 
                   :disabled="!canApply(job)">申请</button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Side Business -->
-        <div class="archive-card flex-grow">
-          <div class="archive-header">副业收入</div>
-          <div class="archive-body scrollable">
+        <!-- 副业收入 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'business', collapsed: rightPanel && rightPanel !== 'business' }"
+          @click="rightPanel !== 'business' && (rightPanel = 'business')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🚀</span>
+            <span class="accordion-title">副业收入</span>
+            <span class="accordion-arrow">{{ rightPanel === 'business' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'business'">
             <div v-if="mySideBusiness" class="side-business-active">
               <div class="sb-header">
                 <span class="sb-icon">{{ mySideBusiness.icon }}</span>
@@ -120,7 +134,7 @@
                   </div>
                 </div>
               </div>
-              <button class="term-btn small" @click="startBusiness(sb.id)"
+              <button class="term-btn small" @click.stop="startBusiness(sb.id)"
                 :disabled="mySideBusiness !== null">开始</button>
             </div>
           </div>
@@ -140,6 +154,7 @@ const jobs = ref([])
 const sideBusiness = ref([])
 const mySideBusiness = ref(null)
 const currentIndustry = ref('all')
+const rightPanel = ref('jobs')  // 'jobs' or 'business'
 
 const industries = [
   { id: 'all', name: '全部' },
@@ -412,6 +427,43 @@ onMounted(() => {
 .term-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .empty-state { text-align: center; padding: 40px 20px; color: var(--term-text-secondary); }
+
+/* Accordion Styles */
+.accordion-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.accordion-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.accordion-card.expanded { flex: 1; }
+.accordion-card.collapsed { flex: 0 0 auto; cursor: pointer; }
+.accordion-card.collapsed:hover { border-color: var(--term-accent); }
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.03);
+  border-bottom: 1px solid var(--term-border);
+  font-weight: 700;
+}
+
+.accordion-icon { font-size: 16px; }
+.accordion-title { flex: 1; font-size: 12px; text-transform: uppercase; }
+.accordion-arrow { font-size: 10px; color: var(--term-text-secondary); }
+.accordion-body { flex: 1; overflow-y: auto; padding: 16px; }
 
 @media (max-width: 768px) {
   .content-grid { grid-template-columns: 1fr; }
