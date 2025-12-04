@@ -79,6 +79,15 @@ const formatDate = (ts) => {
   flex-direction: column;
 }
 
+.archive-header {
+  padding: 12px 16px;
+  font-weight: 900;
+  font-size: 12px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--term-border);
+  background: rgba(0,0,0,0.02);
+}
+
 .scrollable {
   flex: 1;
   overflow-y: auto;
@@ -137,3 +146,4 @@ const formatDate = (ts) => {
   color: var(--term-text-secondary);
 }
 </style>
+

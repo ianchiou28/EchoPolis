@@ -986,12 +986,152 @@ async def get_session_transactions(session_id: str, limit: int = 20):
 
 # ============ 股票市场 API ============
 
+def _aggregate_kline_weekly(daily_data: list) -> list:
+    """将日K数据聚合为周K"""
+    from datetime import datetime
+    if not daily_data:
+        return []
+    
+    weekly = []
+    week_data = []
+    current_week = None
+    
+    for d in daily_data:
+        date_str = d.get("date", "")
+        try:
+            date = datetime.strptime(date_str, "%Y-%m-%d")
+            week_num = date.isocalendar()[1]
+            year = date.year
+            week_key = f"{year}-{week_num}"
+        except:
+            continue
+        
+        if current_week is None:
+            current_week = week_key
+        
+        if week_key != current_week:
+            # 新的一周，聚合上一周的数据
+            if week_data:
+                weekly.append({
+                    "date": week_data[0]["date"],
+                    "open": week_data[0]["open"],
+                    "high": max(x["high"] for x in week_data),
+                    "low": min(x["low"] for x in week_data),
+                    "close": week_data[-1]["close"],
+                    "volume": sum(x["volume"] for x in week_data)
+                })
+            week_data = [d]
+            current_week = week_key
+        else:
+            week_data.append(d)
+    
+    # 处理最后一周
+    if week_data:
+        weekly.append({
+            "date": week_data[0]["date"],
+            "open": week_data[0]["open"],
+            "high": max(x["high"] for x in week_data),
+            "low": min(x["low"] for x in week_data),
+            "close": week_data[-1]["close"],
+            "volume": sum(x["volume"] for x in week_data)
+        })
+    
+    return weekly
+
+def _aggregate_kline_monthly(daily_data: list) -> list:
+    """将日K数据聚合为月K"""
+    if not daily_data:
+        return []
+    
+    monthly = []
+    month_data = []
+    current_month = None
+    
+    for d in daily_data:
+        date_str = d.get("date", "")
+        month_key = date_str[:7] if len(date_str) >= 7 else None
+        
+        if not month_key:
+            continue
+        
+        if current_month is None:
+            current_month = month_key
+        
+        if month_key != current_month:
+            # 新的一月，聚合上一月的数据
+            if month_data:
+                monthly.append({
+                    "date": month_data[0]["date"],
+                    "open": month_data[0]["open"],
+                    "high": max(x["high"] for x in month_data),
+                    "low": min(x["low"] for x in month_data),
+                    "close": month_data[-1]["close"],
+                    "volume": sum(x["volume"] for x in month_data)
+                })
+            month_data = [d]
+            current_month = month_key
+        else:
+            month_data.append(d)
+    
+    # 处理最后一月
+    if month_data:
+        monthly.append({
+            "date": month_data[0]["date"],
+            "open": month_data[0]["open"],
+            "high": max(x["high"] for x in month_data),
+            "low": min(x["low"] for x in month_data),
+            "close": month_data[-1]["close"],
+            "volume": sum(x["volume"] for x in month_data)
+        })
+    
+    return monthly
+
+
 @router.get("/market/stocks")
 async def get_market_stocks():
-    """获取所有股票列表及当前价格"""
+    """获取所有股票列表及当前价格 - 从数据库获取真实数据"""
     try:
+        from core.systems.longbridge_client import longbridge_client, STOCK_MAPPING
         from core.systems.market_engine import market_engine
-        stocks = market_engine.get_all_stocks()
+        
+        stocks = []
+        for game_code, mapping in STOCK_MAPPING.items():
+            real_symbol = mapping[0]
+            real_name = mapping[3] if len(mapping) > 3 else real_symbol
+            
+            # 从数据库获取最新K线数据来计算价格
+            kline = longbridge_client.get_kline_from_db(game_code, 2)
+            
+            if kline and len(kline) > 0:
+                latest = kline[-1]
+                prev = kline[-2] if len(kline) > 1 else latest
+                price = latest.get("close", 0)
+                change_pct = ((price - prev.get("close", price)) / prev.get("close", price) * 100) if prev.get("close", 0) > 0 else 0
+            else:
+                # 如果没有数据库数据，使用 market_engine 的数据
+                quote = market_engine.get_stock_quote(game_code)
+                if quote:
+                    price = quote.get("price", 0)
+                    change_pct = quote.get("change_pct", 0)
+                else:
+                    continue
+            
+            # 获取股票基础信息
+            stock_info = market_engine.stocks.get(game_code)
+            
+            stocks.append({
+                "code": game_code,
+                "name": stock_info.name if stock_info else game_code,
+                "real_name": real_name,
+                "real_symbol": real_symbol,
+                "sector": stock_info.sector.value if stock_info else "其他",
+                "price": round(price, 2),
+                "change_pct": round(change_pct, 2),
+                "pe_ratio": stock_info.pe_ratio if stock_info else 0,
+                "dividend_yield": stock_info.dividend_yield * 100 if stock_info else 0,
+                "description": stock_info.description if stock_info else ""
+            })
+        
         return {"success": True, "stocks": stocks}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1023,60 +1163,66 @@ async def get_market_state():
 
 @router.get("/market/kline/{stock_id}")
 async def get_stock_kline(stock_id: str, period: str = "day"):
-    """获取股票K线数据"""
+    """获取股票K线数据 - 从 stock.db 数据库读取真实数据"""
     try:
         from core.systems.market_engine import market_engine
-        import random
-        from datetime import datetime, timedelta
+        from core.systems.longbridge_client import longbridge_client
         
         # 获取当前股票信息
         stock = market_engine.get_stock_quote(stock_id)
         if not stock:
             raise HTTPException(status_code=404, detail="股票不存在")
         
-        # 生成历史K线数据（模拟）
-        kline_data = []
-        current_price = stock["price"]
+        # 从数据库获取K线数据
         days = 60 if period == "day" else (52 if period == "week" else 24)
+        kline_data = longbridge_client.get_kline_from_db(stock_id, days * 5)  # 获取更多数据用于周K/月K聚合
         
-        # 从过去往现在生成
-        prices = [current_price]
-        for i in range(days - 1):
-            # 反向计算历史价格
-            volatility = 0.03 if period == "day" else (0.05 if period == "week" else 0.08)
-            change = (random.random() - 0.5) * 2 * volatility
-            prices.append(prices[-1] / (1 + change))
+        if not kline_data or len(kline_data) == 0:
+            # 如果数据库没有数据，尝试从 API 获取
+            kline_data = longbridge_client.get_game_stock_kline(stock_id, days, force_refresh=True)
         
-        prices.reverse()
+        if not kline_data:
+            raise HTTPException(status_code=404, detail="K线数据不存在")
         
-        for i, price in enumerate(prices):
+        # 根据周期聚合数据
+        if period == "week":
+            kline_data = _aggregate_kline_weekly(kline_data)
+        elif period == "month":
+            kline_data = _aggregate_kline_monthly(kline_data)
+        
+        # 格式化日期显示
+        formatted_kline = []
+        for k in kline_data[-days:]:  # 只取最近的数据
+            date_str = k.get("date", "")
             if period == "day":
-                date = datetime.now() - timedelta(days=days - 1 - i)
-                date_str = date.strftime("%m/%d")
+                # 日K: 显示 MM/DD
+                if len(date_str) >= 10:
+                    formatted_date = f"{date_str[5:7]}/{date_str[8:10]}"
+                else:
+                    formatted_date = date_str
             elif period == "week":
-                date = datetime.now() - timedelta(weeks=days - 1 - i)
-                date_str = date.strftime("%m/%d")
+                # 周K: 显示 MM/DD
+                if len(date_str) >= 10:
+                    formatted_date = f"{date_str[5:7]}/{date_str[8:10]}"
+                else:
+                    formatted_date = date_str
             else:
-                date = datetime.now() - timedelta(days=30 * (days - 1 - i))
-                date_str = date.strftime("%Y/%m")
+                # 月K: 显示 YYYY/MM
+                if len(date_str) >= 7:
+                    formatted_date = f"{date_str[0:4]}/{date_str[5:7]}"
+                else:
+                    formatted_date = date_str
             
-            volatility = 0.015 if period == "day" else (0.025 if period == "week" else 0.04)
-            open_price = price
-            close_price = prices[i + 1] if i < len(prices) - 1 else current_price
-            high_price = max(open_price, close_price) * (1 + random.random() * volatility)
-            low_price = min(open_price, close_price) * (1 - random.random() * volatility)
-            volume = int(random.random() * 1000000 + 500000)
-            
-            kline_data.append({
-                "date": date_str,
-                "open": round(open_price, 2),
-                "close": round(close_price, 2),
-                "high": round(high_price, 2),
-                "low": round(low_price, 2),
-                "volume": volume
+            formatted_kline.append({
+                "date": formatted_date,
+                "open": round(k.get("open", 0), 2),
+                "close": round(k.get("close", 0), 2),
+                "high": round(k.get("high", 0), 2),
+                "low": round(k.get("low", 0), 2),
+                "volume": int(k.get("volume", 0))
             })
         
-        return {"success": True, "kline": kline_data}
+        return {"success": True, "kline": formatted_kline}
     except HTTPException:
         raise
     except Exception as e:
@@ -1159,6 +1305,12 @@ async def buy_stock(data: dict):
                 VALUES (?, ?, ?, 'buy', ?, ?, ?, ?)
             ''', (session_id, stock_id, stock["name"], shares, price, total_cost, current_month))
             
+            # 添加到主交易记录表
+            cursor.execute('''
+                INSERT INTO transactions (username, session_id, round_num, transaction_name, amount, ai_thoughts)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (username, session_id, current_month, f'买入{stock["name"]}', -total_cost, f'买入{stock["name"]} {shares}股，价格¥{price:.2f}'))
+            
             conn.commit()
         
         # 记录行为日志
@@ -1240,8 +1392,9 @@ async def sell_stock(data: dict):
                 ''', (session_id, stock_id))
             
             # 增加现金
-            cursor.execute('SELECT credits FROM users WHERE session_id = ?', (session_id,))
-            cash = cursor.fetchone()[0]
+            cursor.execute('SELECT credits, username FROM users WHERE session_id = ?', (session_id,))
+            user_row = cursor.fetchone()
+            cash, username = user_row[0], user_row[1]
             new_cash = cash + total_revenue
             cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
             
@@ -1252,6 +1405,13 @@ async def sell_stock(data: dict):
                 (session_id, stock_id, stock_name, action, shares, price, total_amount, month, profit)
                 VALUES (?, ?, ?, 'sell', ?, ?, ?, ?, ?)
             ''', (session_id, stock_id, stock["name"], shares, price, total_revenue, current_month, profit))
+            
+            # 添加到主交易记录表
+            profit_text = f'，盈亏¥{profit:+,}' if profit != 0 else ''
+            cursor.execute('''
+                INSERT INTO transactions (username, session_id, round_num, transaction_name, amount, ai_thoughts)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (username, session_id, current_month, f'卖出{stock["name"]}', total_revenue, f'卖出{stock["name"]} {shares}股，价格¥{price:.2f}{profit_text}'))
             
             conn.commit()
         
@@ -1867,23 +2027,54 @@ async def update_effects(request: dict):
 async def get_deposits(session_id: str):
     """获取存款信息"""
     try:
-        # 从数据库获取存款信息
-        deposits = game_service.db.get_deposits(session_id) if hasattr(game_service.db, 'get_deposits') else []
-        total = sum(d.get('amount', 0) for d in deposits)
-        monthly_interest = sum(d.get('amount', 0) * d.get('rate', 0) / 12 for d in deposits)
+        import sqlite3
+        # 直接从数据库查询存款信息
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, product_id, product_name, amount, buy_price, current_value, 
+                       buy_month, maturity_month
+                FROM financial_holdings
+                WHERE session_id = ? AND product_type = 'deposit' AND is_active = 1
+            ''', (session_id,))
+            rows = cursor.fetchall()
+        
+        deposits = []
+        total = 0
+        monthly_interest = 0
+        for r in rows:
+            rate = r[4] or 0.0035  # buy_price 存储的是利率
+            deposit = {
+                'id': r[0],
+                'product_id': r[1], 
+                'product_name': r[2] or '活期存款',
+                'amount': r[3], 
+                'rate': rate,
+                'value': r[5] or r[3],
+                'buy_month': r[6], 
+                'maturity_month': r[7]
+            }
+            deposits.append(deposit)
+            total += r[3]  # amount
+            monthly_interest += int(r[3] * rate / 12)
+        
         return {
             "success": True, 
             "deposits": deposits,
             "total": total,
-            "monthly_interest": round(monthly_interest, 2)
+            "monthly_interest": monthly_interest
         }
     except Exception as e:
+        print(f"[Banking] Get deposits error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"success": True, "deposits": [], "total": 0, "monthly_interest": 0}
 
 @router.post("/banking/deposit")
 async def make_deposit(request: dict):
     """存款"""
     try:
+        import sqlite3
         session_id = request.get("session_id")
         amount = request.get("amount", 0)
         deposit_type = request.get("type", "demand")
@@ -1891,22 +2082,46 @@ async def make_deposit(request: dict):
         if not session_id or amount <= 0:
             return {"success": False, "error": "参数错误"}
         
-        # 检查现金是否足够
-        assets = game_service.db.get_assets(session_id)
-        if not assets or assets.get('cash', 0) < amount:
-            return {"success": False, "error": "现金不足"}
+        # 获取当前月份
+        current_month = game_service.db.get_session_month(session_id) if hasattr(game_service.db, 'get_session_month') else 1
         
-        cash = assets.get('cash', 0)
+        # 直接从数据库获取现金
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT credits, username FROM users WHERE session_id = ?', (session_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {"success": False, "error": "用户不存在"}
+            
+            cash, username = row[0], row[1]
+            if cash < amount:
+                return {"success": False, "error": "现金不足"}
+            
+            # 扣除现金
+            new_cash = cash - amount
+            cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
+            
+            # 获取当前月份
+            cursor.execute('SELECT current_month FROM sessions WHERE session_id = ?', (session_id,))
+            month_row = cursor.fetchone()
+            current_month = month_row[0] if month_row else 1
+            
+            # 添加交易记录到 transactions 表
+            deposit_names = {'demand': '活期存款', 'fixed_3m': '3个月定期', 'fixed_1y': '1年定期', 'fixed_3y': '3年定期'}
+            deposit_name = deposit_names.get(deposit_type, '存款')
+            cursor.execute('''
+                INSERT INTO transactions (username, session_id, round_num, transaction_name, amount, ai_thoughts)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (username, session_id, current_month, f'存入{deposit_name}', -amount, f'存入银行{deposit_name}，金额¥{amount:,}'))
+            
+            conn.commit()
         
-        # 扣除现金
-        game_service.db.update_cash(session_id, -amount, "存款")
-        
-        # 添加存款记录 (如果有对应方法)
+        # 添加存款记录
         rate_map = {'demand': 0.0035, 'fixed_3m': 0.015, 'fixed_1y': 0.025, 'fixed_3y': 0.035}
         rate = rate_map.get(deposit_type, 0.0035)
         
-        if hasattr(game_service.db, 'add_deposit'):
-            game_service.db.add_deposit(session_id, amount, deposit_type, rate)
+        # 调用数据库方法保存存款
+        game_service.db.add_deposit(session_id, amount, deposit_type, rate, current_month)
         
         # 记录行为日志
         try:
@@ -1919,7 +2134,6 @@ async def make_deposit(request: dict):
                     'deposit_type': deposit_type,
                     'rate': rate
                 }
-                current_month = game_service.db.get_session_month(session_id)
                 game_service.behavior_system.log_action(
                     session_id, current_month, 'bank_deposit', action_data, market_state
                 )
@@ -1928,6 +2142,8 @@ async def make_deposit(request: dict):
         
         return {"success": True, "message": f"成功存入 ¥{amount}"}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 @router.get("/banking/loans/{session_id}")
@@ -1939,11 +2155,15 @@ async def get_user_loans(session_id: str):
         for loan in loans:
             formatted_loans.append({
                 "id": loan.get("loan_id"),
-                "type": loan.get("loan_type", "消费贷"),
+                "loan_type": loan.get("loan_type", "personal"),
+                "product_name": loan.get("product_name", "消费贷"),
                 "principal": loan.get("principal", 0),
-                "remaining": loan.get("remaining_principal", 0),
-                "monthlyPayment": loan.get("monthly_payment", 0),
-                "remainingMonths": loan.get("remaining_months", 0),
+                "remaining_principal": loan.get("remaining_principal", 0),
+                "annual_rate": loan.get("annual_rate", 0.08),
+                "monthly_payment": loan.get("monthly_payment", 0),
+                "remaining_months": loan.get("remaining_months", 0),
+                "term_months": loan.get("term_months", 12),
+                "start_month": loan.get("start_month", 1),
                 "status": "active",
                 "statusText": "还款中"
             })
@@ -1955,7 +2175,9 @@ async def get_user_loans(session_id: str):
 async def apply_bank_loan(request: dict):
     """申请银行贷款"""
     try:
-        from core.systems.debt_system import debt_system
+        import sqlite3
+        import uuid
+        
         session_id = request.get("session_id")
         amount = request.get("amount", 0)
         loan_type = request.get("type", "personal")
@@ -1964,53 +2186,124 @@ async def apply_bank_loan(request: dict):
         if not session_id or amount <= 0:
             return {"success": False, "error": "参数错误"}
         
-        # 映射前端类型到后端产品ID
-        type_map = {
-            'personal': 'consumer_loan',
-            'business': 'business_loan', 
-            'emergency': 'credit_loan',
-            'mortgage': 'mortgage_loan'
+        # 贷款产品配置
+        loan_products = {
+            "personal": {"name": "个人消费贷", "rate": 0.08, "max_amount": 50000, "min_credit": 600},
+            "business": {"name": "创业贷款", "rate": 0.06, "max_amount": 200000, "min_credit": 700},
+            "mortgage": {"name": "房屋贷款", "rate": 0.045, "max_amount": 1000000, "min_credit": 650},
+            "emergency": {"name": "应急借款", "rate": 0.15, "max_amount": 10000, "min_credit": 0}
         }
-        product_id = type_map.get(loan_type, 'consumer_loan')
         
-        # 获取信用分
-        credit_score = game_service.db.get_latest_credit_score(session_id) if hasattr(game_service.db, 'get_latest_credit_score') else 680
-        current_month = game_service.db.get_session_month(session_id) if hasattr(game_service.db, 'get_session_month') else 1
+        product = loan_products.get(loan_type)
+        if not product:
+            return {"success": False, "error": f"贷款产品不存在: {loan_type}"}
         
-        success, result = debt_system.apply_loan(product_id, amount, term_months, credit_score, current_month)
+        if amount > product["max_amount"]:
+            return {"success": False, "error": f"超过最大贷款额度 ¥{product['max_amount']:,}"}
         
-        if success:
-            loan = result
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 获取当前现金和用户名
+            cursor.execute('SELECT credits, username FROM users WHERE session_id = ?', (session_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {"success": False, "error": "用户不存在"}
+            
+            current_cash, username = row[0], row[1]
+            
+            # 简化信用评估：基于资产
+            credit_score = 650 + min(current_cash // 10000, 200)
+            
+            if credit_score < product["min_credit"]:
+                return {"success": False, "error": f"信用分不足，需要 {product['min_credit']} 分，当前 {credit_score} 分"}
+            
+            # 获取当前月份
+            cursor.execute('SELECT current_month FROM sessions WHERE session_id = ?', (session_id,))
+            month_row = cursor.fetchone()
+            current_month = month_row[0] if month_row else 1
+            
+            # 计算月供 (等额本息)
+            monthly_rate = product["rate"] / 12
+            if monthly_rate > 0:
+                monthly_payment = int(amount * monthly_rate * ((1 + monthly_rate) ** term_months) / (((1 + monthly_rate) ** term_months) - 1))
+            else:
+                monthly_payment = amount // term_months
+            
+            loan_id = f"loan_{str(uuid.uuid4())[:8]}"
+            
             # 保存贷款
-            if hasattr(game_service.db, 'save_loan'):
-                game_service.db.save_loan(session_id, {
-                    "loan_id": loan.id,
-                    "loan_type": loan.loan_type.value,
-                    "principal": loan.principal,
-                    "remaining_principal": loan.remaining_principal,
-                    "annual_rate": loan.annual_rate,
-                    "term_months": loan.term_months,
-                    "remaining_months": loan.remaining_months,
-                    "monthly_payment": loan.monthly_payment,
-                })
+            cursor.execute('''
+                INSERT INTO loans 
+                (session_id, loan_id, loan_type, product_name, principal, remaining_principal, 
+                 annual_rate, term_months, remaining_months, monthly_payment, repayment_method, start_month)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                session_id, loan_id, loan_type, product["name"],
+                amount, amount, product["rate"], term_months, term_months,
+                monthly_payment, "等额本息", current_month
+            ))
             
             # 增加现金
-            game_service.db.update_cash(session_id, amount, "贷款放款")
+            new_cash = current_cash + amount
+            cursor.execute('UPDATE users SET credits = ? WHERE session_id = ?', (new_cash, session_id))
             
-            return {"success": True, "message": f"贷款 ¥{amount} 已批准"}
-        else:
-            return {"success": False, "error": result}
+            # 添加交易记录到 transactions 表
+            cursor.execute('''
+                INSERT INTO transactions (username, session_id, round_num, transaction_name, amount, ai_thoughts)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (username, session_id, current_month, f'申请{product["name"]}', amount, f'贷款批准，本金¥{amount:,}，月供¥{monthly_payment:,}，期限{term_months}个月'))
+            
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": f"贷款批准，¥{amount:,} 已到账",
+                "loan": {
+                    "id": loan_id,
+                    "monthly_payment": monthly_payment,
+                    "total_interest": monthly_payment * term_months - amount
+                },
+                "new_cash": new_cash
+            }
+            
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return {"success": False, "error": str(e)}
 
 @router.get("/banking/credit/{session_id}")
-async def get_credit_score(session_id: str):
+async def get_credit_score_api(session_id: str):
     """获取信用评分"""
     try:
-        score = game_service.db.get_latest_credit_score(session_id) if hasattr(game_service.db, 'get_latest_credit_score') else 680
-        return {"success": True, "score": score}
+        import sqlite3
+        
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 获取用户资产
+            cursor.execute('SELECT credits FROM users WHERE session_id = ?', (session_id,))
+            row = cursor.fetchone()
+            if not row:
+                return {"success": True, "score": 650}
+            
+            cash = row[0]
+            
+            # 获取投资资产
+            cursor.execute('''
+                SELECT COALESCE(SUM(amount), 0) FROM investments 
+                WHERE session_id = ? AND remaining_months > 0
+            ''', (session_id,))
+            invested = cursor.fetchone()[0] or 0
+            
+            # 简化信用评估
+            total_assets = cash + invested
+            credit_score = 650 + min(total_assets // 10000 * 5, 200)
+            credit_score = max(300, min(850, credit_score))
+            
+            return {"success": True, "score": credit_score}
     except Exception as e:
-        return {"success": True, "score": 680}
+        return {"success": True, "score": 650}
 
 
 # ==================== 保护系统路由 ====================
@@ -2948,3 +3241,355 @@ async def get_behavior_logs_list(session_id: str, limit: int = 50):
             "data": [],
             "total": 0
         }
+
+
+# ============ 统一时间线 API ============
+
+@router.get("/timeline/{session_id}")
+async def get_unified_timeline(session_id: str, limit: int = 100):
+    """获取统一时间线 - 整合所有事件类型"""
+    try:
+        import sqlite3
+        
+        timeline_items = []
+        
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 1. 获取交易记录
+            cursor.execute('''
+                SELECT round_num, transaction_name, amount, ai_thoughts, created_at
+                FROM transactions
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                timeline_items.append({
+                    "type": "transaction",
+                    "category": "cash_flow",
+                    "month": row[0],
+                    "title": row[1],
+                    "amount": row[2],
+                    "ai_thoughts": row[3],
+                    "timestamp": row[4],
+                    "icon": "💰" if row[2] > 0 else "💸"
+                })
+            
+            # 2. 获取城市事件
+            cursor.execute('''
+                SELECT district_id, title, description, type, created_at
+                FROM city_events
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                timeline_items.append({
+                    "type": "event",
+                    "category": "environment",
+                    "district_id": row[0],
+                    "title": row[1],
+                    "description": row[2],
+                    "event_type": row[3],
+                    "timestamp": row[4],
+                    "icon": "🌍"
+                })
+            
+            # 3. 获取行为日志
+            cursor.execute('''
+                SELECT month, action_type, action_category, amount, risk_score, 
+                       rationality_score, market_condition, decision_context, created_at
+                FROM behavior_logs
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                timeline_items.append({
+                    "type": "behavior",
+                    "category": "subject",
+                    "month": row[0],
+                    "action_type": row[1],
+                    "action_category": row[2],
+                    "amount": row[3],
+                    "risk_score": row[4],
+                    "rationality_score": row[5],
+                    "market_condition": row[6],
+                    "decision_context": row[7],
+                    "timestamp": row[8],
+                    "icon": "🧠"
+                })
+            
+            # 4. 获取存款记录
+            cursor.execute('''
+                SELECT product_name, amount, buy_price, buy_month, created_at
+                FROM financial_holdings
+                WHERE session_id = ? AND product_type = 'deposit'
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                timeline_items.append({
+                    "type": "deposit",
+                    "category": "cash_flow",
+                    "title": f"存入{row[0]}",
+                    "amount": -row[1],  # 存款是现金流出
+                    "rate": row[2],
+                    "month": row[3],
+                    "timestamp": row[4],
+                    "icon": "🏦"
+                })
+            
+            # 5. 获取贷款记录
+            cursor.execute('''
+                SELECT product_name, principal, annual_rate, term_months, start_month, created_at
+                FROM loans
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                timeline_items.append({
+                    "type": "loan",
+                    "category": "cash_flow",
+                    "title": f"申请{row[0]}",
+                    "amount": row[1],  # 贷款是现金流入
+                    "rate": row[2],
+                    "term_months": row[3],
+                    "month": row[4],
+                    "timestamp": row[5],
+                    "icon": "💳"
+                })
+            
+            # 6. 获取投资记录
+            cursor.execute('''
+                SELECT name, amount, investment_type, return_rate, created_round, ai_thoughts, created_at
+                FROM investments
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                timeline_items.append({
+                    "type": "investment",
+                    "category": "asset_change",
+                    "title": f"投资{row[0]}",
+                    "amount": -row[1],
+                    "investment_type": row[2],
+                    "return_rate": row[3],
+                    "month": row[4],
+                    "ai_thoughts": row[5],
+                    "timestamp": row[6],
+                    "icon": "📈"
+                })
+            
+            # 7. 获取股票交易记录
+            cursor.execute('''
+                SELECT stock_name, action, shares, price, total_amount, month, profit, created_at
+                FROM stock_transactions
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            for row in cursor.fetchall():
+                action = row[1]
+                amount = row[4] if action == 'sell' else -row[4]
+                profit = row[6] or 0
+                timeline_items.append({
+                    "type": "stock",
+                    "category": "asset_change" if action == 'buy' else "cash_flow",
+                    "title": f"{'买入' if action == 'buy' else '卖出'}{row[0]} {row[2]}股",
+                    "amount": amount,
+                    "price": row[3],
+                    "shares": row[2],
+                    "profit": profit if action == 'sell' else None,
+                    "month": row[5],
+                    "timestamp": row[7],
+                    "icon": "📈" if action == 'buy' else "📉"
+                })
+            
+            # 8. 获取月度快照（资产变化）
+            cursor.execute('''
+                SELECT month, total_assets, cash, invested_assets, happiness, stress, created_at
+                FROM monthly_snapshots
+                WHERE session_id = ?
+                ORDER BY month DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            snapshots = cursor.fetchall()
+            for i, row in enumerate(snapshots):
+                # 计算资产变化
+                prev_assets = snapshots[i+1][1] if i+1 < len(snapshots) else row[1]
+                change = row[1] - prev_assets
+                if change != 0:
+                    timeline_items.append({
+                        "type": "snapshot",
+                        "category": "asset_change",
+                        "month": row[0],
+                        "title": f"第{row[0]}月资产{'增加' if change > 0 else '减少'}",
+                        "total_assets": row[1],
+                        "cash": row[2],
+                        "invested_assets": row[3],
+                        "change": change,
+                        "happiness": row[4],
+                        "stress": row[5],
+                        "timestamp": row[6],
+                        "icon": "📊"
+                    })
+        
+        # 按时间排序
+        timeline_items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        return {
+            "success": True,
+            "items": timeline_items[:limit],
+            "total": len(timeline_items)
+        }
+        
+    except Exception as e:
+        print(f"[Timeline] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e), "items": []}
+
+
+# ============ 档案库 API（按类别分组）============
+
+@router.get("/archives/{session_id}")
+async def get_archives(session_id: str):
+    """获取档案库 - 按标签分类"""
+    try:
+        import sqlite3
+        
+        archives = {
+            "ai_thoughts": [],      # AI想法
+            "environment": [],       # 环境变化
+            "subject": [],           # 主体变化
+            "cash_flow": [],         # 现金流
+            "asset_change": []       # 资产变化
+        }
+        
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 1. AI想法 - 从交易记录和投资记录中提取
+            cursor.execute('''
+                SELECT round_num, transaction_name, ai_thoughts, created_at
+                FROM transactions
+                WHERE session_id = ? AND ai_thoughts IS NOT NULL AND ai_thoughts != ''
+                ORDER BY created_at DESC
+                LIMIT 50
+            ''', (session_id,))
+            for row in cursor.fetchall():
+                archives["ai_thoughts"].append({
+                    "month": row[0],
+                    "title": row[1],
+                    "content": row[2],
+                    "timestamp": row[3]
+                })
+            
+            cursor.execute('''
+                SELECT created_round, name, ai_thoughts, created_at
+                FROM investments
+                WHERE session_id = ? AND ai_thoughts IS NOT NULL AND ai_thoughts != ''
+                ORDER BY created_at DESC
+                LIMIT 50
+            ''', (session_id,))
+            for row in cursor.fetchall():
+                archives["ai_thoughts"].append({
+                    "month": row[0],
+                    "title": f"投资{row[1]}",
+                    "content": row[2],
+                    "timestamp": row[3]
+                })
+            
+            # 2. 环境变化 - 城市事件和宏观经济
+            cursor.execute('''
+                SELECT district_id, title, description, type, created_at
+                FROM city_events
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT 50
+            ''', (session_id,))
+            for row in cursor.fetchall():
+                archives["environment"].append({
+                    "district": row[0],
+                    "title": row[1],
+                    "description": row[2],
+                    "event_type": row[3],
+                    "timestamp": row[4]
+                })
+            
+            # 3. 主体变化 - 行为日志
+            cursor.execute('''
+                SELECT month, action_type, action_category, risk_score, rationality_score, decision_context, created_at
+                FROM behavior_logs
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT 50
+            ''', (session_id,))
+            for row in cursor.fetchall():
+                archives["subject"].append({
+                    "month": row[0],
+                    "action_type": row[1],
+                    "category": row[2],
+                    "risk_score": row[3],
+                    "rationality_score": row[4],
+                    "context": row[5],
+                    "timestamp": row[6]
+                })
+            
+            # 4. 现金流 - 交易记录
+            cursor.execute('''
+                SELECT round_num, transaction_name, amount, created_at
+                FROM transactions
+                WHERE session_id = ?
+                ORDER BY created_at DESC
+                LIMIT 50
+            ''', (session_id,))
+            for row in cursor.fetchall():
+                archives["cash_flow"].append({
+                    "month": row[0],
+                    "title": row[1],
+                    "amount": row[2],
+                    "timestamp": row[3]
+                })
+            
+            # 5. 资产变化 - 月度快照
+            cursor.execute('''
+                SELECT month, total_assets, cash, invested_assets, happiness, stress, created_at
+                FROM monthly_snapshots
+                WHERE session_id = ?
+                ORDER BY month DESC
+                LIMIT 50
+            ''', (session_id,))
+            snapshots = cursor.fetchall()
+            for i, row in enumerate(snapshots):
+                prev_assets = snapshots[i+1][1] if i+1 < len(snapshots) else row[1]
+                archives["asset_change"].append({
+                    "month": row[0],
+                    "total_assets": row[1],
+                    "cash": row[2],
+                    "invested_assets": row[3],
+                    "change": row[1] - prev_assets,
+                    "happiness": row[4],
+                    "stress": row[5],
+                    "timestamp": row[6]
+                })
+        
+        # 按时间排序各分类
+        for key in archives:
+            archives[key].sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        
+        return {
+            "success": True,
+            "archives": archives
+        }
+        
+    except Exception as e:
+        print(f"[Archives] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e), "archives": {}}
+

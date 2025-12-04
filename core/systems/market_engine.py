@@ -1,6 +1,7 @@
 """
 动态市场引擎 - EchoPolis 核心金融系统
 实现虚拟股票市场的价格波动、K线生成、市场事件联动
+使用 Longbridge API 获取真实市场数据
 """
 import math
 import random
@@ -9,6 +10,15 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 from datetime import datetime, timedelta
+
+# 导入 Longbridge 客户端
+try:
+    from .longbridge_client import longbridge_client, STOCK_SYMBOL_MAPPING
+    HAS_LONGBRIDGE = True
+except ImportError:
+    HAS_LONGBRIDGE = False
+    longbridge_client = None
+    STOCK_SYMBOL_MAPPING = {}
 
 
 class Sector(Enum):
@@ -131,31 +141,358 @@ class MarketEngine:
             days_in_trend=0,
             volatility_multiplier=1.0
         )
-        self.current_game_date = datetime(2024, 1, 1)  # 游戏内日期
+        self.current_game_date = datetime.now()  # 使用当前日期
         self.month_count = 0
         
-    def initialize_history(self, months: int = 12):
-        """初始化历史K线数据"""
-        start_date = self.current_game_date - timedelta(days=months * 30)
+        # 从数据库加载历史数据
+        self._load_history_from_db()
+    
+    def _load_history_from_db(self):
+        """从 stock.db 数据库加载历史 K 线数据"""
+        if not HAS_LONGBRIDGE or not longbridge_client:
+            print("[MarketEngine] Longbridge client not available, using default prices")
+            return
         
-        for stock_code, stock_info in self.stocks.items():
-            price = stock_info.base_price * random.uniform(0.7, 1.0)  # 从较低点开始
-            history = []
+        print("[MarketEngine] Loading historical data from stock.db...")
+        loaded_count = 0
+        
+        for stock_code in self.stocks.keys():
+            # 从数据库获取历史K线
+            kline_data = longbridge_client.get_kline_from_db(stock_code, 365)
             
-            current_date = start_date
-            while current_date < self.current_game_date:
-                ohlcv = self._generate_daily_candle(stock_info, price)
-                ohlcv.date = current_date.strftime("%Y-%m-%d")
-                history.append(ohlcv)
-                price = ohlcv.close
-                current_date += timedelta(days=1)
+            if kline_data and len(kline_data) > 0:
+                # 转换为 OHLCV 对象
+                history = []
+                for k in kline_data:
+                    ohlcv = OHLCV(
+                        date=k.get("date", ""),
+                        open=float(k.get("open", 0)),
+                        high=float(k.get("high", 0)),
+                        low=float(k.get("low", 0)),
+                        close=float(k.get("close", 0)),
+                        volume=int(k.get("volume", 0)),
+                        change_pct=float(k.get("change_pct", 0))
+                    )
+                    history.append(ohlcv)
                 
-                # 跳过周末
-                if current_date.weekday() >= 5:
-                    current_date += timedelta(days=2)
-            
-            self.price_history[stock_code] = history
-            self.current_prices[stock_code] = price
+                self.price_history[stock_code] = history
+                # 设置当前价格为最新收盘价
+                self.current_prices[stock_code] = history[-1].close
+                loaded_count += 1
+                
+                # 更新游戏日期为最新数据日期
+                if history[-1].date:
+                    try:
+                        latest_date = datetime.strptime(history[-1].date, "%Y-%m-%d")
+                        if latest_date > self.current_game_date - timedelta(days=30):
+                            self.current_game_date = latest_date
+                    except:
+                        pass
+        
+        print(f"[MarketEngine] Loaded {loaded_count} stocks from database")
+        
+        # 计算市场指数
+        self._update_market_index()
+    
+    def _update_market_index(self):
+        """根据所有股票价格更新市场指数"""
+        if not self.current_prices:
+            return
+        
+        # 计算加权平均指数
+        total_value = sum(self.current_prices.values())
+        self.market_state.index_value = total_value / len(self.current_prices) * 30  # 缩放到合适范围
+    
+    def _analyze_stock_pattern(self, stock_code: str) -> Dict:
+        """分析股票历史数据的统计特征，用于生成符合历史规律的新数据"""
+        history = self.price_history.get(stock_code, [])
+        if len(history) < 20:
+            stock = self.stocks.get(stock_code)
+            return {
+                "volatility": stock.volatility if stock else 0.03,
+                "avg_return": 0,
+                "trend": 0,
+                "momentum": 0,
+                "support": self.current_prices.get(stock_code, 100) * 0.9,
+                "resistance": self.current_prices.get(stock_code, 100) * 1.1
+            }
+        
+        # 计算历史收益率
+        returns = []
+        for i in range(1, len(history)):
+            if history[i-1].close > 0:
+                ret = (history[i].close - history[i-1].close) / history[i-1].close
+                returns.append(ret)
+        
+        # 统计特征
+        avg_return = sum(returns) / len(returns) if returns else 0
+        volatility = (sum((r - avg_return) ** 2 for r in returns) / len(returns)) ** 0.5 if returns else 0.03
+        
+        # 近期趋势 (最近20天)
+        recent_returns = returns[-20:] if len(returns) >= 20 else returns
+        trend = sum(recent_returns) / len(recent_returns) if recent_returns else 0
+        
+        # 动量指标 (最近5天 vs 最近20天)
+        recent_5 = returns[-5:] if len(returns) >= 5 else returns
+        recent_20 = returns[-20:] if len(returns) >= 20 else returns
+        momentum = (sum(recent_5) / len(recent_5)) - (sum(recent_20) / len(recent_20)) if recent_5 and recent_20 else 0
+        
+        # 支撑位和阻力位 (最近60天的最低和最高价)
+        recent_history = history[-60:] if len(history) >= 60 else history
+        support = min(h.low for h in recent_history)
+        resistance = max(h.high for h in recent_history)
+        
+        return {
+            "volatility": volatility,
+            "avg_return": avg_return,
+            "trend": trend,
+            "momentum": momentum,
+            "support": support,
+            "resistance": resistance
+        }
+    
+    def generate_next_day(self, stock_code: str) -> OHLCV:
+        """基于历史数据生成下一个交易日的 K 线数据"""
+        stock = self.stocks.get(stock_code)
+        if not stock:
+            return None
+        
+        prev_close = self.current_prices.get(stock_code, stock.base_price)
+        pattern = self._analyze_stock_pattern(stock_code)
+        
+        # 基于历史特征生成收益率
+        # 1. 基础收益率：历史均值 + 随机波动
+        base_return = pattern["avg_return"] + random.gauss(0, pattern["volatility"])
+        
+        # 2. 趋势效应：延续近期趋势
+        trend_effect = pattern["trend"] * 0.3 * random.uniform(0.5, 1.5)
+        
+        # 3. 动量效应
+        momentum_effect = pattern["momentum"] * 0.2
+        
+        # 4. 均值回归：如果价格偏离支撑/阻力位太远，会有回归趋势
+        if prev_close < pattern["support"]:
+            reversion = (pattern["support"] - prev_close) / prev_close * 0.1
+        elif prev_close > pattern["resistance"]:
+            reversion = (pattern["resistance"] - prev_close) / prev_close * 0.1
+        else:
+            reversion = 0
+        
+        # 5. 市场情绪影响
+        market_effect = self.market_state.trend_strength * stock.beta * 0.005
+        
+        # 综合收益率
+        daily_return = base_return + trend_effect + momentum_effect + reversion + market_effect
+        
+        # 限制单日涨跌幅 (A股限制 ±10%，科创板 ±20%)
+        max_change = 0.20 if "688" in stock_code else 0.10
+        daily_return = max(-max_change, min(max_change, daily_return))
+        
+        # 生成 OHLCV
+        close = prev_close * (1 + daily_return)
+        
+        # 生成日内波动
+        intraday_vol = pattern["volatility"] * 0.6
+        high_mult = 1 + random.uniform(0, intraday_vol)
+        low_mult = 1 - random.uniform(0, intraday_vol)
+        
+        open_price = prev_close * (1 + random.gauss(0, pattern["volatility"] * 0.3))
+        high = max(open_price, close) * high_mult
+        low = min(open_price, close) * low_mult
+        
+        # 确保逻辑正确
+        high = max(high, open_price, close)
+        low = min(low, open_price, close)
+        
+        # 成交量：基于历史平均和波动
+        history = self.price_history.get(stock_code, [])
+        if history:
+            avg_volume = sum(h.volume for h in history[-20:]) / min(20, len(history))
+            volume = int(avg_volume * (1 + abs(daily_return) * 5) * random.uniform(0.7, 1.3))
+        else:
+            volume = int(1000000 * random.uniform(0.5, 1.5))
+        
+        change_pct = round(daily_return * 100, 2)
+        
+        # 生成日期 (当前游戏日期的下一个交易日)
+        next_date = self.current_game_date + timedelta(days=1)
+        while next_date.weekday() >= 5:  # 跳过周末
+            next_date += timedelta(days=1)
+        
+        return OHLCV(
+            date=next_date.strftime("%Y-%m-%d"),
+            open=round(open_price, 2),
+            high=round(high, 2),
+            low=round(low, 2),
+            close=round(close, 2),
+            volume=volume,
+            change_pct=change_pct
+        )
+    
+    def advance_day(self) -> Dict[str, OHLCV]:
+        """推进一天，为所有股票生成新的 K 线数据"""
+        new_candles = {}
+        
+        for stock_code in self.stocks.keys():
+            candle = self.generate_next_day(stock_code)
+            if candle:
+                # 更新价格历史
+                self.price_history[stock_code].append(candle)
+                # 更新当前价格
+                self.current_prices[stock_code] = candle.close
+                new_candles[stock_code] = candle
+        
+        # 更新游戏日期
+        self.current_game_date += timedelta(days=1)
+        while self.current_game_date.weekday() >= 5:  # 跳过周末
+            self.current_game_date += timedelta(days=1)
+        
+        # 更新市场状态
+        self._update_market_state()
+        self._update_market_index()
+        
+        # 保存新数据到数据库
+        self._save_new_candles_to_db(new_candles)
+        
+        return new_candles
+    
+    def advance_month(self) -> List[Dict[str, OHLCV]]:
+        """推进一个月（约22个交易日）"""
+        all_candles = []
+        for _ in range(22):  # 一个月约22个交易日
+            daily_candles = self.advance_day()
+            all_candles.append(daily_candles)
+        self.month_count += 1
+        return all_candles
+    
+    def _update_market_state(self):
+        """更新市场状态（趋势、波动率等）"""
+        # 计算市场整体涨跌
+        total_change = 0
+        for stock_code, history in self.price_history.items():
+            if len(history) >= 2:
+                change = (history[-1].close - history[-2].close) / history[-2].close
+                total_change += change
+        
+        avg_change = total_change / len(self.stocks) if self.stocks else 0
+        
+        # 更新趋势
+        if avg_change > 0.005:
+            if self.market_state.trend == TrendType.BULL:
+                self.market_state.days_in_trend += 1
+                self.market_state.trend_strength = min(1.0, self.market_state.trend_strength + 0.1)
+            else:
+                self.market_state.trend = TrendType.BULL
+                self.market_state.days_in_trend = 1
+                self.market_state.trend_strength = 0.3
+        elif avg_change < -0.005:
+            if self.market_state.trend == TrendType.BEAR:
+                self.market_state.days_in_trend += 1
+                self.market_state.trend_strength = min(1.0, self.market_state.trend_strength + 0.1)
+            else:
+                self.market_state.trend = TrendType.BEAR
+                self.market_state.days_in_trend = 1
+                self.market_state.trend_strength = -0.3
+        else:
+            self.market_state.trend = TrendType.SIDEWAYS
+            self.market_state.trend_strength *= 0.9
+        
+        # 随机调整波动率
+        self.market_state.volatility_multiplier = 0.8 + random.random() * 0.4
+    
+    def _save_new_candles_to_db(self, candles: Dict[str, OHLCV]):
+        """将新生成的 K 线数据保存到数据库"""
+        if not HAS_LONGBRIDGE or not longbridge_client:
+            return
+        
+        for stock_code, candle in candles.items():
+            kline_data = [{
+                "date": candle.date,
+                "open": candle.open,
+                "high": candle.high,
+                "low": candle.low,
+                "close": candle.close,
+                "volume": candle.volume,
+                "change_pct": candle.change_pct
+            }]
+            longbridge_client.save_kline_to_db(stock_code, kline_data)
+        
+        # 同步当前价格到数据库
+        self._sync_prices_to_db()
+    
+    def _sync_prices_to_db(self):
+        """同步当前价格到数据库"""
+        if not HAS_LONGBRIDGE or not longbridge_client:
+            return
+        
+        for code, price in self.current_prices.items():
+            stock = self.stocks.get(code)
+            if stock:
+                history = self.price_history.get(code, [])
+                high_52w = max([k.high for k in history[-252:]], default=price) if history else price
+                low_52w = min([k.low for k in history[-252:]], default=price) if history else price
+                volume = history[-1].volume if history else 0
+                
+                # 计算涨跌
+                prev_close = history[-2].close if len(history) >= 2 else stock.base_price
+                change = price - prev_close
+                change_pct = (change / prev_close) * 100 if prev_close else 0
+                
+                longbridge_client.save_stock_price(
+                    code=code,
+                    current_price=round(price, 2),
+                    change=round(change, 2),
+                    change_pct=round(change_pct, 2),
+                    high_52w=round(high_52w, 2),
+                    low_52w=round(low_52w, 2),
+                    volume=volume,
+                    data_source="ai_generated"
+                )
+    
+    def _generate_daily_candle_deterministic(self, stock: StockInfo, prev_close: float, rng: random.Random) -> OHLCV:
+        """生成单日K线 - 使用传入的随机生成器保证确定性"""
+        # 基于布朗运动 + 趋势 + 随机事件
+        base_return = rng.gauss(0, stock.volatility)
+        
+        # 应用市场趋势
+        trend_effect = self.market_state.trend_strength * stock.beta * 0.01
+        
+        # 应用波动率乘数
+        base_return *= self.market_state.volatility_multiplier
+        
+        # 日收益率
+        daily_return = base_return + trend_effect
+        
+        # 生成OHLC
+        close = prev_close * (1 + daily_return)
+        
+        # 日内波动
+        intraday_range = stock.volatility * 0.8
+        high = close * (1 + rng.uniform(0, intraday_range))
+        low = close * (1 - rng.uniform(0, intraday_range))
+        
+        # 开盘价在前收盘附近
+        open_price = prev_close * (1 + rng.uniform(-0.01, 0.01))
+        
+        # 确保逻辑正确
+        high = max(high, open_price, close)
+        low = min(low, open_price, close)
+        
+        # 成交量 (基于波动率)
+        base_volume = 1000000
+        volume = int(base_volume * (1 + abs(daily_return) * 10) * rng.uniform(0.5, 1.5))
+        
+        change_pct = round((close - prev_close) / prev_close * 100, 2)
+        
+        return OHLCV(
+            date="",
+            open=round(open_price, 2),
+            high=round(high, 2),
+            low=round(low, 2),
+            close=round(close, 2),
+            volume=volume,
+            change_pct=change_pct
+        )
             
     def _generate_daily_candle(self, stock: StockInfo, prev_close: float) -> OHLCV:
         """生成单日K线"""
@@ -202,7 +539,7 @@ class MarketEngine:
             change_pct=change_pct
         )
     
-    def advance_month(self, economic_phase: str = "expansion") -> Dict[str, any]:
+    def advance_month_with_report(self, economic_phase: str = "expansion") -> Dict[str, any]:
         """推进一个月的市场时间
         
         Args:
@@ -275,6 +612,9 @@ class MarketEngine:
         
         # 生成市场事件
         month_summary["market_events"] = self._generate_market_events(economic_phase)
+        
+        # 同步本月数据到数据库
+        self._sync_prices_to_db()
         
         return month_summary
     
@@ -356,11 +696,48 @@ class MarketEngine:
         return events
     
     def get_stock_quote(self, stock_code: str) -> Optional[Dict]:
-        """获取股票实时报价"""
+        """获取股票实时报价 - 优先使用真实市场数据"""
         if stock_code not in self.stocks:
             return None
         
         stock = self.stocks[stock_code]
+        
+        # 尝试从 Longbridge 获取真实报价
+        real_quote = None
+        if HAS_LONGBRIDGE and longbridge_client:
+            real_quote = longbridge_client.get_quote(stock_code)
+        
+        if real_quote:
+            # 使用真实市场数据
+            current_price = real_quote.get("price", self.current_prices[stock_code])
+            change = real_quote.get("change", 0)
+            change_pct = real_quote.get("change_pct", 0)
+            high_52w = real_quote.get("high_52w", current_price)
+            low_52w = real_quote.get("low_52w", current_price)
+            volume = real_quote.get("volume", 0)
+            
+            # 更新本地价格缓存
+            self.current_prices[stock_code] = current_price
+            
+            return {
+                "code": stock_code,
+                "name": stock.name,
+                "sector": stock.sector.value,
+                "price": round(current_price, 2),
+                "change": round(change, 2),
+                "change_pct": round(change_pct, 2),
+                "high_52w": round(high_52w, 2),
+                "low_52w": round(low_52w, 2),
+                "volume": volume,
+                "pe_ratio": stock.pe_ratio,
+                "dividend_yield": stock.dividend_yield * 100,
+                "volatility": stock.volatility * 100,
+                "beta": stock.beta,
+                "description": stock.description,
+                "data_source": "realtime"  # 标记数据来源
+            }
+        
+        # 如果无法获取真实数据，使用模拟数据
         current_price = self.current_prices[stock_code]
         history = self.price_history.get(stock_code, [])
         
@@ -382,11 +759,19 @@ class MarketEngine:
             "dividend_yield": stock.dividend_yield * 100,
             "volatility": stock.volatility * 100,
             "beta": stock.beta,
-            "description": stock.description
+            "description": stock.description,
+            "data_source": "simulated"  # 标记数据来源
         }
     
     def get_stock_kline(self, stock_code: str, days: int = 30) -> List[Dict]:
-        """获取K线数据"""
+        """获取K线数据 - 优先使用真实市场数据"""
+        # 尝试从 Longbridge 获取真实 K 线数据
+        if HAS_LONGBRIDGE and longbridge_client:
+            real_kline = longbridge_client.get_kline_history(stock_code, days)
+            if real_kline:
+                return real_kline
+        
+        # 如果无法获取真实数据，使用模拟数据
         if stock_code not in self.price_history:
             return []
         
@@ -471,7 +856,5 @@ class MarketEngine:
         self.market_state.index_value *= (1 + impact)
 
 
-# 全局实例
+# 全局实例 - 初始化时自动从数据库加载历史数据
 market_engine = MarketEngine()
-# 初始化历史数据
-market_engine.initialize_history(12)

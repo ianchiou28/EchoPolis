@@ -399,7 +399,8 @@ onMounted(() => {
 }
 
 .view-header {
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .view-header h2 {
@@ -420,37 +421,44 @@ onMounted(() => {
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   overflow: hidden;
+  min-height: 0;
 }
 
 .col-left, .col-right {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  overflow: hidden;
+  gap: 12px;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .archive-card {
   background: var(--term-panel-bg);
   border: 2px solid var(--term-border);
+  flex-shrink: 0;
 }
 
 .archive-card.flex-grow {
-  flex: 1;
+  flex: 1 1 auto;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 120px;
 }
 
 .archive-header {
-  padding: 12px 16px;
+  padding: 10px 14px;
   font-weight: 800;
   font-size: 12px;
   border-bottom: 1px solid var(--term-border);
   background: rgba(0,0,0,0.02);
+  flex-shrink: 0;
 }
 
 .archive-body {
-  padding: 16px;
+  padding: 14px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .archive-body.scrollable {
@@ -608,12 +616,12 @@ onMounted(() => {
 .deposit-types {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .deposit-option, .loan-option {
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--term-border);
   cursor: pointer;
   transition: all 0.2s;
@@ -672,6 +680,7 @@ onMounted(() => {
   border: 2px solid var(--term-border);
   background: var(--term-bg);
   font-family: 'JetBrains Mono', monospace;
+  color: #000;
 }
 
 .term-btn {
@@ -788,6 +797,8 @@ onMounted(() => {
 .loan-types {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
 }
 </style>
