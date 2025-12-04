@@ -6,8 +6,9 @@
     </div>
 
     <div class="content-grid">
-      <!-- Left: Account Overview -->
+      <!-- Left Column: Normal Layout -->
       <div class="col-left">
+        <!-- 账户总览 -->
         <div class="archive-card">
           <div class="archive-header">账户总览</div>
           <div class="archive-body">
@@ -28,7 +29,7 @@
           </div>
         </div>
 
-        <!-- Credit Score -->
+        <!-- 信用评估 -->
         <div class="archive-card">
           <div class="archive-header">信用评估</div>
           <div class="archive-body">
@@ -56,7 +57,7 @@
           </div>
         </div>
 
-        <!-- Loan Status -->
+        <!-- 贷款状态 -->
         <div class="archive-card flex-grow">
           <div class="archive-header">贷款状态</div>
           <div class="archive-body scrollable">
@@ -93,17 +94,25 @@
         </div>
       </div>
 
-      <!-- Right: Banking Actions -->
-      <div class="col-right">
-        <!-- Deposit -->
-        <div class="archive-card">
-          <div class="archive-header">存款业务</div>
-          <div class="archive-body">
+      <!-- Right Column: Collapsible Panels -->
+      <div class="col-right accordion-column">
+        <!-- 存款业务 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'deposit', collapsed: rightPanel && rightPanel !== 'deposit' }"
+          @click="rightPanel !== 'deposit' && (rightPanel = 'deposit')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🏦</span>
+            <span class="accordion-title">存款业务</span>
+            <span class="accordion-arrow">{{ rightPanel === 'deposit' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'deposit'">
             <div class="deposit-types">
               <div v-for="type in depositTypes" :key="type.id" 
                 class="deposit-option"
                 :class="{ selected: selectedDeposit === type.id }"
-                @click="selectedDeposit = type.id">
+                @click.stop="selectedDeposit = type.id">
                 <div class="option-main">
                   <span class="option-name">{{ type.name }}</span>
                   <span class="option-rate">{{ type.rate }}%年化</span>
@@ -112,23 +121,31 @@
               </div>
             </div>
             <div class="action-row">
-              <input type="number" v-model="depositAmount" placeholder="存款金额" class="amount-input" />
-              <button class="term-btn" @click="makeDeposit" :disabled="!depositAmount || depositAmount > cash">
+              <input type="number" v-model="depositAmount" placeholder="存款金额" class="amount-input" @click.stop />
+              <button class="term-btn" @click.stop="makeDeposit" :disabled="!depositAmount || depositAmount > cash">
                 存入
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Loan Application -->
-        <div class="archive-card flex-grow">
-          <div class="archive-header">贷款申请</div>
-          <div class="archive-body">
+        <!-- 贷款申请 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'loan', collapsed: rightPanel && rightPanel !== 'loan' }"
+          @click="rightPanel !== 'loan' && (rightPanel = 'loan')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">💳</span>
+            <span class="accordion-title">贷款申请</span>
+            <span class="accordion-arrow">{{ rightPanel === 'loan' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'loan'">
             <div class="loan-types">
               <div v-for="type in loanTypes" :key="type.id"
                 class="loan-option"
                 :class="{ selected: selectedLoan === type.id, disabled: !canApplyLoan(type) }"
-                @click="selectLoanType(type)">
+                @click.stop="selectLoanType(type)">
                 <div class="option-header">
                   <span class="option-name">{{ type.name }}</span>
                   <span class="option-limit">最高 ¥{{ formatNumber(type.maxAmount) }}</span>
@@ -144,7 +161,7 @@
             <div class="loan-calculator" v-if="selectedLoan">
               <div class="calc-row">
                 <label>贷款金额</label>
-                <input type="number" v-model="loanAmount" :max="selectedLoanType?.maxAmount" class="amount-input" />
+                <input type="number" v-model="loanAmount" :max="selectedLoanType?.maxAmount" class="amount-input" @click.stop />
               </div>
               <div class="calc-preview" v-if="loanAmount">
                 <div class="preview-item">
@@ -156,7 +173,7 @@
                   <span class="negative">-¥{{ formatNumber(calculatedInterest) }}</span>
                 </div>
               </div>
-              <button class="term-btn primary" @click="applyLoan" :disabled="!loanAmount">
+              <button class="term-btn primary" @click.stop="applyLoan" :disabled="!loanAmount">
                 申请贷款
               </button>
             </div>
@@ -184,6 +201,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
 
 const gameStore = useGameStore()
+
+// 右侧折叠面板状态
+const rightPanel = ref('deposit') // 默认展开存款业务
 
 // 账户数据
 const cash = computed(() => gameStore.assets?.cash || 0)
@@ -422,6 +442,77 @@ onMounted(() => {
   gap: 20px;
   overflow: hidden;
   min-height: 0;
+}
+
+/* Accordion Column Layout */
+.accordion-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+.accordion-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  display: flex;
+  flex-direction: column;
+  transition: flex 0.3s ease;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.accordion-card.collapsed {
+  flex: 0 0 auto;
+}
+
+.accordion-card.expanded {
+  flex: 1;
+  cursor: default;
+}
+
+.accordion-card:not(.expanded):not(.collapsed) {
+  flex: 1;
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(0,0,0,0.02);
+  border-bottom: 1px solid var(--term-border);
+  user-select: none;
+}
+
+.accordion-card.collapsed .accordion-header {
+  border-bottom: none;
+}
+
+.accordion-card:not(.expanded):hover .accordion-header {
+  background: rgba(0,0,0,0.05);
+}
+
+.accordion-icon {
+  font-size: 16px;
+}
+
+.accordion-title {
+  flex: 1;
+}
+
+.accordion-arrow {
+  font-size: 10px;
+  opacity: 0.5;
+  transition: transform 0.2s;
+}
+
+.accordion-body {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
 }
 
 .col-left, .col-right {

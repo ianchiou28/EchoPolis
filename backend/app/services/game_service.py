@@ -255,7 +255,9 @@ class GameService:
                 except Exception as e:
                     print(f"[DEBUG] Failed to get career status: {e}")
                 
-                situation = avatar.generate_situation(self.ai_engine)
+                # 使用 asyncio.to_thread 将阻塞的 AI 调用放到线程池，避免阻塞事件循环
+                import asyncio
+                situation = await asyncio.to_thread(avatar.generate_situation, self.ai_engine)
                 if situation:
                     print(f"[DEBUG] AI situation generated successfully")
                     session["current_situation"] = situation

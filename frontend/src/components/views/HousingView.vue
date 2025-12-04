@@ -110,18 +110,25 @@
         </div>
       </div>
 
-      <!-- Right: Property Market -->
-      <div class="col-right">
-        <div class="archive-card">
-          <div class="archive-header">
-            <span>房产市场</span>
-            <div class="filter-tabs">
+      <!-- Right: Property Market (Accordion) -->
+      <div class="col-right accordion-column">
+        <!-- 房产市场 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'buy', collapsed: rightPanel && rightPanel !== 'buy' }"
+          @click="rightPanel !== 'buy' && (rightPanel = 'buy')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🏠</span>
+            <span class="accordion-title">房产市场</span>
+            <div class="filter-tabs" v-if="rightPanel === 'buy'" @click.stop>
               <span v-for="t in propertyTypes" :key="t.id"
                 :class="['tab', { active: currentType === t.id }]"
                 @click="currentType = t.id">{{ t.name }}</span>
             </div>
+            <span class="accordion-arrow">{{ rightPanel === 'buy' ? '▼' : '▶' }}</span>
           </div>
-          <div class="archive-body scrollable" style="max-height: 280px;">
+          <div class="accordion-body" v-show="rightPanel === 'buy'">
             <div v-for="prop in filteredProperties" :key="prop.id" class="property-listing">
               <div class="listing-main">
                 <div class="listing-icon">{{ prop.icon }}</div>
@@ -138,7 +145,7 @@
               <div class="listing-price">
                 <div class="price">¥{{ formatNumber(prop.price) }}</div>
                 <div class="price-per">{{ formatNumber(Math.round(prop.price / prop.area)) }}/㎡</div>
-                <button class="term-btn" @click="buyProperty(prop)" :disabled="cash < prop.price * 0.3">
+                <button class="term-btn" @click.stop="buyProperty(prop)" :disabled="cash < prop.price * 0.3">
                   购买
                 </button>
               </div>
@@ -146,10 +153,18 @@
           </div>
         </div>
 
-        <!-- Rent Options -->
-        <div class="archive-card flex-grow">
-          <div class="archive-header">租房市场</div>
-          <div class="archive-body scrollable">
+        <!-- 租房市场 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'rent', collapsed: rightPanel && rightPanel !== 'rent' }"
+          @click="rightPanel !== 'rent' && (rightPanel = 'rent')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">🔑</span>
+            <span class="accordion-title">租房市场</span>
+            <span class="accordion-arrow">{{ rightPanel === 'rent' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'rent'">
             <div v-for="rent in rentalOptions" :key="rent.id" class="rental-option"
               :class="{ current: currentRental?.id === rent.id }">
               <div class="rental-main">
@@ -166,7 +181,7 @@
                     幸福{{ rent.happiness >= 0 ? '+' : '' }}{{ rent.happiness }}
                   </span>
                 </div>
-                <button class="term-btn small" @click="rentHouse(rent)" 
+                <button class="term-btn small" @click.stop="rentHouse(rent)" 
                   :disabled="currentRental?.id === rent.id">
                   {{ currentRental?.id === rent.id ? '当前' : '租住' }}
                 </button>
@@ -257,6 +272,9 @@ const mortgages = ref([])
 
 // 当前租住
 const currentRental = ref({ id: 'basic' })
+
+// 右侧面板切换
+const rightPanel = ref('buy')  // 'buy' or 'rent'
 
 // 房产类型筛选
 const propertyTypes = [
@@ -612,4 +630,46 @@ onMounted(() => {
 
 .positive { color: #10b981; }
 .negative { color: #ef4444; }
+
+/* Accordion Styles */
+.accordion-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.accordion-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.accordion-card.expanded { flex: 1; }
+.accordion-card.collapsed { flex: 0 0 auto; cursor: pointer; }
+.accordion-card.collapsed:hover { border-color: var(--term-accent); }
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.03);
+  border-bottom: 1px solid var(--term-border);
+  font-weight: 700;
+}
+
+.accordion-icon { font-size: 16px; }
+.accordion-title { flex: 1; font-size: 12px; text-transform: uppercase; }
+.accordion-arrow { font-size: 10px; color: var(--term-text-secondary); }
+.accordion-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+/* Filter Tabs */
+.filter-tabs { display: flex; gap: 4px; }
+.tab { font-size: 10px; padding: 2px 6px; cursor: pointer; border: 1px solid var(--term-border); }
+.tab.active { background: var(--term-accent); color: #000; border-color: var(--term-accent); }
 </style>

@@ -37,14 +37,15 @@
               </label>
             </div>
           </div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">✨</span>
               动画效果
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
               <label class="switch">
-                <input type="checkbox" v-model="animationsEnabled">
+                <input type="checkbox" v-model="animationsEnabled" disabled>
                 <span class="slider"></span>
               </label>
             </div>
@@ -66,14 +67,15 @@
               </label>
             </div>
           </div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">🔔</span>
               音效
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
               <label class="switch">
-                <input type="checkbox" v-model="sfxEnabled">
+                <input type="checkbox" v-model="sfxEnabled" disabled>
                 <span class="slider"></span>
               </label>
             </div>
@@ -99,13 +101,14 @@
         <!-- 语言设置 -->
         <div class="settings-section">
           <div class="section-title">语言</div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">🌐</span>
               界面语言
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
-              <select v-model="language" class="lang-select">
+              <select v-model="language" class="lang-select" disabled>
                 <option value="zh-CN">简体中文</option>
                 <option value="zh-TW">繁體中文</option>
                 <option value="en">English</option>
@@ -118,27 +121,29 @@
         <!-- 游戏设置 -->
         <div class="settings-section">
           <div class="section-title">游戏</div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">⏩</span>
               自动推进速度
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
-              <select v-model="gameSpeed" class="speed-select">
+              <select v-model="gameSpeed" class="speed-select" disabled>
                 <option value="slow">慢速 (3秒/月)</option>
                 <option value="normal">正常 (2秒/月)</option>
                 <option value="fast">快速 (1秒/月)</option>
               </select>
             </div>
           </div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">📝</span>
               显示教程提示
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
               <label class="switch">
-                <input type="checkbox" v-model="showTutorial">
+                <input type="checkbox" v-model="showTutorial" disabled>
                 <span class="slider"></span>
               </label>
             </div>
@@ -148,31 +153,34 @@
         <!-- 数据管理 -->
         <div class="settings-section">
           <div class="section-title">数据</div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">💾</span>
               导出存档
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
-              <button class="action-btn" @click="exportSave">导出</button>
+              <button class="action-btn" disabled>导出</button>
             </div>
           </div>
-          <div class="setting-item">
+          <div class="setting-item disabled">
             <span class="setting-label">
               <span class="icon">📂</span>
               导入存档
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
-              <button class="action-btn" @click="importSave">导入</button>
+              <button class="action-btn" disabled>导入</button>
             </div>
           </div>
-          <div class="setting-item danger">
+          <div class="setting-item danger disabled">
             <span class="setting-label">
               <span class="icon">🗑️</span>
               清除本地数据
+              <span class="coming-soon">即将推出</span>
             </span>
             <div class="setting-control">
-              <button class="action-btn danger" @click="clearData">清除</button>
+              <button class="action-btn danger" disabled>清除</button>
             </div>
           </div>
         </div>
@@ -437,6 +445,15 @@ defineExpose({
   border-bottom: 1px solid rgba(0,0,0,0.05);
 }
 
+.setting-item.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.setting-item.disabled .setting-control {
+  pointer-events: none;
+}
+
 .setting-item.danger .setting-label {
   color: #ef4444;
 }
@@ -451,6 +468,16 @@ defineExpose({
 
 .setting-label .icon {
   font-size: 16px;
+}
+
+.coming-soon {
+  font-size: 9px;
+  padding: 2px 6px;
+  background: var(--term-border);
+  color: var(--term-text-secondary);
+  border-radius: 3px;
+  margin-left: 4px;
+  font-weight: 500;
 }
 
 .setting-control {
@@ -468,11 +495,11 @@ defineExpose({
 
 /* Toggle buttons */
 .toggle-btn {
-  padding: 4px 12px;
+  padding: 6px 14px;
   font-size: 11px;
   font-weight: 700;
-  border: 1px solid var(--term-border);
-  background: var(--term-bg);
+  border: 2px solid var(--term-border);
+  background: transparent;
   color: var(--term-text);
   cursor: pointer;
   transition: all 0.2s;
@@ -480,17 +507,22 @@ defineExpose({
 
 .toggle-btn:first-child {
   border-radius: 4px 0 0 4px;
+  border-right: 1px solid var(--term-border);
 }
 
 .toggle-btn:last-child {
   border-radius: 0 4px 4px 0;
-  border-left: none;
+  border-left: 1px solid var(--term-border);
 }
 
 .toggle-btn.active {
   background: var(--term-accent);
   color: #000;
   border-color: var(--term-accent);
+}
+
+.toggle-btn:not(.active):hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 /* Switch */

@@ -6,7 +6,7 @@
     </div>
 
     <div class="content-grid">
-      <!-- Left: Market Overview & Chart -->
+      <!-- Left: Market Overview & Stock List -->
       <div class="col-left">
         <div class="archive-card">
           <div class="archive-header">市场指数</div>
@@ -23,24 +23,6 @@
               <span class="label">市场情绪</span>
               <span class="mood-tag" :class="marketMood">{{ moodLabel }}</span>
             </div>
-          </div>
-        </div>
-
-        <!-- K-Line Chart (Collapsible) -->
-        <div class="archive-card" v-if="selectedStock">
-          <div class="archive-header clickable" @click="showChart = !showChart">
-            <span>{{ selectedStock.name }} K线图</span>
-            <div class="header-actions">
-              <div class="filter-tabs" v-if="showChart" @click.stop>
-                <span v-for="p in klinePeriods" :key="p.id"
-                  :class="['tab', { active: currentPeriod === p.id }]"
-                  @click="currentPeriod = p.id; loadKlineData()">{{ p.name }}</span>
-              </div>
-              <span class="toggle-icon">{{ showChart ? '▼' : '▶' }}</span>
-            </div>
-          </div>
-          <div class="archive-body chart-container" v-show="showChart">
-            <v-chart :option="klineOption" autoresize class="chart" />
           </div>
         </div>
 
@@ -73,72 +55,104 @@
         </div>
       </div>
 
-      <!-- Right: Trade Panel -->
-      <div class="col-right">
-        <div class="archive-card" v-if="selectedStock">
-          <div class="archive-header">交易面板</div>
-          <div class="archive-body">
-            <div class="selected-info">
-              <h3>{{ selectedStock.name }}</h3>
-              <div class="price-big">¥{{ selectedStock.price.toFixed(2) }}</div>
-              <div class="change-tag" :class="selectedStock.change >= 0 ? 'up' : 'down'">
-                {{ selectedStock.change >= 0 ? '▲' : '▼' }}
-                {{ Math.abs(selectedStock.change).toFixed(2) }}%
+      <!-- Right: Collapsible Trade Panel & Holdings -->
+      <div class="col-right accordion-column">
+        <!-- 交易面板 (含K线图) -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'trade', collapsed: rightPanel && rightPanel !== 'trade' }"
+          @click="rightPanel !== 'trade' && (rightPanel = 'trade')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">📈</span>
+            <span class="accordion-title">交易面板</span>
+            <span class="accordion-arrow">{{ rightPanel === 'trade' ? '▼' : '▶' }}</span>
+          </div>
+          <div class="accordion-body" v-show="rightPanel === 'trade'">
+            <template v-if="selectedStock">
+              <!-- K线图区域 -->
+              <div class="kline-section">
+                <div class="kline-header">
+                  <span class="kline-title">{{ selectedStock.name }} K线图</span>
+                  <div class="filter-tabs" @click.stop>
+                    <span v-for="p in klinePeriods" :key="p.id"
+                      :class="['tab', { active: currentPeriod === p.id }]"
+                      @click="currentPeriod = p.id; loadKlineData()">{{ p.name }}</span>
+                  </div>
+                </div>
+                <div class="chart-container" v-if="klineData.length > 0">
+                  <v-chart :option="klineOption" autoresize class="chart" :key="selectedStock.id + currentPeriod" />
+                </div>
+                <div class="chart-loading" v-else>加载中...</div>
               </div>
-            </div>
 
-            <!-- Technical Indicators -->
-            <div class="tech-indicators" v-if="technicalData">
-              <div class="indicator">
-                <span class="ind-label">MA5</span>
-                <span class="ind-value">{{ technicalData.ma5?.toFixed(2) || '-' }}</span>
-              </div>
-              <div class="indicator">
-                <span class="ind-label">MA20</span>
-                <span class="ind-value">{{ technicalData.ma20?.toFixed(2) || '-' }}</span>
-              </div>
-              <div class="indicator">
-                <span class="ind-label">趋势</span>
-                <span class="ind-value" :class="technicalData.trend">{{ trendLabel }}</span>
-              </div>
-            </div>
+              <!-- 交易信息区域 -->
+              <div class="trade-section">
+                <div class="selected-info">
+                  <h3>{{ selectedStock.name }}</h3>
+                  <div class="price-big">¥{{ selectedStock.price.toFixed(2) }}</div>
+                  <div class="change-tag" :class="selectedStock.change >= 0 ? 'up' : 'down'">
+                    {{ selectedStock.change >= 0 ? '▲' : '▼' }}
+                    {{ Math.abs(selectedStock.change).toFixed(2) }}%
+                  </div>
+                </div>
 
-            <div class="form-row">
-              <label>交易数量</label>
-              <div class="qty-input">
-                <button class="qty-btn" @click="tradeQty = Math.max(100, tradeQty - 100)">-</button>
-                <input type="number" v-model.number="tradeQty" min="100" step="100" />
-                <button class="qty-btn" @click="tradeQty += 100">+</button>
+                <!-- Technical Indicators -->
+                <div class="tech-indicators" v-if="technicalData">
+                  <div class="indicator">
+                    <span class="ind-label">MA5</span>
+                    <span class="ind-value">{{ technicalData.ma5?.toFixed(2) || '-' }}</span>
+                  </div>
+                  <div class="indicator">
+                    <span class="ind-label">MA20</span>
+                    <span class="ind-value">{{ technicalData.ma20?.toFixed(2) || '-' }}</span>
+                  </div>
+                  <div class="indicator">
+                    <span class="ind-label">趋势</span>
+                    <span class="ind-value" :class="technicalData.trend">{{ trendLabel }}</span>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label>交易数量</label>
+                  <div class="qty-input" @click.stop>
+                    <button class="qty-btn" @click="tradeQty = Math.max(100, tradeQty - 100)">-</button>
+                    <input type="number" v-model.number="tradeQty" min="100" step="100" />
+                    <button class="qty-btn" @click="tradeQty += 100">+</button>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <label>交易金额</label>
+                  <span class="amount-val">¥{{ formatNumber(tradeAmount) }}</span>
+                </div>
+
+                <div class="trade-actions" @click.stop>
+                  <button class="term-btn buy" @click="executeTrade('buy')" :disabled="!canBuy">
+                    买入 BUY
+                  </button>
+                  <button class="term-btn sell" @click="executeTrade('sell')" :disabled="!canSell">
+                    卖出 SELL
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div class="form-row">
-              <label>交易金额</label>
-              <span class="amount-val">¥{{ formatNumber(tradeAmount) }}</span>
-            </div>
-
-            <div class="trade-actions">
-              <button class="term-btn buy" @click="executeTrade('buy')" :disabled="!canBuy">
-                买入 BUY
-              </button>
-              <button class="term-btn sell" @click="executeTrade('sell')" :disabled="!canSell">
-                卖出 SELL
-              </button>
-            </div>
+            </template>
+            <div v-else class="empty-state">← 选择股票开始交易</div>
           </div>
         </div>
 
-        <div class="archive-card" v-else>
-          <div class="archive-header">交易面板</div>
-          <div class="archive-body">
-            <div class="empty-state">← 选择股票开始交易</div>
+        <!-- 我的持仓 -->
+        <div 
+          class="accordion-card" 
+          :class="{ expanded: rightPanel === 'holdings', collapsed: rightPanel && rightPanel !== 'holdings' }"
+          @click="rightPanel !== 'holdings' && (rightPanel = 'holdings')"
+        >
+          <div class="accordion-header">
+            <span class="accordion-icon">💼</span>
+            <span class="accordion-title">我的持仓</span>
+            <span class="accordion-arrow">{{ rightPanel === 'holdings' ? '▼' : '▶' }}</span>
           </div>
-        </div>
-
-        <!-- Holdings -->
-        <div class="archive-card flex-grow">
-          <div class="archive-header">我的持仓</div>
-          <div class="archive-body scrollable">
+          <div class="accordion-body" v-show="rightPanel === 'holdings'">
             <div v-if="holdings.length === 0" class="empty-state">暂无持仓</div>
             <div v-for="h in holdings" :key="h.stock_id" class="holding-row">
               <div class="holding-info">
@@ -183,7 +197,7 @@ const marketChange = ref(1.25)
 const marketMood = ref('bullish')
 const klineData = ref([])
 const technicalData = ref(null)
-const showChart = ref(false)
+const rightPanel = ref('trade')  // 'trade' or 'holdings'
 
 const sectors = [
   { id: 'all', name: '全部' },
@@ -332,7 +346,6 @@ const calculateMA = (period, data) => {
 const selectStock = (s) => {
   selectedStock.value = s
   tradeQty.value = 100
-  showChart.value = true
   loadKlineData()
 }
 
@@ -348,22 +361,23 @@ const loadKlineData = async () => {
   try {
     const res = await fetch(`/api/market/kline/${selectedStock.value.id}?period=${currentPeriod.value}`)
     const data = await res.json()
-    if (data.success && data.kline) {
+    if (data.success && data.kline && data.kline.length > 0) {
       klineData.value = data.kline
       // Calculate technical indicators
-      if (data.kline.length > 0) {
-        const closes = data.kline.map(d => d.close)
-        const ma5 = closes.slice(-5).reduce((a, b) => a + b, 0) / 5
-        const ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null
-        const lastClose = closes[closes.length - 1]
-        const prevClose = closes.length > 1 ? closes[closes.length - 2] : lastClose
-        
-        technicalData.value = {
-          ma5,
-          ma20,
-          trend: lastClose > prevClose ? 'up' : lastClose < prevClose ? 'down' : 'sideways'
-        }
+      const closes = data.kline.map(d => d.close)
+      const ma5 = closes.slice(-5).reduce((a, b) => a + b, 0) / 5
+      const ma20 = closes.length >= 20 ? closes.slice(-20).reduce((a, b) => a + b, 0) / 20 : null
+      const lastClose = closes[closes.length - 1]
+      const prevClose = closes.length > 1 ? closes[closes.length - 2] : lastClose
+      
+      technicalData.value = {
+        ma5,
+        ma20,
+        trend: lastClose > prevClose ? 'up' : lastClose < prevClose ? 'down' : 'sideways'
       }
+    } else {
+      // API returned empty data, generate sample
+      generateSampleKline()
     }
   } catch (e) {
     console.error('加载K线数据失败:', e)
@@ -569,6 +583,7 @@ onMounted(() => {
 /* Chart Container */
 .chart-container { height: 220px; padding: 8px 0; }
 .chart { width: 100%; height: 100%; }
+.chart-loading { height: 220px; display: flex; align-items: center; justify-content: center; color: var(--term-text-secondary); }
 .clickable { cursor: pointer; }
 .header-actions { display: flex; align-items: center; gap: 12px; }
 .toggle-icon { font-size: 10px; color: var(--term-text-secondary); }
@@ -662,6 +677,91 @@ onMounted(() => {
 }
 .archive-body {
   padding: 16px;
+}
+
+/* Accordion Styles */
+.accordion-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.accordion-card {
+  background: var(--term-panel-bg);
+  border: 2px solid var(--term-border);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.accordion-card.expanded {
+  flex: 1;
+}
+
+.accordion-card.collapsed {
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.accordion-card.collapsed:hover {
+  border-color: var(--term-accent);
+}
+
+.accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.03);
+  border-bottom: 1px solid var(--term-border);
+  font-weight: 700;
+}
+
+.accordion-icon {
+  font-size: 16px;
+}
+
+.accordion-title {
+  flex: 1;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.accordion-arrow {
+  font-size: 10px;
+  color: var(--term-text-secondary);
+}
+
+.accordion-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+/* K-line Section inside Trading Panel */
+.kline-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--term-border);
+}
+
+.kline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.kline-title {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.trade-section {
+  /* Keep existing trade content styling */
 }
 
 @media (max-width: 768px) {
