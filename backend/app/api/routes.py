@@ -3863,10 +3863,15 @@ async def get_event_pool():
 
 
 @router.get("/events/personalized/{session_id}")
-async def get_personalized_events(session_id: str, limit: int = 10):
-    """获取基于用户标签的个性化事件"""
+async def get_personalized_events(session_id: str, limit: int = 10, refresh: bool = False):
+    """
+    获取基于用户画像的个性化事件（MBTI、职业、标签）
+    真实新闻 → 个性化衍生 → 定制化推荐
+    """
     try:
         from core.database.database import Database
+        from core.systems.news_event_generator import news_event_generator
+        from core.systems.personalized_event_generator import personalized_event_generator
         db = Database()
         
         with db.get_connection() as conn:
@@ -3880,8 +3885,58 @@ async def get_personalized_events(session_id: str, limit: int = 10):
             ''', (session_id,))
             
             user_tag_weights = {row[0]: row[1] for row in cursor.fetchall()}
+            user_tag_list = list(user_tag_weights.keys())
             
-            # 获取事件池
+            # 1. 从数据库获取基础新闻事件
+            base_events = []
+            try:
+                base_events = news_event_generator.get_db_events(user_tag_list, limit=limit * 2)
+                print(f"[Events] 从数据库获取到 {len(base_events)} 条基础事件")
+                
+                # 如果强制刷新或者数据库为空，重新生成
+                if refresh or len(base_events) < 3:
+                    print("[Events] 触发事件池刷新...")
+                    base_events = news_event_generator.sync_fetch_and_generate(user_tag_list, force_refresh=True)
+                    print(f"[Events] 刷新后获取到 {len(base_events)} 条事件")
+            except Exception as e:
+                print(f"[Events] 获取新闻事件失败: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # 2. 🌟 核心：个性化衍生！
+            # 基于用户的MBTI、职业、风险偏好等生成定制化事件
+            personalized_events = []
+            if base_events:
+                try:
+                    personalized_events = personalized_event_generator.generate_personalized_events(
+                        base_events, 
+                        session_id
+                    )
+                    print(f"[Events] 个性化处理后得到 {len(personalized_events)} 条事件")
+                except Exception as e:
+                    print(f"[Events] 个性化处理失败，使用原事件: {e}")
+                    personalized_events = base_events
+            
+            # 如果有足够的个性化事件，直接返回
+            if len(personalized_events) >= limit:
+                # 获取用户画像信息
+                user_profile = personalized_event_generator.get_user_profile(session_id)
+                
+                return {
+                    "success": True,
+                    "events": personalized_events[:limit],
+                    "user_tags": list(user_tag_weights.keys()),
+                    "source": "personalized_news",
+                    "stats": news_event_generator.get_event_stats(),
+                    "user_profile": {
+                        "mbti": user_profile.mbti,
+                        "career": user_profile.career_title or user_profile.career,
+                        "risk_preference": user_profile.risk_preference,
+                        "experience": user_profile.investment_experience
+                    }
+                }
+            
+            # 3. 补充预设事件（也要个性化处理）
             all_events = user_tag_system.get_event_pool()
             
             # 基于标签筛选和排序事件
@@ -3905,42 +3960,39 @@ async def get_personalized_events(session_id: str, limit: int = 10):
                 scored_events.append({
                     **event,
                     "match_score": final_score,
-                    "matched_tags": matched_tags
+                    "matched_tags": matched_tags,
+                    "is_real_news": False,
+                    "is_personalized": False
                 })
             
             # 按匹配度排序
             scored_events.sort(key=lambda x: x["match_score"], reverse=True)
             
-            # 取前N个事件，但也保证一定的多样性
-            selected_events = []
-            categories_seen = set()
+            # 合并个性化新闻事件和预设事件
+            combined_events = personalized_events.copy()
             
+            # 补充预设事件
             for event in scored_events:
-                cat = event.get("category", "general")
-                # 每个类别最多3个事件，保证多样性
-                if categories_seen.get(cat, 0) < 3 if isinstance(categories_seen, dict) else cat not in categories_seen:
-                    selected_events.append(event)
-                    if isinstance(categories_seen, set):
-                        categories_seen = {cat: 1}
-                    else:
-                        categories_seen[cat] = categories_seen.get(cat, 0) + 1
-                    
-                    if len(selected_events) >= limit:
-                        break
+                if len(combined_events) >= limit:
+                    break
+                combined_events.append(event)
             
-            # 如果不够，补充剩余事件
-            if len(selected_events) < limit:
-                for event in scored_events:
-                    if event not in selected_events:
-                        selected_events.append(event)
-                        if len(selected_events) >= limit:
-                            break
+            # 获取用户画像信息
+            user_profile = personalized_event_generator.get_user_profile(session_id)
             
             return {
                 "success": True,
-                "events": selected_events[:limit],
+                "events": combined_events[:limit],
                 "user_tags": list(user_tag_weights.keys()),
-                "total_pool_size": len(all_events)
+                "source": "mixed_personalized" if personalized_events else "preset_pool",
+                "real_news_count": len(personalized_events),
+                "stats": news_event_generator.get_event_stats(),
+                "user_profile": {
+                    "mbti": user_profile.mbti,
+                    "career": user_profile.career_title or user_profile.career,
+                    "risk_preference": user_profile.risk_preference,
+                    "experience": user_profile.investment_experience
+                }
             }
             
     except Exception as e:
@@ -4131,3 +4183,84 @@ async def get_event_categories():
     }
 
 
+# ==================== 实时新闻 API ====================
+
+@router.get("/news/market-status")
+async def get_market_status():
+    """获取当前市场状态（来自 finai.org.cn）"""
+    try:
+        from core.systems.news_event_generator import news_event_generator
+        status = news_event_generator.get_market_status()
+        return {"success": True, **status}
+    except Exception as e:
+        print(f"[News] Error getting market status: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/news/latest")
+async def get_latest_news(limit: int = 10):
+    """获取最新金融新闻"""
+    try:
+        from core.systems.news_event_generator import news_event_generator
+        news_items = news_event_generator.fetch_news()
+        
+        return {
+            "success": True,
+            "news": [
+                {
+                    "title": n.title_cn,
+                    "title_en": n.title,
+                    "source": n.source,
+                    "category": n.category,
+                    "sentiment": n.sentiment,
+                    "timestamp": n.timestamp
+                }
+                for n in news_items[:limit]
+            ],
+            "market_sentiment": news_event_generator.market_sentiment,
+            "hot_topics": news_event_generator.hot_topics
+        }
+    except Exception as e:
+        print(f"[News] Error getting latest news: {e}")
+        return {"success": False, "error": str(e), "news": []}
+
+
+@router.post("/events/refresh")
+async def refresh_event_pool():
+    """强制刷新事件池 - 重新爬取新闻并AI生成事件"""
+    try:
+        from core.systems.news_event_generator import news_event_generator
+        
+        # 强制刷新
+        events = news_event_generator.sync_fetch_and_generate(force_refresh=True)
+        stats = news_event_generator.get_event_stats()
+        
+        return {
+            "success": True,
+            "message": f"已刷新事件池，生成 {len(events)} 条新事件",
+            "events_count": len(events),
+            "stats": stats
+        }
+    except Exception as e:
+        print(f"[Events] Error refreshing event pool: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/events/stats")
+async def get_event_pool_stats():
+    """获取事件池统计信息"""
+    try:
+        from core.systems.news_event_generator import news_event_generator
+        stats = news_event_generator.get_event_stats()
+        market_status = news_event_generator.get_market_status()
+        
+        return {
+            "success": True,
+            "stats": stats,
+            "market_status": market_status
+        }
+    except Exception as e:
+        print(f"[Events] Error getting stats: {e}")
+        return {"success": False, "error": str(e)}

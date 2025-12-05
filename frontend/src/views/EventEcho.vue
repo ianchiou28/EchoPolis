@@ -99,22 +99,44 @@
         <section class="events-section">
           <div class="section-header">
             <h2>🎲 个性化事件</h2>
-            <p class="section-desc">基于您的标签为您推荐的事件选项</p>
+            <p class="section-desc">基于真实金融新闻 + 你的画像（MBTI/职业/风险偏好）生成</p>
+            
+            <!-- 用户画像信息 -->
+            <div class="user-profile-bar" v-if="userProfile">
+              <span class="profile-item mbti">
+                🧠 {{ userProfile.mbti || 'INTJ' }}
+              </span>
+              <span class="profile-item career" v-if="userProfile.career">
+                💼 {{ userProfile.career }}
+              </span>
+              <span class="profile-item risk" :class="userProfile.risk_preference">
+                ⚖️ {{ userProfile.risk_preference === 'high' ? '激进' : userProfile.risk_preference === 'low' ? '保守' : '稳健' }}
+              </span>
+            </div>
+            
+            <div class="event-source-info" v-if="eventSource">
+              <span class="source-badge" :class="eventSource">
+                {{ eventSource === 'personalized_news' ? '✨ 个性化新闻' : eventSource === 'mixed_personalized' ? '📰 混合个性化' : '📋 预设事件' }}
+              </span>
+              <span class="stats-info" v-if="eventStats">
+                数据库: {{ eventStats.active_events || 0 }} 条事件
+              </span>
+            </div>
           </div>
 
           <!-- 加载状态 -->
-          <div v-if="loading" class="loading-state">
+          <div v-if="loading || refreshing" class="loading-state">
             <div class="spinner"></div>
-            <p>正在生成个性化事件...</p>
+            <p>{{ refreshing ? '正在爬取最新金融新闻并生成个性化事件...' : '正在加载事件...' }}</p>
           </div>
 
           <!-- 事件卡片列表 -->
-          <div v-else class="events-grid">
+          <div v-else-if="filteredEvents.length > 0" class="events-grid">
             <div 
               v-for="event in filteredEvents" 
               :key="event.id" 
               class="event-card"
-              :class="{ selected: selectedEvent?.id === event.id }"
+              :class="{ selected: selectedEvent?.id === event.id, 'real-news': event.is_real_news, 'personalized': event.is_personalized }"
               @click="selectEvent(event)">
               <div class="event-header">
                 <span class="event-category" :class="event.category">
@@ -123,27 +145,47 @@
                 <span class="event-match" v-if="event.match_score">
                   匹配度 {{ (event.match_score * 100).toFixed(0) }}%
                 </span>
+                <span class="personalized-badge" v-if="event.is_personalized">✨</span>
+                <span class="real-news-badge" v-if="event.is_real_news">📰</span>
               </div>
+              
+              <!-- 个性化开场白 -->
+              <p class="personalized-intro" v-if="event.personalized_intro">
+                {{ event.personalized_intro }}
+              </p>
+              
               <h3 class="event-title">{{ event.icon }} {{ event.title }}</h3>
               <p class="event-desc">{{ event.description }}</p>
+              
+              <!-- 风险评估 -->
+              <div class="risk-assessment" v-if="event.risk_assessment">
+                <small>{{ event.risk_assessment }}</small>
+              </div>
+              
               <div class="event-tags">
                 <span v-for="tag in event.tags?.slice(0, 3)" :key="tag" class="event-tag">
                   {{ tag }}
                 </span>
               </div>
+              <div class="event-source" v-if="event.source_news">
+                <small>📰 {{ event.source_news.substring(0, 30) }}...</small>
+              </div>
             </div>
+          </div>
 
-            <div v-if="filteredEvents.length === 0 && !loading" class="empty-events">
-              <div class="empty-icon">🎲</div>
-              <p>暂无匹配的事件</p>
-              <button class="term-btn" @click="loadEvents">刷新事件池</button>
-            </div>
+          <!-- 空状态 - 自动开始加载 -->
+          <div v-else class="loading-state">
+            <div class="spinner"></div>
+            <p>事件池为空，正在生成...</p>
           </div>
 
           <!-- 刷新按钮 -->
           <div class="section-footer">
             <button class="refresh-events-btn" @click="loadEvents" :disabled="loading">
-              {{ loading ? '加载中...' : '🔄 刷新事件推荐' }}
+              {{ loading ? '加载中...' : '🔄 刷新推荐' }}
+            </button>
+            <button class="refresh-pool-btn" @click="refreshEventPool" :disabled="refreshing">
+              {{ refreshing ? '生成中...' : '🌐 重新爬取新闻' }}
             </button>
           </div>
         </section>
@@ -158,16 +200,48 @@
               <button class="close-btn" @click="selectedEvent = null">×</button>
             </div>
             
+            <!-- 个性化开场白 -->
+            <div class="personalized-intro-box" v-if="selectedEvent.personalized_intro">
+              <p>{{ selectedEvent.personalized_intro }}</p>
+            </div>
+            
             <h2 class="detail-title">{{ selectedEvent.title }}</h2>
             <p class="detail-desc">{{ selectedEvent.description }}</p>
 
+            <!-- MBTI 提示 -->
+            <div class="mbti-hint" v-if="selectedEvent.mbti_hint">
+              <div class="hint-header">
+                <span class="icon">🧠</span>
+                性格洞察
+              </div>
+              <p>{{ selectedEvent.mbti_hint }}</p>
+            </div>
+
+            <!-- 职业相关性 -->
+            <div class="career-relevance" v-if="selectedEvent.career_relevance">
+              <div class="relevance-header">
+                <span class="icon">💼</span>
+                职业视角
+              </div>
+              <p>{{ selectedEvent.career_relevance }}</p>
+            </div>
+
+            <!-- 风险评估 -->
+            <div class="risk-assessment-box" v-if="selectedEvent.risk_assessment">
+              <div class="risk-header">
+                <span class="icon">⚠️</span>
+                风险评估
+              </div>
+              <p>{{ selectedEvent.risk_assessment }}</p>
+            </div>
+
             <!-- AI分析 -->
-            <div class="ai-analysis" v-if="selectedEvent.ai_thoughts">
+            <div class="ai-analysis" v-if="selectedEvent.ai_analysis || selectedEvent.ai_thoughts">
               <div class="analysis-header">
                 <span class="icon">🤖</span>
                 AI 分析
               </div>
-              <p>{{ selectedEvent.ai_thoughts }}</p>
+              <p>{{ selectedEvent.ai_analysis || selectedEvent.ai_thoughts }}</p>
             </div>
 
             <!-- 选项列表 -->
@@ -178,10 +252,23 @@
                   v-for="(option, idx) in selectedEvent.options" 
                   :key="idx"
                   class="option-btn"
-                  :class="{ selected: selectedOption === idx }"
+                  :class="{ 
+                    selected: selectedOption === idx, 
+                    recommended: option.recommended,
+                    'mbti-fit': option.mbti_fit 
+                  }"
                   @click="selectedOption = idx">
-                  <span class="option-num">[{{ idx + 1 }}]</span>
-                  <span class="option-text">{{ option.text || option }}</span>
+                  <div class="option-main">
+                    <span class="option-num">[{{ idx + 1 }}]</span>
+                    <span class="option-text">{{ option.text || option }}</span>
+                  </div>
+                  <div class="option-hints" v-if="option.recommended || option.mbti_fit">
+                    <span class="recommend-badge" v-if="option.recommended">⭐ 推荐</span>
+                    <span class="mbti-badge" v-if="option.mbti_fit">{{ option.mbti_fit }}</span>
+                  </div>
+                  <div class="option-reason" v-if="option.match_reason">
+                    <small>{{ option.match_reason }}</small>
+                  </div>
                 </button>
               </div>
             </div>
@@ -243,6 +330,7 @@ const gameStore = useGameStore()
 // 状态
 const isSidebarOpen = ref(false)
 const loading = ref(false)
+const refreshing = ref(false)
 const executing = ref(false)
 const userTags = ref([])
 const selectedTags = ref([])
@@ -250,6 +338,9 @@ const events = ref([])
 const selectedEvent = ref(null)
 const selectedOption = ref(null)
 const executionResult = ref(null)
+const eventSource = ref('')
+const eventStats = ref(null)
+const userProfile = ref(null)  // 用户画像
 
 // 计算属性
 const filteredEvents = computed(() => {
@@ -359,39 +450,75 @@ const loadUserTags = async () => {
 }
 
 // 加载个性化事件
-const loadEvents = async () => {
+const loadEvents = async (autoRefresh = true) => {
   const sessionId = getSessionId()
   
   loading.value = true
   selectedEvent.value = null
 
-  // 如果没有 sessionId，使用模拟数据
-  if (!sessionId) {
-    console.warn('[EventEcho] 未找到 sessionId，使用模拟事件数据')
-    events.value = generateMockEvents()
-    loading.value = false
-    return
-  }
-
   try {
-    const res = await axios.get(`/api/events/personalized/${sessionId}`, { 
+    const res = await axios.get(`/api/events/personalized/${sessionId || 'default'}`, { 
       params: { 
         limit: 10
       } 
     })
     if (res.data.success && res.data.events?.length > 0) {
       events.value = res.data.events
+      eventSource.value = res.data.source || 'unknown'
+      eventStats.value = res.data.stats || null
+      // 获取用户画像
+      if (res.data.user_profile) {
+        userProfile.value = res.data.user_profile
+        console.log(`[EventEcho] 用户画像: MBTI=${userProfile.value.mbti}, 职业=${userProfile.value.career}`)
+      }
+      console.log(`[EventEcho] 加载了 ${events.value.length} 条个性化事件，来源: ${eventSource.value}`)
+    } else if (autoRefresh && !refreshing.value) {
+      // API返回空数据，且允许自动刷新，触发刷新
+      console.warn('[EventEcho] API返回空事件，触发事件池刷新')
+      loading.value = false
+      await refreshEventPool()
     } else {
-      // API返回空数据，使用模拟数据
-      console.warn('[EventEcho] API返回空事件，使用模拟数据')
-      events.value = generateMockEvents()
+      console.warn('[EventEcho] API返回空事件')
+      events.value = []
     }
   } catch (e) {
     console.error('加载事件失败:', e)
-    // 使用模拟数据
-    events.value = generateMockEvents()
+    if (autoRefresh && !refreshing.value) {
+      // 加载失败，且允许自动刷新，触发刷新
+      loading.value = false
+      await refreshEventPool()
+    } else {
+      events.value = []
+    }
   } finally {
     loading.value = false
+  }
+}
+
+// 刷新事件池（重新爬取新闻并生成）
+const refreshEventPool = async () => {
+  if (refreshing.value) return // 防止重复调用
+  
+  refreshing.value = true
+  events.value = [] // 清空事件，显示加载状态
+  
+  try {
+    console.log('[EventEcho] 开始刷新事件池...')
+    const res = await axios.post('/api/events/refresh')
+    
+    if (res.data.success) {
+      console.log(`[EventEcho] 事件池已刷新: ${res.data.message}`)
+      eventStats.value = res.data.stats || null
+      
+      // 重新加载事件（禁用自动刷新避免循环）
+      await loadEvents(false)
+    } else {
+      console.error('刷新事件池失败:', res.data.error)
+    }
+  } catch (e) {
+    console.error('刷新事件池失败:', e.message || e)
+  } finally {
+    refreshing.value = false
   }
 }
 
@@ -962,10 +1089,12 @@ onMounted(async () => {
 .section-footer {
   padding-top: 16px;
   border-top: 1px solid var(--term-border, #333);
+  display: flex;
+  gap: 12px;
 }
 
 .refresh-events-btn {
-  width: 100%;
+  flex: 1;
   padding: 12px;
   background: transparent;
   border: 1px solid var(--term-accent, #00ff88);
@@ -984,6 +1113,139 @@ onMounted(async () => {
 .refresh-events-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.refresh-pool-btn {
+  flex: 1;
+  padding: 12px;
+  background: transparent;
+  border: 1px solid var(--term-warning, #ff9800);
+  color: var(--term-warning, #ff9800);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.refresh-pool-btn:hover:not(:disabled) {
+  background: var(--term-warning, #ff9800);
+  color: #000;
+}
+
+.refresh-pool-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 事件来源信息 */
+.event-source-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.source-badge {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid var(--term-accent, #00ff88);
+  color: var(--term-accent, #00ff88);
+}
+
+.source-badge.ai_news_database {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: var(--term-warning, #ff9800);
+  color: var(--term-warning, #ff9800);
+}
+
+.source-badge.mixed, .source-badge.mixed_personalized {
+  background: rgba(100, 149, 237, 0.1);
+  border-color: #6495ed;
+  color: #6495ed;
+}
+
+.source-badge.personalized_news {
+  background: rgba(255, 215, 0, 0.1);
+  border-color: #ffd700;
+  color: #ffd700;
+}
+
+.stats-info {
+  font-size: 12px;
+  color: var(--term-dim, #666);
+}
+
+/* 用户画像栏 */
+.user-profile-bar {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.profile-item {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--term-border, #333);
+}
+
+.profile-item.mbti {
+  background: rgba(138, 43, 226, 0.1);
+  border-color: rgba(138, 43, 226, 0.3);
+  color: #8a2be2;
+}
+
+.profile-item.career {
+  background: rgba(100, 149, 237, 0.1);
+  border-color: rgba(100, 149, 237, 0.3);
+  color: #6495ed;
+}
+
+.profile-item.risk {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.3);
+  color: #ff9800;
+}
+
+.profile-item.risk.high {
+  background: rgba(255, 68, 68, 0.1);
+  border-color: rgba(255, 68, 68, 0.3);
+  color: #ff4444;
+}
+
+.profile-item.risk.low {
+  background: rgba(0, 255, 136, 0.1);
+  border-color: rgba(0, 255, 136, 0.3);
+  color: var(--term-accent, #00ff88);
+}
+
+/* 真实新闻标记 */
+.event-card.real-news {
+  border-color: var(--term-warning, #ff9800);
+}
+
+.real-news-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(255, 152, 0, 0.2);
+  border-radius: 4px;
+  color: var(--term-warning, #ff9800);
+}
+
+.event-source {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--term-border, #333);
+}
+
+.event-source small {
+  color: var(--term-dim, #666);
+  font-size: 11px;
 }
 
 /* 详情面板 */
@@ -1250,6 +1512,154 @@ onMounted(async () => {
       transparent 1px,
       transparent 2px
     );
+}
+
+/* 个性化样式 */
+.personalized-badge {
+  font-size: 14px;
+}
+
+.event-card.personalized {
+  border-color: rgba(255, 215, 0, 0.3);
+}
+
+.event-card.personalized:hover {
+  border-color: rgba(255, 215, 0, 0.5);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
+}
+
+.personalized-intro {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--term-accent, #00ff88);
+  margin: 8px 0;
+  padding: 8px;
+  background: rgba(0, 255, 136, 0.05);
+  border-radius: 4px;
+  border-left: 2px solid var(--term-accent, #00ff88);
+}
+
+.risk-assessment {
+  font-size: 11px;
+  padding: 6px 10px;
+  background: rgba(255, 152, 0, 0.1);
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.personalized-intro-box {
+  background: linear-gradient(135deg, rgba(0, 255, 136, 0.1), rgba(100, 149, 237, 0.1));
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.personalized-intro-box p {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--term-accent, #00ff88);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.mbti-hint, .career-relevance, .risk-assessment-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--term-border, #333);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.mbti-hint {
+  border-color: rgba(138, 43, 226, 0.3);
+  background: rgba(138, 43, 226, 0.05);
+}
+
+.career-relevance {
+  border-color: rgba(100, 149, 237, 0.3);
+  background: rgba(100, 149, 237, 0.05);
+}
+
+.risk-assessment-box {
+  border-color: rgba(255, 152, 0, 0.3);
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.hint-header, .relevance-header, .risk-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.hint-header { color: #8a2be2; }
+.relevance-header { color: #6495ed; }
+.risk-header { color: #ff9800; }
+
+.mbti-hint p, .career-relevance p, .risk-assessment-box p {
+  font-size: 13px;
+  color: var(--term-text-dim, #aaa);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* 选项个性化样式 */
+.option-btn {
+  flex-direction: column;
+}
+
+.option-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+}
+
+.option-hints {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  margin-left: 26px;
+}
+
+.recommend-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(255, 215, 0, 0.2);
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  border-radius: 4px;
+  color: #ffd700;
+}
+
+.mbti-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(138, 43, 226, 0.1);
+  border-radius: 4px;
+  color: #8a2be2;
+}
+
+.option-reason {
+  margin-top: 4px;
+  margin-left: 26px;
+}
+
+.option-reason small {
+  font-size: 11px;
+  color: var(--term-text-dim, #666);
+  font-style: italic;
+}
+
+.option-btn.recommended {
+  border-color: rgba(255, 215, 0, 0.3);
+  background: rgba(255, 215, 0, 0.05);
+}
+
+.option-btn.mbti-fit {
+  border-color: rgba(138, 43, 226, 0.3);
 }
 
 /* 响应式 */

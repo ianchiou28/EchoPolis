@@ -24,7 +24,7 @@ class MarketSentimentSystem:
     """市场情绪分析系统"""
     
     def __init__(self):
-        self.source_url = "http://www.finai.org.cn/"
+        self.source_url = "http://www.finai.org.cn/information/"
         self.current_sentiment: Optional[MarketSentiment] = None
         self.last_update = 0
         self.cache_duration = 3600  # 缓存1小时

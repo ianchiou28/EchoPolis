@@ -128,9 +128,12 @@
                   <span class="bar-label">精力</span>
                   <div class="bar"><div class="fill orange" :style="{ width: (avatar?.energy || 75) + '%' }"></div></div>
                 </div>
+              </div>
             </div>
           </div>
-        </div>        <!-- 城市地图 -->
+        </div>
+        
+        <!-- 城市地图 -->
         <div class="city-map" @mousemove="onParallax" @mouseleave="resetParallax">
           <div class="city-sky" :style="parallaxStyles.sky" />
           <div class="city-grid" :style="parallaxStyles.grid" />
