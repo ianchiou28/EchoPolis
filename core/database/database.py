@@ -26,6 +26,10 @@ class FinAIDatabase:
         print(f"Database path: {self.db_path}")
         self.init_database()
     
+    def get_connection(self):
+        """获取数据库连接（上下文管理器）"""
+        return sqlite3.connect(self.db_path)
+    
     def init_database(self):
         """初始化数据库表"""
         with sqlite3.connect(self.db_path) as conn:
@@ -1666,3 +1670,6 @@ class FinAIDatabase:
 
 # 全局数据库实例
 db = FinAIDatabase()
+
+# 别名，兼容旧代码
+Database = FinAIDatabase
