@@ -641,7 +641,10 @@ export default {
     // 从 localStorage 获取当前角色的 session ID
     const getSessionId = () => {
       const character = gameStore.getCurrentCharacter()
-      return character?.id || null
+      console.log('[Insights] getCurrentCharacter:', character)
+      const id = character?.id || null
+      console.log('[Insights] sessionId:', id)
+      return id
     }
     const sessionId = computed(() => getSessionId())
 
@@ -694,10 +697,14 @@ export default {
     const loadCohortInsights = async () => {
       loading.value = true
       try {
-        const response = await fetch('http://localhost:8000/api/insights/cohort?limit=20')
+        const url = 'http://localhost:8000/api/insights/cohort?limit=20'
+        console.log('[Insights] Fetching cohort insights from:', url)
+        const response = await fetch(url)
         const result = await response.json()
+        console.log('[Insights] Cohort insights result:', result)
         if (result.success) {
           cohortData.value = result.data
+          console.log('[Insights] cohortData set:', cohortData.value?.length, 'items')
         }
       } catch (error) {
         console.error('Failed to load cohort insights:', error)
@@ -801,14 +808,22 @@ export default {
 
     // 加载统计数据
     const loadStatistics = async () => {
-      if (!sessionId.value) return
+      console.log('[Insights] loadStatistics called, sessionId:', sessionId.value)
+      if (!sessionId.value) {
+        console.warn('[Insights] No sessionId, skipping loadStatistics')
+        return
+      }
       
       loading.value = true
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/statistics/${sessionId.value}`)
+        const url = `http://localhost:8000/api/insights/statistics/${sessionId.value}`
+        console.log('[Insights] Fetching statistics from:', url)
+        const response = await fetch(url)
         const result = await response.json()
+        console.log('[Insights] Statistics result:', result)
         if (result.success) {
           statisticsData.value = result.data
+          console.log('[Insights] statisticsData set:', statisticsData.value)
         }
       } catch (error) {
         console.error('Failed to load statistics:', error)
@@ -840,15 +855,23 @@ export default {
 
     // 加载预警数据
     const loadWarnings = async () => {
-      if (!sessionId.value) return
+      console.log('[Insights] loadWarnings called, sessionId:', sessionId.value)
+      if (!sessionId.value) {
+        console.warn('[Insights] No sessionId, skipping loadWarnings')
+        return
+      }
       
       warningsLoading.value = true
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/warnings/${sessionId.value}`)
+        const url = `http://localhost:8000/api/insights/warnings/${sessionId.value}`
+        console.log('[Insights] Fetching warnings from:', url)
+        const response = await fetch(url)
         const result = await response.json()
+        console.log('[Insights] Warnings result:', result)
         if (result.success) {
           warningsData.value = result.warnings || []
           warningStats.value = result.stats || { total: 0, critical: 0, high: 0, medium: 0, low: 0 }
+          console.log('[Insights] warningStats:', warningStats.value)
         }
       } catch (error) {
         console.error('Failed to load warnings:', error)
@@ -920,15 +943,19 @@ export default {
 
     const getActivityHeight = (count) => {
       const maxCount = Math.max(...(statisticsData.value?.monthly_activity?.map(m => m.count) || [1]))
-      return `${(count / maxCount) * 100}%`
+      // 返回像素值，最大高度 80px
+      const height = Math.max(8, (count / maxCount) * 80)
+      return `${height}px`
     }
 
     onMounted(() => {
+      console.log('[Insights] onMounted, sessionId:', sessionId.value)
       loadPersonalInsights()
       loadCohortInsights()
       loadWarnings()  // 自动加载预警
       loadPeerComparison()  // 自动加载同龄人对比
       loadEvolution()  // 自动加载行为演变
+      loadStatistics()  // 自动加载行为统计
     })
 
     return {
@@ -1052,14 +1079,16 @@ export default {
 .insights-content {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
+  padding-bottom: 20px;
 }
 
 .content-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
-  height: 100%;
+  min-height: 0;
 }
 
 .col-left, .col-right {
@@ -1067,15 +1096,17 @@ export default {
   flex-direction: column;
   gap: 16px;
   min-height: 0;
+  overflow: hidden;
 }
 
-.flex-grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.flex-grow { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .scrollable { flex: 1; overflow-y: auto; }
 
 /* Archive Card 统一样式 */
 .archive-card {
   background: var(--term-panel-bg);
   border: 2px solid var(--term-border);
+  overflow: hidden;
 }
 
 .archive-header {
@@ -1123,7 +1154,7 @@ export default {
 .risk-moderate { color: var(--term-accent); }
 .risk-aggressive { color: #ef4444; }
 
-/* 进度条 */
+/* 进度条 - 个人画像使用 */
 .profile-bars {
   display: flex;
   flex-direction: column;
@@ -1131,13 +1162,13 @@ export default {
   margin-bottom: 20px;
 }
 
-.bar-item {
+.profile-bars .bar-item {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.bar-label {
+.profile-bars .bar-label {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
@@ -1433,6 +1464,129 @@ export default {
 .radar-svg {
   width: 280px;
   height: 280px;
+}
+
+/* 趋势图表 */
+.trend-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.trend-line {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.trend-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--term-text-secondary);
+}
+
+.mini-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 60px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--term-border);
+}
+
+.chart-bar {
+  flex: 1;
+  min-width: 8px;
+  max-width: 20px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s ease;
+}
+
+.chart-bar.risk-bar {
+  background: #ef4444;
+}
+
+.chart-bar.rationality-bar {
+  background: #10b981;
+}
+
+/* 月度活跃度图表 */
+.activity-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 120px;
+  padding: 16px 12px 8px 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--term-border);
+  overflow-x: auto;
+}
+
+.activity-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.activity-bar {
+  width: 20px;
+  background: var(--term-accent);
+  border-radius: 2px 2px 0 0;
+  min-height: 8px;
+}
+
+.activity-label {
+  font-size: 9px;
+  color: var(--term-text-secondary);
+  white-space: nowrap;
+}
+
+/* 柱状图 */
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.bar-chart .bar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bar-chart .bar-label {
+  width: 50px;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.bar-chart .bar-container {
+  flex: 1;
+  height: 24px;
+  background: var(--term-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-chart .bar-fill {
+  height: 100%;
+  background: var(--term-accent);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.bar-chart .bar-value {
+  width: 50px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  flex-shrink: 0;
 }
 
 /* AI 洞察 */
@@ -2004,36 +2158,38 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  overflow: hidden;
 }
 
 .warning-overview {
-  background: rgba(255, 152, 0, 0.1);
-  border-color: #ff9800;
+  background: rgba(255, 152, 0, 0.05);
+  border: 2px solid #ff9800;
 }
 
 .warning-stats-grid {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
 }
 
 .warning-stat {
   text-align: center;
-  padding: 1rem 1.5rem;
+  padding: 16px 24px;
   border-radius: 8px;
-  min-width: 80px;
+  min-width: 90px;
 }
 
 .warning-stat .stat-value {
-  font-size: 2rem;
-  font-weight: bold;
+  font-size: 2.5rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .warning-stat .stat-label {
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
-  opacity: 0.8;
+  font-size: 12px;
+  margin-top: 6px;
+  font-weight: 600;
 }
 
 .warning-stat.critical {
@@ -2086,15 +2242,17 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow: hidden;
 }
 
 .warning-card {
   border-left-width: 4px;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: border-left-width 0.2s, box-shadow 0.2s;
 }
 
 .warning-card:hover {
-  transform: translateX(4px);
+  border-left-width: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .warning-card.severity-critical {
@@ -2235,24 +2393,31 @@ export default {
 
 /* ========== 同龄人对比样式 ========== */
 .peer-comparison-card {
-  background: rgba(var(--term-accent-rgb, 0, 255, 0), 0.05);
-  border-color: var(--term-accent);
+  background: rgba(var(--term-accent-rgb, 0, 255, 0), 0.03);
+  border: 2px solid var(--term-accent);
   margin-bottom: 1.5rem;
+  padding: 20px;
+}
+
+.peer-comparison-card .card-title {
+  color: var(--term-accent);
+  margin-bottom: 20px;
 }
 
 .overall-rank {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(0, 0, 0, 0.2);
+  gap: 1.5rem;
+  padding: 1.25rem;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--term-border);
   border-radius: 8px;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .rank-circle {
-  width: 80px;
-  height: 80px;
+  width: 90px;
+  height: 90px;
   border: 3px solid var(--term-accent);
   border-radius: 50%;
   display: flex;
@@ -2260,34 +2425,39 @@ export default {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: rgba(var(--term-accent-rgb, 0, 255, 0), 0.08);
 }
 
 .rank-value {
-  font-size: 1.8rem;
-  font-weight: bold;
+  font-size: 2rem;
+  font-weight: 900;
   color: var(--term-accent);
+  line-height: 1;
 }
 
 .rank-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   opacity: 0.7;
+  margin-top: 4px;
 }
 
 .rank-hint {
-  font-size: 0.95rem;
-  opacity: 0.8;
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.85;
 }
 
 .comparison-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
   margin-bottom: 1rem;
 }
 
 .comparison-item {
-  padding: 0.75rem;
-  background: rgba(0, 0, 0, 0.2);
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--term-border);
   border-radius: 6px;
 }
 
@@ -2295,63 +2465,66 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 10px;
 }
 
 .comp-label {
-  font-weight: bold;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .comp-verdict {
-  font-size: 0.85rem;
-  padding: 0.2rem 0.5rem;
+  font-size: 11px;
+  padding: 3px 8px;
   border-radius: 4px;
+  font-weight: 600;
 }
 
 .comp-verdict.positive {
-  background: rgba(76, 175, 80, 0.2);
-  color: #4caf50;
+  background: rgba(76, 175, 80, 0.15);
+  color: #2e7d32;
 }
 
 .comp-verdict.negative {
-  background: rgba(244, 67, 54, 0.2);
-  color: #f44336;
+  background: rgba(244, 67, 54, 0.15);
+  color: #c62828;
 }
 
 .comp-verdict.neutral {
-  background: rgba(158, 158, 158, 0.2);
-  color: #9e9e9e;
+  background: rgba(158, 158, 158, 0.15);
+  color: #616161;
 }
 
 .comp-bars {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 6px;
 }
 
-.bar-row {
+.comp-bars .bar-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
-.bar-label {
-  width: 50px;
-  font-size: 0.8rem;
-  opacity: 0.7;
+.comp-bars .bar-label {
+  width: 45px;
+  font-size: 12px;
+  opacity: 0.8;
+  flex-shrink: 0;
 }
 
-.bar-container {
+.comp-bars .bar-container {
   flex: 1;
-  height: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  height: 10px;
+  background: var(--term-border);
+  border-radius: 5px;
   overflow: hidden;
 }
 
-.bar {
+.comp-bars .bar {
   height: 100%;
-  border-radius: 6px;
+  border-radius: 5px;
   transition: width 0.5s ease;
 }
 
@@ -2360,30 +2533,35 @@ export default {
 }
 
 .peer-bar {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.25);
 }
 
-.bar-value {
-  width: 45px;
-  font-size: 0.85rem;
+.comp-bars .bar-value {
+  width: 42px;
+  font-size: 12px;
   text-align: right;
-  font-weight: bold;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 .refresh-btn {
   display: block;
   width: 100%;
-  padding: 0.6rem;
+  padding: 10px 16px;
   background: transparent;
   color: var(--term-text);
-  border: 1px solid var(--term-border);
-  border-radius: 4px;
+  border: 2px solid var(--term-border);
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.2s;
+  margin-top: 8px;
 }
 
 .refresh-btn:hover {
-  background: var(--term-border);
+  background: var(--term-accent);
+  border-color: var(--term-accent);
+  color: #000;
 }
 
 /* ========== 行为演变样式 ========== */

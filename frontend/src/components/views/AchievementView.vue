@@ -125,9 +125,33 @@ const showDetail = (ach) => { if (ach.unlocked || !ach.hidden) selectedAch.value
 
 const loadAchievements = async () => {
   try {
+    // 获取当前角色的 session_id
+    const character = gameStore.getCurrentCharacter()
+    const sessionId = character?.id
+    
+    if (!sessionId) {
+      console.warn('[Achievements] No session ID available')
+      return
+    }
+    
+    // 先检查并解锁新成就
+    try {
+      const checkRes = await fetch('/api/achievements/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId })
+      })
+      const checkData = await checkRes.json()
+      if (checkData.unlocked?.length > 0) {
+        console.log('[Achievements] 新解锁成就:', checkData.unlocked.map(u => u.achievement.name))
+      }
+    } catch (checkErr) {
+      console.warn('[Achievements] 检查成就失败:', checkErr)
+    }
+    
     const allRes = await fetch('/api/achievements/all')
     const allData = await allRes.json()
-    const unlockedRes = await fetch(`/api/achievements/unlocked?avatar_id=${gameStore.avatar?.id}`)
+    const unlockedRes = await fetch(`/api/achievements/unlocked?session_id=${sessionId}`)
     const unlockedData = await unlockedRes.json()
 
     if (allData.success) {
@@ -213,6 +237,7 @@ onMounted(() => loadAchievements())
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 16px;
+  padding-top: 4px;
 }
 
 .ach-card {
@@ -253,8 +278,9 @@ onMounted(() => loadAchievements())
 .modal-card {
   background: var(--term-panel-bg);
   border: 2px solid var(--term-border);
-  padding: 32px;
-  max-width: 400px;
+  padding: 32px 48px;
+  min-width: 420px;
+  max-width: 520px;
   text-align: center;
 }
 

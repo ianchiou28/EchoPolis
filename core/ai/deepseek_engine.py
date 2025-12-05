@@ -238,6 +238,37 @@ class DeepSeekEngine:
                 "raw_response": response
             }
     
+    async def generate_response_async(self, prompt: str) -> Optional[str]:
+        """异步生成AI响应（用于行为洞察等功能）"""
+        if not self.api_key:
+            print("[WARN] generate_response_async: API Key missing")
+            return None
+        
+        try:
+            response = requests.post(
+                self.base_url,
+                headers=self.headers,
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return content
+            else:
+                print(f"[ERROR] generate_response_async failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"[ERROR] generate_response_async exception: {e}")
+            return None
+    
     def generate_situation(self, context: Dict):
         """使用DeepSeek AI生成情况"""
         if not self.api_key:

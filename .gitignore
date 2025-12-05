@@ -72,3 +72,4 @@ DEPLOY.md
 echopolis.db
 .db
 .env
+echopolis copy.db

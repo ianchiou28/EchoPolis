@@ -1787,6 +1787,14 @@ async def check_achievements(data: dict):
             cursor.execute('SELECT SUM(amount) FROM investments WHERE session_id = ? AND remaining_months > 0', (session_id,))
             invested = cursor.fetchone()[0] or 0
             total_assets = cash + invested
+            
+            # 获取该用户已解锁的成就，避免重复解锁
+            cursor.execute('SELECT achievement_id, unlocked_month FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+            unlocked_rows = cursor.fetchall()
+            unlocked_list = [{"achievement_id": r[0], "unlocked_month": r[1]} for r in unlocked_rows]
+        
+        # 加载已解锁成就到系统内存
+        achievement_system.load_unlocked_from_list(unlocked_list)
         
         current_month = game_service.db.get_session_month(session_id)
         
@@ -3052,6 +3060,24 @@ async def get_side_businesses(session_id: str):
 
 # ============ 行为洞察API ============
 
+def resolve_session_id(session_id_or_user_id: str) -> str:
+    """
+    解析 session_id：如果传入的是数字用户ID，则从数据库查询对应的 session_id
+    """
+    # 如果是纯数字，认为是用户ID，需要查询对应的session_id
+    if session_id_or_user_id.isdigit():
+        try:
+            import sqlite3
+            with sqlite3.connect(game_service.db.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT session_id FROM users WHERE id = ?', (int(session_id_or_user_id),))
+                result = cursor.fetchone()
+                if result:
+                    return result[0]
+        except Exception as e:
+            print(f"[Insights] Failed to resolve session_id: {e}")
+    return session_id_or_user_id
+
 @router.get("/insights/personal/{session_id}")
 async def get_personal_insights(session_id: str):
     """获取个人行为洞察"""
@@ -3059,7 +3085,9 @@ async def get_personal_insights(session_id: str):
         if not game_service.behavior_system:
             return {"success": False, "error": "行为洞察系统未初始化"}
         
-        insights = game_service.behavior_system.get_personal_insights(session_id)
+        # 解析 session_id
+        resolved_id = resolve_session_id(session_id)
+        insights = game_service.behavior_system.get_personal_insights(resolved_id)
         return {
             "success": True,
             "data": insights
@@ -3093,7 +3121,8 @@ async def get_behavior_statistics(session_id: str):
         if not game_service.behavior_system:
             return {"success": False, "error": "行为洞察系统未初始化"}
         
-        stats = game_service.behavior_system.get_behavior_statistics(session_id)
+        resolved_id = resolve_session_id(session_id)
+        stats = game_service.behavior_system.get_behavior_statistics(resolved_id)
         return {
             "success": True,
             "data": stats
@@ -3109,12 +3138,14 @@ async def get_ai_insight(session_id: str):
         if not game_service.behavior_system:
             return {"success": False, "error": "行为洞察系统未初始化"}
         
+        resolved_id = resolve_session_id(session_id)
+        
         # 设置AI引擎
         if game_service.ai_engine and not game_service.behavior_system.ai_engine:
             game_service.behavior_system.set_ai_engine(game_service.ai_engine)
         
-        current_month = game_service.db.get_session_month(session_id)
-        insight = await game_service.behavior_system.generate_ai_insight(session_id, current_month)
+        current_month = game_service.db.get_session_month(resolved_id)
+        insight = await game_service.behavior_system.generate_ai_insight(resolved_id, current_month)
         
         if insight:
             return {"success": True, "data": insight}
@@ -3135,12 +3166,14 @@ async def get_behavior_warnings(session_id: str):
         if not game_service.behavior_system:
             return {"success": False, "error": "行为洞察系统未初始化"}
         
+        resolved_id = resolve_session_id(session_id)
+        
         # 获取当前月份作为游戏状态
-        current_month = game_service.db.get_session_month(session_id) if game_service.db else 0
+        current_month = game_service.db.get_session_month(resolved_id) if game_service.db else 0
         state = {'current_month': current_month or 0}
         
         # 获取预警
-        warnings = game_service.behavior_system.get_warnings(session_id, state)
+        warnings = game_service.behavior_system.get_warnings(resolved_id, state)
         
         # 按严重程度排序
         severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
@@ -3178,8 +3211,10 @@ async def get_peer_comparison(session_id: str):
         if not game_service.behavior_system:
             return {"success": False, "error": "行为洞察系统未初始化"}
         
+        resolved_id = resolve_session_id(session_id)
+        
         # 获取对比数据
-        comparison_data = game_service.behavior_system.get_peer_comparison(session_id)
+        comparison_data = game_service.behavior_system.get_peer_comparison(resolved_id)
         
         return {
             "success": True,
@@ -3201,7 +3236,8 @@ async def get_behavior_evolution(session_id: str):
         if not game_service.behavior_system:
             return {"success": False, "error": "行为洞察系统未初始化"}
         
-        evolution_data = game_service.behavior_system.get_behavior_evolution(session_id)
+        resolved_id = resolve_session_id(session_id)
+        evolution_data = game_service.behavior_system.get_behavior_evolution(resolved_id)
         
         return {
             "success": True,

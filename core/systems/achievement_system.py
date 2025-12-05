@@ -659,6 +659,21 @@ class AchievementSystem:
             }
         }
     
+    def load_unlocked_from_list(self, unlocked_list: List[Dict]):
+        """从已解锁成就列表加载到内存中，避免重复解锁
+        
+        Args:
+            unlocked_list: 数据库中已解锁成就的列表，每项包含 achievement_id 和 unlocked_month
+        """
+        self.unlocked = {}
+        for item in unlocked_list:
+            ach_id = item.get("achievement_id")
+            if ach_id:
+                self.unlocked[ach_id] = UnlockedAchievement(
+                    achievement_id=ach_id,
+                    unlocked_month=item.get("unlocked_month", 0)
+                )
+    
     def check_wealth_achievements(self, total_assets: int, game_month: int) -> List[Dict]:
         """检查财富成就"""
         unlocked = []
