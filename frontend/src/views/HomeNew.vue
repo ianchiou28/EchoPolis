@@ -402,7 +402,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
-import { buildAssetUrl } from '../utils/api'
+import { buildAssetUrl, buildApiUrl } from '../utils/api'
 import ProfileView from '../components/views/ProfileView.vue'
 import TimelineView from '../components/views/TimelineView.vue'
 import ArchivesView from '../components/views/ArchivesView.vue'
@@ -713,7 +713,7 @@ const triggerRandomEvents = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/events/generate', {
+    const res = await fetch(buildApiUrl('/api/events/generate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -746,7 +746,7 @@ const updateActiveEffects = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/events/update-effects', {
+    const res = await fetch(buildApiUrl('/api/events/update-effects'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId })
@@ -835,7 +835,7 @@ const loadActiveEffects = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch(`/api/events/active-effects/${sessionId}`)
+    const res = await fetch(buildApiUrl(`/api/events/active-effects/${sessionId}`))
     const data = await res.json()
     if (data.success && data.effects) {
       activeEffects.value = data.effects

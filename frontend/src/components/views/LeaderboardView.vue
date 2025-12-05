@@ -68,6 +68,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { buildApiUrl } from '../../utils/api'
 
 const currentTab = ref('assets')
 const leaderboard = ref([])
@@ -136,7 +137,7 @@ const loadLeaderboard = async () => {
   // Load my ranking
   if (sessionId) {
     try {
-      const res = await fetch(`/api/leaderboard/player/${sessionId}`)
+      const res = await fetch(buildApiUrl(`/api/leaderboard/player/${sessionId}`))
       const data = await res.json()
       if (data.success && data.ranking) {
         myRanking.value = {

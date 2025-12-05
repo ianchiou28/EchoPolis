@@ -250,6 +250,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 
 const gameStore = useGameStore()
 const cash = computed(() => gameStore.assets?.cash || 0)
@@ -343,7 +344,7 @@ const confirmPurchase = async () => {
   if (!sessionId) return
 
   try {
-    const res = await fetch('/api/housing/buy', {
+    const res = await fetch(buildApiUrl('/api/housing/buy'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -374,7 +375,7 @@ const sellProperty = async (prop) => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/housing/sell', {
+    const res = await fetch(buildApiUrl('/api/housing/sell'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -403,7 +404,7 @@ const rentOut = async (prop) => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/housing/rentout', {
+    const res = await fetch(buildApiUrl('/api/housing/rentout'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -429,7 +430,7 @@ const rentHouse = async (rent) => {
   if (!sessionId) return
 
   try {
-    const res = await fetch('/api/housing/rent', {
+    const res = await fetch(buildApiUrl('/api/housing/rent'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -463,7 +464,7 @@ const loadHousingData = async () => {
   
   try {
     // 加载我的房产
-    const propRes = await fetch(`/api/housing/properties/${sessionId}`)
+    const propRes = await fetch(buildApiUrl(`/api/housing/properties/${sessionId}`))
     const propData = await propRes.json()
     if (propData.success && propData.properties) {
       myProperties.value = propData.properties.map(p => ({
@@ -480,7 +481,7 @@ const loadHousingData = async () => {
     }
     
     // 加载居住状态
-    const statusRes = await fetch(`/api/housing/status/${sessionId}`)
+    const statusRes = await fetch(buildApiUrl(`/api/housing/status/${sessionId}`))
     const statusData = await statusRes.json()
     if (statusData.success && statusData.status) {
       const s = statusData.status
@@ -500,7 +501,7 @@ const loadHousingData = async () => {
     }
     
     // 加载房贷
-    const mortRes = await fetch(`/api/housing/mortgages/${sessionId}`)
+    const mortRes = await fetch(buildApiUrl(`/api/housing/mortgages/${sessionId}`))
     const mortData = await mortRes.json()
     if (mortData.success && mortData.mortgages) {
       mortgages.value = mortData.mortgages.map(m => ({

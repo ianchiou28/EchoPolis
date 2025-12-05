@@ -199,6 +199,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 
 const gameStore = useGameStore()
 
@@ -304,7 +305,7 @@ const makeDeposit = async () => {
   if (!depositAmount.value || depositAmount.value > cash.value) return
   
   try {
-    const res = await fetch('/api/banking/deposit', {
+    const res = await fetch(buildApiUrl('/api/banking/deposit'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -341,7 +342,7 @@ const applyLoan = async () => {
   if (!loanAmount.value || !selectedLoan.value) return
   
   try {
-    const res = await fetch('/api/banking/loan', {
+    const res = await fetch(buildApiUrl('/api/banking/loan'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -382,9 +383,9 @@ const loadBankingData = async () => {
   
   try {
     const [depositRes, loanRes, creditRes] = await Promise.all([
-      fetch(`/api/banking/deposits/${sessionId}`).then(r => r.json()),
-      fetch(`/api/banking/loans/${sessionId}`).then(r => r.json()),
-      fetch(`/api/banking/credit/${sessionId}`).then(r => r.json())
+      fetch(buildApiUrl(`/api/banking/deposits/${sessionId}`)).then(r => r.json()),
+      fetch(buildApiUrl(`/api/banking/loans/${sessionId}`)).then(r => r.json()),
+      fetch(buildApiUrl(`/api/banking/credit/${sessionId}`)).then(r => r.json())
     ])
     
     if (depositRes.success) {

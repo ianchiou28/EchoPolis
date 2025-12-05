@@ -90,6 +90,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 
 const gameStore = useGameStore()
 
@@ -136,7 +137,7 @@ const loadAchievements = async () => {
     
     // 先检查并解锁新成就
     try {
-      const checkRes = await fetch('/api/achievements/check', {
+      const checkRes = await fetch(buildApiUrl('/api/achievements/check'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId })
@@ -149,9 +150,9 @@ const loadAchievements = async () => {
       console.warn('[Achievements] 检查成就失败:', checkErr)
     }
     
-    const allRes = await fetch('/api/achievements/all')
+    const allRes = await fetch(buildApiUrl('/api/achievements/all'))
     const allData = await allRes.json()
-    const unlockedRes = await fetch(`/api/achievements/unlocked?session_id=${sessionId}`)
+    const unlockedRes = await fetch(buildApiUrl(`/api/achievements/unlocked?session_id=${sessionId}`))
     const unlockedData = await unlockedRes.json()
 
     if (allData.success) {
