@@ -57,6 +57,19 @@
           <div class="archive-card">
             <div class="archive-header">行为画像</div>
             <div class="archive-body">
+              <!-- 标签展示区 -->
+              <div v-if="getAllTags.length > 0" class="tags-display">
+                <div 
+                  v-for="tag in getAllTags" 
+                  :key="tag.id" 
+                  class="profile-tag"
+                  :class="{ 'auto-tag': tag.isAuto, 'custom-tag': tag.isCustom }"
+                >
+                  <span class="tag-icon">{{ tag.icon }}</span>
+                  <span class="tag-text">{{ tag.name }}</span>
+                </div>
+              </div>
+              
               <div class="profile-grid">
                 <div class="profile-item">
                   <span class="item-label">风险偏好</span>
@@ -667,6 +680,96 @@ export default {
     
     // 行为演变
     const evolutionData = ref(null)
+    
+    // 用户自选标签映射
+    const userTagsMap = {
+      'student': { name: '在校学生', icon: '🎓' },
+      'new_graduate': { name: '应届毕业生', icon: '📜' },
+      'working': { name: '职场人士', icon: '💼' },
+      'investor_newbie': { name: '投资小白', icon: '🌱' },
+      'investor_exp': { name: '有投资经验', icon: '📈' },
+      'finance_major': { name: '金融相关专业', icon: '🏦' },
+      'tech_major': { name: '理工科背景', icon: '💻' },
+      'arts_major': { name: '文科背景', icon: '📚' },
+      'risk_lover': { name: '喜欢冒险', icon: '🎲' },
+      'risk_averse': { name: '稳健保守', icon: '🛡️' },
+      'goal_house': { name: '目标买房', icon: '🏠' },
+      'goal_retire': { name: '关注养老', icon: '👴' },
+    }
+    
+    // 自动标签图标映射
+    const autoTagIcons = {
+      '高风险偏好': '🔥',
+      '低风险偏好': '🛡️',
+      '稳健投资': '⚖️',
+      '理性决策者': '🧠',
+      '冲动型投资': '⚡',
+      '佛系理财': '🧘',
+      '灵活应变': '🔄',
+      '损失敏感': '😰',
+      '过度自信': '💪',
+      '容易跟风': '🐑',
+      '善于规划': '📋',
+      '活跃投资者': '📊',
+      '善用杠杆': '🏗️',
+      '关注房产': '🏠',
+      '重视保障': '🔒',
+      '注重消费': '🛒',
+      '高频交易': '⚡',
+      '长期持有': '🕐',
+    }
+    
+    // 获取所有标签（用户标签 + 自动标签）
+    const getAllTags = computed(() => {
+      if (!personalData.value?.profile) return []
+      
+      const tags = []
+      
+      // 解析用户自选标签（包括预设标签和自定义标签）
+      const userTags = personalData.value.profile.user_tags || ''
+      if (userTags) {
+        userTags.split(',').forEach(tagId => {
+          if (tagId.startsWith('custom:')) {
+            // 自定义标签
+            const customName = tagId.slice(7)  // 去掉 'custom:' 前缀
+            tags.push({
+              id: tagId,
+              name: customName,
+              icon: '🏷️',
+              isAuto: false,
+              isCustom: true
+            })
+          } else if (userTagsMap[tagId]) {
+            // 预设标签
+            tags.push({
+              id: tagId,
+              name: userTagsMap[tagId].name,
+              icon: userTagsMap[tagId].icon,
+              isAuto: false,
+              isCustom: false
+            })
+          }
+        })
+      }
+      
+      // 解析自动生成标签
+      const autoTags = personalData.value.profile.auto_tags || ''
+      if (autoTags) {
+        autoTags.split(',').forEach(tagName => {
+          if (tagName.trim()) {
+            tags.push({
+              id: `auto_${tagName}`,
+              name: tagName.trim(),
+              icon: autoTagIcons[tagName.trim()] || '🏷️',
+              isAuto: true,
+              isCustom: false
+            })
+          }
+        })
+      }
+      
+      return tags
+    })
 
     const filteredCohortData = computed(() => {
       if (!filterType.value) return cohortData.value
@@ -973,6 +1076,7 @@ export default {
       warningStats,
       peerComparison,
       evolutionData,
+      getAllTags,
       goBack,
       getRiskLabel,
       getStyleLabel,
@@ -1123,6 +1227,47 @@ export default {
 
 .archive-body {
   padding: 16px;
+}
+
+/* 标签展示区 */
+.tags-display {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--term-border);
+}
+
+.profile-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(var(--term-accent-rgb), 0.1);
+  border: 1px solid var(--term-accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-tag.auto-tag {
+  background: rgba(100, 100, 100, 0.1);
+  border-color: var(--term-text-secondary);
+  border-style: dashed;
+}
+
+.profile-tag.custom-tag {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: #6366f1;
+  border-style: solid;
+}
+
+.profile-tag .tag-icon {
+  font-size: 14px;
+}
+
+.profile-tag .tag-text {
+  color: var(--term-text);
 }
 
 /* 画像样式 */

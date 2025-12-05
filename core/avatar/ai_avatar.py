@@ -182,6 +182,12 @@ class AIAvatar:
             "decision_count": self.attributes.decision_count
         }
         
+        # 添加用户标签和自动标签
+        if hasattr(self, 'user_tags'):
+            context["user_tags"] = self.user_tags
+        if hasattr(self, 'auto_tags'):
+            context["auto_tags"] = self.auto_tags
+        
         # 添加行为画像数据（如果有）
         if hasattr(self, 'behavior_profile') and self.behavior_profile:
             context["behavior_profile"] = {
@@ -191,6 +197,9 @@ class AIAvatar:
                 "avg_rationality": self.behavior_profile.get("avg_rationality", 0.5),
                 "action_count": self.behavior_profile.get("action_count", 0)
             }
+            # 从行为画像获取自动标签
+            if not context.get("auto_tags") and self.behavior_profile.get("auto_tags"):
+                context["auto_tags"] = self.behavior_profile.get("auto_tags")
         
         # 添加职业状态数据（如果有）
         if hasattr(self, 'career_status') and self.career_status:
@@ -220,6 +229,7 @@ class AIAvatar:
         
         try:
             print(f"[DEBUG] 调用AI情况生成，API Key可用: {ai_engine.api_key is not None}")
+            print(f"[DEBUG] 用户标签: {context.get('user_tags', '无')}, 自动标签: {context.get('auto_tags', '无')}")
             ai_situation = ai_engine.generate_situation(context)
             if ai_situation:
                 print(f"[DEBUG] AI生成情况成功")
@@ -232,6 +242,14 @@ class AIAvatar:
             print(f"[ERROR] AI情况生成失败: {e}")
         
         return None
+    
+    def set_user_tags(self, tags: str):
+        """设置用户自选标签"""
+        self.user_tags = tags
+    
+    def set_auto_tags(self, tags: str):
+        """设置自动生成标签"""
+        self.auto_tags = tags
     
     def set_behavior_profile(self, profile: dict):
         """设置行为画像数据"""

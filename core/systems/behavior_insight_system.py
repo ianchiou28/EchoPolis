@@ -245,6 +245,12 @@ class BehaviorInsightSystem:
         herding_tendency = self._calculate_herding_tendency(logs)
         planning_ability = self._calculate_planning_ability(logs, avg_rationality)
         
+        # 生成自动标签
+        auto_tags = self._generate_auto_tags(
+            logs, risk_preference, decision_style, 
+            loss_aversion, overconfidence, herding_tendency, planning_ability
+        )
+        
         profile = {
             'risk_preference': risk_preference,
             'decision_style': decision_style,
@@ -255,13 +261,73 @@ class BehaviorInsightSystem:
             'action_count': len(logs),
             'avg_risk_score': avg_risk,
             'avg_rationality': avg_rationality,
-            'last_updated_month': current_month
+            'last_updated_month': current_month,
+            'auto_tags': auto_tags
         }
         
         # 保存到数据库
         self.db.update_behavior_profile(session_id, profile)
         
         return profile
+    
+    def _generate_auto_tags(self, logs: List[Dict], risk_preference: str, decision_style: str,
+                           loss_aversion: float, overconfidence: float, 
+                           herding_tendency: float, planning_ability: float) -> str:
+        """基于行为分析生成自动标签"""
+        tags = []
+        
+        # 风险偏好标签
+        if risk_preference == 'aggressive':
+            tags.append('高风险偏好')
+        elif risk_preference == 'conservative':
+            tags.append('低风险偏好')
+        else:
+            tags.append('稳健投资')
+        
+        # 决策风格标签
+        style_tags = {
+            'rational': '理性决策者',
+            'impulsive': '冲动型投资',
+            'passive': '佛系理财',
+            'adaptive': '灵活应变'
+        }
+        if decision_style in style_tags:
+            tags.append(style_tags[decision_style])
+        
+        # 行为特征标签
+        if loss_aversion > 0.7:
+            tags.append('损失敏感')
+        if overconfidence > 0.6:
+            tags.append('过度自信')
+        if herding_tendency > 0.6:
+            tags.append('容易跟风')
+        if planning_ability > 0.7:
+            tags.append('善于规划')
+        
+        # 行为类型标签
+        action_types = [log['action_category'] for log in logs]
+        if action_types:
+            from collections import Counter
+            type_counts = Counter(action_types)
+            most_common = type_counts.most_common(1)[0][0]
+            
+            category_tags = {
+                'investment': '活跃投资者',
+                'financing': '善用杠杆',
+                'housing': '关注房产',
+                'protection': '重视保障',
+                'consumption': '注重消费'
+            }
+            if most_common in category_tags:
+                tags.append(category_tags[most_common])
+        
+        # 交易频率标签
+        if len(logs) > 50:
+            tags.append('高频交易')
+        elif len(logs) < 10:
+            tags.append('长期持有')
+        
+        return ','.join(tags)
     
     def _determine_risk_preference(self, avg_risk: float) -> str:
         """判断风险偏好"""
