@@ -86,6 +86,47 @@
           </div>
 
           <div class="form-group">
+            <label>IDENTITY TAGS // 身份标签 (可选多个)</label>
+            <div class="tags-grid">
+              <div 
+                v-for="tag in availableTags" 
+                :key="tag.id"
+                class="tag-option"
+                :class="{ active: selectedTags.includes(tag.id) }"
+                @click="toggleTag(tag.id)"
+              >
+                <span class="tag-icon">{{ tag.icon }}</span>
+                <span class="tag-name">{{ tag.name }}</span>
+              </div>
+            </div>
+            
+            <!-- 自定义标签输入 -->
+            <div class="custom-tags-section">
+              <div class="custom-tags-input">
+                <input 
+                  v-model="customTagInput" 
+                  type="text" 
+                  class="term-input" 
+                  placeholder="输入自定义标签，回车添加..."
+                  @keyup.enter="addCustomTag"
+                />
+                <button class="term-btn small" @click="addCustomTag" :disabled="!customTagInput.trim()">+</button>
+              </div>
+              <div v-if="customTags.length > 0" class="custom-tags-list">
+                <div 
+                  v-for="(tag, index) in customTags" 
+                  :key="index"
+                  class="custom-tag"
+                >
+                  <span class="tag-icon">🏷️</span>
+                  <span class="tag-text">{{ tag }}</span>
+                  <span class="tag-remove" @click="removeCustomTag(index)">×</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
             <label>FATE WHEEL // 命运轮盘</label>
             <div class="fate-section">
               <button 
@@ -137,6 +178,46 @@ const newCharMBTI = ref('')
 const selectedFate = ref(null)
 const hasSpun = ref(false)
 const isSpinning = ref(false)
+const selectedTags = ref([])
+const customTags = ref([])
+const customTagInput = ref('')
+
+// 可选标签列表
+const availableTags = ref([
+  { id: 'student', name: '在校学生', icon: '🎓' },
+  { id: 'new_graduate', name: '应届毕业生', icon: '📜' },
+  { id: 'working', name: '职场人士', icon: '💼' },
+  { id: 'investor_newbie', name: '投资小白', icon: '🌱' },
+  { id: 'investor_exp', name: '有投资经验', icon: '📈' },
+  { id: 'finance_major', name: '金融相关专业', icon: '🏦' },
+  { id: 'tech_major', name: '理工科背景', icon: '💻' },
+  { id: 'arts_major', name: '文科背景', icon: '📚' },
+  { id: 'risk_lover', name: '喜欢冒险', icon: '🎲' },
+  { id: 'risk_averse', name: '稳健保守', icon: '🛡️' },
+  { id: 'goal_house', name: '目标买房', icon: '🏠' },
+  { id: 'goal_retire', name: '关注养老', icon: '👴' },
+])
+
+const toggleTag = (tagId) => {
+  const idx = selectedTags.value.indexOf(tagId)
+  if (idx >= 0) {
+    selectedTags.value.splice(idx, 1)
+  } else {
+    selectedTags.value.push(tagId)
+  }
+}
+
+const addCustomTag = () => {
+  const tag = customTagInput.value.trim()
+  if (tag && !customTags.value.includes(tag) && customTags.value.length < 5) {
+    customTags.value.push(tag)
+    customTagInput.value = ''
+  }
+}
+
+const removeCustomTag = (index) => {
+  customTags.value.splice(index, 1)
+}
 
 const mbtiTypes = ref([
   { type: 'INTJ', name: '建筑师' }, { type: 'INTP', name: '逻辑学家' },
@@ -237,7 +318,9 @@ const createCharacter = async () => {
       username,
       name: newCharName.value,
       mbti: newCharMBTI.value,
-      fate: selectedFate.value
+      fate: selectedFate.value,
+      tags: selectedTags.value,
+      customTags: customTags.value
     })
 
     if (res.success) {
@@ -246,6 +329,9 @@ const createCharacter = async () => {
       newCharMBTI.value = ''
       selectedFate.value = null
       hasSpun.value = false
+      selectedTags.value = []
+      customTags.value = []
+      customTagInput.value = ''
       loadCharacters()
     }
   } catch (error) {
@@ -567,6 +653,103 @@ onMounted(() => {
 .type-name {
   font-size: 10px;
   opacity: 0.8;
+}
+
+/* Tags Grid */
+.tags-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tag-option {
+  border: 1px solid var(--term-border);
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.tag-option:hover {
+  border-color: var(--term-text);
+}
+
+.tag-option.active {
+  background: var(--term-accent);
+  color: #000;
+  border-color: var(--term-accent);
+}
+
+.tag-icon {
+  font-size: 16px;
+}
+
+.tag-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Custom Tags */
+.custom-tags-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--term-border);
+}
+
+.custom-tags-input {
+  display: flex;
+  gap: 8px;
+}
+
+.custom-tags-input .term-input {
+  flex: 1;
+}
+
+.custom-tags-input .term-btn.small {
+  padding: 8px 16px;
+  min-width: auto;
+}
+
+.custom-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.custom-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(var(--term-accent-rgb), 0.15);
+  border: 1px dashed var(--term-accent);
+  font-size: 12px;
+}
+
+.custom-tag .tag-icon {
+  font-size: 14px;
+}
+
+.custom-tag .tag-text {
+  font-weight: 600;
+}
+
+.custom-tag .tag-remove {
+  cursor: pointer;
+  margin-left: 4px;
+  opacity: 0.6;
+  font-weight: bold;
+}
+
+.custom-tag .tag-remove:hover {
+  opacity: 1;
+  color: #ff4444;
 }
 
 .fate-section {

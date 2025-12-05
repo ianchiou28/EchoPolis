@@ -231,12 +231,28 @@ class GameService:
                 print(f"[DEBUG] Trying AI situation generation...")
                 avatar = session["avatar"]
                 
+                # 设置用户标签到 avatar
+                try:
+                    import sqlite3
+                    with sqlite3.connect(self.db.db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('SELECT tags FROM users WHERE session_id = ?', (session_id,))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            avatar.set_user_tags(row[0])
+                            print(f"[DEBUG] Set user tags: {row[0]}")
+                except Exception as e:
+                    print(f"[DEBUG] Failed to get user tags: {e}")
+                
                 # 设置行为画像数据到 avatar
                 if self.behavior_system:
                     try:
                         behavior_profile = self.db.get_behavior_profile(session_id)
                         if behavior_profile:
                             avatar.set_behavior_profile(behavior_profile)
+                            # 设置自动标签
+                            if behavior_profile.get('auto_tags'):
+                                avatar.set_auto_tags(behavior_profile.get('auto_tags'))
                             print(f"[DEBUG] Set behavior profile: {behavior_profile.get('risk_preference')}")
                     except Exception as e:
                         print(f"[DEBUG] Failed to get behavior profile: {e}")

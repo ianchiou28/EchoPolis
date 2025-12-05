@@ -146,6 +146,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { buildApiUrl } from '../../utils/api'
 
 const currentJob = ref(null)
 const mySkills = ref([])
@@ -190,7 +191,7 @@ const loadCareerData = async () => {
   // Load current career
   if (sessionId) {
     try {
-      const res = await fetch(`/api/career/current/${sessionId}`)
+      const res = await fetch(buildApiUrl(`/api/career/current/${sessionId}`))
       const data = await res.json()
       if (data.success) currentJob.value = data.career
     } catch (e) {
@@ -200,7 +201,7 @@ const loadCareerData = async () => {
   
   // Load available jobs
   try {
-    const res = await fetch('/api/career/jobs')
+    const res = await fetch(buildApiUrl('/api/career/jobs'))
     jobs.value = res.ok ? await res.json() : []
   } catch (e) {
     // Fallback data
@@ -214,7 +215,7 @@ const loadCareerData = async () => {
   
   // Load skills
   try {
-    const res = await fetch('/api/career/skills')
+    const res = await fetch(buildApiUrl('/api/career/skills'))
     const allSkills = res.ok ? await res.json() : []
     availableSkills.value = allSkills
   } catch (e) {
@@ -228,7 +229,7 @@ const loadCareerData = async () => {
   
   // Load side businesses
   try {
-    const res = await fetch('/api/career/side-businesses')
+    const res = await fetch(buildApiUrl('/api/career/side-businesses'))
     sideBusiness.value = res.ok ? await res.json() : []
   } catch (e) {
     sideBusiness.value = [
@@ -244,7 +245,7 @@ const applyJob = async (jobId) => {
   if (!sessionId) return alert('请先选择角色')
   
   try {
-    const res = await fetch('/api/career/apply', {
+    const res = await fetch(buildApiUrl('/api/career/apply'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, job_id: jobId })
@@ -265,7 +266,7 @@ const resignJob = async () => {
   if (!confirm('确定要辞职吗？')) return
   const sessionId = getSessionId()
   try {
-    const res = await fetch('/api/career/resign', {
+    const res = await fetch(buildApiUrl('/api/career/resign'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId })
@@ -285,7 +286,7 @@ const learnSkill = async (skillId) => {
   if (!sessionId) return alert('请先选择角色')
   
   try {
-    const res = await fetch('/api/career/learn-skill', {
+    const res = await fetch(buildApiUrl('/api/career/learn-skill'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, skill_id: skillId })
@@ -303,7 +304,7 @@ const startBusiness = async (businessId) => {
   if (!sessionId) return alert('请先选择角色')
   
   try {
-    const res = await fetch('/api/career/start-side-business', {
+    const res = await fetch(buildApiUrl('/api/career/start-side-business'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId, business_id: businessId })

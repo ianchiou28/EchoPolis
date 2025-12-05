@@ -53,6 +53,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useGameStore } from '../stores/game'
+import { buildApiUrl } from '../utils/api'
 
 const gameStore = useGameStore()
 
@@ -116,7 +117,7 @@ const selectOption = async (optionIndex) => {
   const option = currentEvent.value.options[optionIndex]
   
   try {
-    const res = await fetch('/api/events/respond', {
+    const res = await fetch(buildApiUrl('/api/events/respond'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

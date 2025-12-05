@@ -198,6 +198,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 
 const gameStore = useGameStore()
 const cash = computed(() => gameStore.assets?.cash || 0)
@@ -272,7 +273,7 @@ const doActivity = async (activity) => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/lifestyle/activity', {
+    const res = await fetch(buildApiUrl('/api/lifestyle/activity'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -331,7 +332,7 @@ const startBusiness = async (biz) => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/lifestyle/business', {
+    const res = await fetch(buildApiUrl('/api/lifestyle/business'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -367,7 +368,7 @@ const loadBusinesses = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch(`/api/lifestyle/businesses/${sessionId}`)
+    const res = await fetch(buildApiUrl(`/api/lifestyle/businesses/${sessionId}`))
     const data = await res.json()
     if (data.success && data.businesses) {
       // 更新已运行的副业状态

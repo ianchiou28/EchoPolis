@@ -318,15 +318,25 @@ async def create_character(data: dict):
         name = data.get("name")
         mbti = data.get("mbti")
         fate = data.get("fate")
+        tags = data.get("tags", [])  # 获取用户选择的预设标签
+        custom_tags = data.get("customTags", [])  # 获取用户自定义标签
         
         if not game_service.db:
             raise Exception("数据库未初始化")
         
-        print(f"创建角色: {username} - {name} ({mbti}) - {fate['name']}")
+        print(f"创建角色: {username} - {name} ({mbti}) - {fate['name']} - tags: {tags}, customTags: {custom_tags}")
         
         # 生成session_id
         import uuid
         session_id = f"{username}_{uuid.uuid4().hex[:8]}"
+        
+        # 将预设标签和自定义标签合并
+        # 预设标签使用 id，自定义标签添加 custom: 前缀
+        all_tags = tags.copy() if tags else []
+        for ct in custom_tags:
+            all_tags.append(f"custom:{ct}")
+        
+        tags_str = ",".join(all_tags) if all_tags else ""
         
         # 保存到数据库
         game_service.db.save_user(
@@ -335,7 +345,8 @@ async def create_character(data: dict):
             name=name,
             mbti=mbti,
             fate=fate['name'],
-            credits=fate['initial_money']
+            credits=fate['initial_money'],
+            tags=tags_str
         )
         
         return {
@@ -3088,6 +3099,21 @@ async def get_personal_insights(session_id: str):
         # 解析 session_id
         resolved_id = resolve_session_id(session_id)
         insights = game_service.behavior_system.get_personal_insights(resolved_id)
+        
+        # 获取用户自选标签
+        import sqlite3
+        user_tags = ""
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT tags FROM users WHERE session_id = ?', (resolved_id,))
+            row = cursor.fetchone()
+            if row and row[0]:
+                user_tags = row[0]
+        
+        # 合并用户标签和自动标签
+        if insights and insights.get('profile'):
+            insights['profile']['user_tags'] = user_tags
+        
         return {
             "success": True,
             "data": insights

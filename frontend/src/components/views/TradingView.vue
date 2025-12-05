@@ -176,6 +176,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
@@ -359,7 +360,7 @@ const getSessionId = () => {
 const loadKlineData = async () => {
   if (!selectedStock.value) return
   try {
-    const res = await fetch(`/api/market/kline/${selectedStock.value.id}?period=${currentPeriod.value}`)
+    const res = await fetch(buildApiUrl(`/api/market/kline/${selectedStock.value.id}?period=${currentPeriod.value}`))
     const data = await res.json()
     if (data.success && data.kline && data.kline.length > 0) {
       klineData.value = data.kline
@@ -431,7 +432,7 @@ const executeTrade = async (action) => {
     return
   }
   try {
-    const res = await fetch(`/api/stock/${action}`, {
+    const res = await fetch(buildApiUrl(`/api/stock/${action}`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -454,7 +455,7 @@ const executeTrade = async (action) => {
 
 const loadStocks = async () => {
   try {
-    const res = await fetch('/api/market/stocks')
+    const res = await fetch(buildApiUrl('/api/market/stocks'))
     const data = await res.json()
     if (data.success && data.stocks) {
       stocks.value = data.stocks.map(s => ({
@@ -481,7 +482,7 @@ const loadStocks = async () => {
 
 const loadMarketState = async () => {
   try {
-    const res = await fetch('/api/market/state')
+    const res = await fetch(buildApiUrl('/api/market/state'))
     const data = await res.json()
     if (data.success && data.state) {
       marketIndex.value = data.state.index_value || 3000
@@ -507,7 +508,7 @@ const loadHoldings = async () => {
   const sessionId = getSessionId()
   if (!sessionId) return
   try {
-    const res = await fetch(`/api/stock/holdings?session_id=${sessionId}`)
+    const res = await fetch(buildApiUrl(`/api/stock/holdings?session_id=${sessionId}`))
     const data = await res.json()
     if (data.success) holdings.value = data.holdings
   } catch (e) {

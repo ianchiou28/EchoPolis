@@ -631,6 +631,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
+import { apiFetch } from '@/utils/api'
 
 export default {
   name: 'InsightsView',
@@ -682,7 +683,7 @@ export default {
       
       loading.value = true
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/personal/${sessionId.value}`)
+        const response = await apiFetch(`/api/insights/personal/${sessionId.value}`)
         const result = await response.json()
         if (result.success) {
           personalData.value = result.data
@@ -697,9 +698,9 @@ export default {
     const loadCohortInsights = async () => {
       loading.value = true
       try {
-        const url = 'http://localhost:8000/api/insights/cohort?limit=20'
+        const url = '/api/insights/cohort?limit=20'
         console.log('[Insights] Fetching cohort insights from:', url)
-        const response = await fetch(url)
+        const response = await apiFetch(url)
         const result = await response.json()
         console.log('[Insights] Cohort insights result:', result)
         if (result.success) {
@@ -718,7 +719,7 @@ export default {
       if (!sessionId.value) return
       
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/peer-comparison/${sessionId.value}`)
+        const response = await apiFetch(`/api/insights/peer-comparison/${sessionId.value}`)
         const result = await response.json()
         if (result.success) {
           peerComparison.value = result.data
@@ -733,7 +734,7 @@ export default {
       if (!sessionId.value) return
       
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/evolution/${sessionId.value}`)
+        const response = await apiFetch(`/api/insights/evolution/${sessionId.value}`)
         const result = await response.json()
         if (result.success) {
           evolutionData.value = result.data
@@ -816,9 +817,9 @@ export default {
       
       loading.value = true
       try {
-        const url = `http://localhost:8000/api/insights/statistics/${sessionId.value}`
+        const url = `/api/insights/statistics/${sessionId.value}`
         console.log('[Insights] Fetching statistics from:', url)
-        const response = await fetch(url)
+        const response = await apiFetch(url)
         const result = await response.json()
         console.log('[Insights] Statistics result:', result)
         if (result.success) {
@@ -838,7 +839,7 @@ export default {
       
       aiLoading.value = true
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/ai/${sessionId.value}`)
+        const response = await apiFetch(`/api/insights/ai/${sessionId.value}`)
         const result = await response.json()
         if (result.success) {
           aiInsight.value = result.data
@@ -863,9 +864,9 @@ export default {
       
       warningsLoading.value = true
       try {
-        const url = `http://localhost:8000/api/insights/warnings/${sessionId.value}`
+        const url = `/api/insights/warnings/${sessionId.value}`
         console.log('[Insights] Fetching warnings from:', url)
-        const response = await fetch(url)
+        const response = await apiFetch(url)
         const result = await response.json()
         console.log('[Insights] Warnings result:', result)
         if (result.success) {

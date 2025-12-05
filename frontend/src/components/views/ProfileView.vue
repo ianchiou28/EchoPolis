@@ -185,6 +185,7 @@
 <script setup>
 import { computed, ref, provide, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -226,9 +227,9 @@ const loadPortfolio = async () => {
   try {
     // 并行获取股票、存款、贷款数据
     const [stockRes, depositRes, loanRes] = await Promise.all([
-      fetch(`/api/stock/holdings?session_id=${sessionId}`).then(r => r.json()),
-      fetch(`/api/banking/deposits/${sessionId}`).then(r => r.json()),
-      fetch(`/api/banking/loans/${sessionId}`).then(r => r.json())
+      fetch(buildApiUrl(`/api/stock/holdings?session_id=${sessionId}`)).then(r => r.json()),
+      fetch(buildApiUrl(`/api/banking/deposits/${sessionId}`)).then(r => r.json()),
+      fetch(buildApiUrl(`/api/banking/loans/${sessionId}`)).then(r => r.json())
     ])
 
     if (stockRes.success) {

@@ -60,6 +60,9 @@ class FinAIDatabase:
                     cursor.execute('ALTER TABLE users ADD COLUMN energy INTEGER DEFAULT 75')
                 if 'health' not in columns:
                     cursor.execute('ALTER TABLE users ADD COLUMN health INTEGER DEFAULT 80')
+                if 'tags' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN tags TEXT DEFAULT ""')
+                    print("[INFO] 添加 tags 列到 users 表")
             except:
                 pass
             
@@ -83,6 +86,10 @@ class FinAIDatabase:
                     mbti TEXT NOT NULL,
                     fate TEXT NOT NULL,
                     credits INTEGER NOT NULL,
+                    tags TEXT DEFAULT "",
+                    happiness INTEGER DEFAULT 70,
+                    energy INTEGER DEFAULT 75,
+                    health INTEGER DEFAULT 80,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (username) REFERENCES accounts (username)
@@ -518,7 +525,7 @@ class FinAIDatabase:
             print(f"[Login] Error verifying account: {e}")
             return False
     
-    def save_user(self, username: str, session_id: str, name: str, mbti: str, fate: str, credits: int):
+    def save_user(self, username: str, session_id: str, name: str, mbti: str, fate: str, credits: int, tags: str = ""):
         """保存用户信息（一个账户可以有多个角色）"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -529,15 +536,15 @@ class FinAIDatabase:
             if existing:
                 # 更新现有记录
                 cursor.execute('''
-                    UPDATE users SET credits = ?, updated_at = CURRENT_TIMESTAMP
+                    UPDATE users SET credits = ?, tags = ?, updated_at = CURRENT_TIMESTAMP
                     WHERE session_id = ?
-                ''', (credits, session_id))
+                ''', (credits, tags, session_id))
             else:
                 # 创建新记录
                 cursor.execute('''
-                    INSERT INTO users (username, session_id, name, mbti, fate, credits, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ''', (username, session_id, name, mbti, fate, credits))
+                    INSERT INTO users (username, session_id, name, mbti, fate, credits, tags, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''', (username, session_id, name, mbti, fate, credits, tags))
             conn.commit()
     
     def save_investment(self, username: str, session_id: str, name: str, amount: int, 
@@ -1559,8 +1566,8 @@ class FinAIDatabase:
                 INSERT INTO behavior_profiles (
                     session_id, risk_preference, decision_style, loss_aversion,
                     overconfidence, herding_tendency, planning_ability,
-                    action_count, avg_risk_score, avg_rationality, last_updated_month
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    action_count, avg_risk_score, avg_rationality, last_updated_month, auto_tags
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     risk_preference = excluded.risk_preference,
                     decision_style = excluded.decision_style,
@@ -1572,13 +1579,15 @@ class FinAIDatabase:
                     avg_risk_score = excluded.avg_risk_score,
                     avg_rationality = excluded.avg_rationality,
                     last_updated_month = excluded.last_updated_month,
+                    auto_tags = excluded.auto_tags,
                     updated_at = CURRENT_TIMESTAMP
             ''', (
                 session_id, profile_data['risk_preference'], profile_data['decision_style'],
                 profile_data['loss_aversion'], profile_data['overconfidence'],
                 profile_data['herding_tendency'], profile_data['planning_ability'],
                 profile_data['action_count'], profile_data['avg_risk_score'],
-                profile_data['avg_rationality'], profile_data['last_updated_month']
+                profile_data['avg_rationality'], profile_data['last_updated_month'],
+                profile_data.get('auto_tags', '')
             ))
             conn.commit()
     
@@ -1589,7 +1598,7 @@ class FinAIDatabase:
             cursor.execute('''
                 SELECT risk_preference, decision_style, loss_aversion, overconfidence,
                        herding_tendency, planning_ability, action_count, avg_risk_score,
-                       avg_rationality, last_updated_month, updated_at
+                       avg_rationality, last_updated_month, updated_at, auto_tags
                 FROM behavior_profiles
                 WHERE session_id = ?
             ''', (session_id,))
@@ -1601,7 +1610,7 @@ class FinAIDatabase:
                     'herding_tendency': row[4], 'planning_ability': row[5],
                     'action_count': row[6], 'avg_risk_score': row[7],
                     'avg_rationality': row[8], 'last_updated_month': row[9],
-                    'updated_at': row[10]
+                    'updated_at': row[10], 'auto_tags': row[11] or ''
                 }
             return None
     

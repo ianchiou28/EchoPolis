@@ -13,9 +13,6 @@ requests>=2.31.0
 # Data Analysis
 numpy>=1.24.0
 
-# Real Market Data (Longbridge API)
-longbridge>=1.0.0
-
 # AI (Optional)
 # openai>=1.0.0
 

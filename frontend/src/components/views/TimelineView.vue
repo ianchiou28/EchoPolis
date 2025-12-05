@@ -102,6 +102,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 
 const gameStore = useGameStore()
 const loading = ref(true)
@@ -129,7 +130,7 @@ const loadTimeline = async () => {
   }
   
   try {
-    const response = await fetch(`/api/timeline/${sessionId}?limit=100`)
+    const response = await fetch(buildApiUrl(`/api/timeline/${sessionId}?limit=100`))
     const result = await response.json()
     if (result.success) {
       timelineItems.value = result.items || []

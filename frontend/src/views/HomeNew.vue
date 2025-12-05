@@ -160,7 +160,7 @@
                :style="pinStyle(district)"
                @click="handleZoneSelect(district)">
             <div class="district-visual">
-              <img :src="`/assets/districts/${district.id}.png`" 
+              <img :src="buildAssetUrl(`assets/districts/${district.id}.png`)" 
                    class="pixel-building" 
                    :style="{ animationDelay: `${(district.id.length % 3) * 0.5}s` }"
                    :alt="district.name"
@@ -402,6 +402,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
+import { buildAssetUrl, buildApiUrl } from '../utils/api'
 import ProfileView from '../components/views/ProfileView.vue'
 import TimelineView from '../components/views/TimelineView.vue'
 import ArchivesView from '../components/views/ArchivesView.vue'
@@ -712,7 +713,7 @@ const triggerRandomEvents = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/events/generate', {
+    const res = await fetch(buildApiUrl('/api/events/generate'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -745,7 +746,7 @@ const updateActiveEffects = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch('/api/events/update-effects', {
+    const res = await fetch(buildApiUrl('/api/events/update-effects'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id: sessionId })
@@ -834,7 +835,7 @@ const loadActiveEffects = async () => {
   if (!sessionId) return
   
   try {
-    const res = await fetch(`/api/events/active-effects/${sessionId}`)
+    const res = await fetch(buildApiUrl(`/api/events/active-effects/${sessionId}`))
     const data = await res.json()
     if (data.success && data.effects) {
       activeEffects.value = data.effects
@@ -873,8 +874,7 @@ onUnmounted(() => {
 }
 
 .nav-section {
-  flex: 1;
-  overflow: hidden;
+  flex-shrink: 0;
   padding: 16px;
 }
 
@@ -895,7 +895,8 @@ onUnmounted(() => {
 }
 
 .nav-spacer {
-  flex: 1; /* 填充剩余空间 */
+  flex: 1 1 0; /* 可扩展也可收缩到0 */
+  min-height: 0;
 }
 
 /* 导航项箭头 */
@@ -1020,6 +1021,8 @@ onUnmounted(() => {
   gap: 8px;
   padding: 10px;
   border-top: 2px solid var(--term-border);
+  background: var(--term-panel-bg); /* 确保背景色 */
+  margin-top: auto; /* 推到底部 */
 }
 
 .action-btn {

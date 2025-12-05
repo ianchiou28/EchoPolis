@@ -371,7 +371,9 @@ class DeepSeekEngine:
         except:
             market_context = ""
 
-        prompt = f"""你是一个金融游戏的情况生成器。请为以下角色生成一个适合的决策情况：
+        prompt = f"""你是一个金融游戏的情况生成器。这是一个为南京大学学生设计的金融素养提升模拟沙盘游戏，旨在帮助大学生培养理财意识、理解金融概念和风险管理能力。
+
+请为以下角色生成一个适合的决策情况：
 
 角色信息：
 - 姓名：{context['name']}
@@ -387,12 +389,15 @@ class DeepSeekEngine:
 - 背景：{context['background']}
 - 特质：{context['traits']}
 - 已做决策数：{context['decision_count']}
+{self._build_tags_context(context)}
 {market_context}
 请生成一个符合以下要求的情况：
 1. 必须与角色的当前职业状态相符：如果角色无业，不要生成与工作相关的场景（如"同事邀请"、"老板提拔"）；如果角色有工作，可以生成职场相关场景。
 2. 必须与角色的当前状态（第{current_month}个月）相符，不要重复生成"刚毕业"或"刚入职"的初始剧情，除非是第1个月。
 3. 具有金融或生活决策的性质，可以是职场挑战、投资机会、生活琐事或突发意外。
-4. 提供3个不同的选择方案。
+4. 提供3个不同的选择方案，每个选项应体现不同的风险/收益权衡，帮助用户理解金融决策的本质。
+5. 情况描述应贴近角色的身份标签和生活场景，具有教育意义。
+6. 【重要】根据角色的身份标签调整情况内容：学生应生成校园/学业相关场景，职场人士生成工作相关场景，投资新手应生成入门级投资机会，有经验者可生成更复杂的金融产品。
 
 请严格按照以下格式回复：
 情况：[详细描述当前面临的情况]
@@ -400,6 +405,61 @@ class DeepSeekEngine:
 选项2：[第二个选择]
 选项3：[第三个选择]"""
         return prompt
+    
+    def _build_tags_context(self, context: Dict) -> str:
+        """构建标签上下文描述"""
+        user_tags = context.get('user_tags', '')
+        auto_tags = context.get('auto_tags', '')
+        
+        if not user_tags and not auto_tags:
+            return ""
+        
+        # 标签映射
+        tag_descriptions = {
+            # 用户自选标签
+            'student': '在校学生（校园生活为主，可能有兼职或实习需求）',
+            'new_graduate': '应届毕业生（面临求职、租房等人生转折）',
+            'working': '职场人士（有稳定收入，关注职业发展）',
+            'investor_newbie': '投资新手（需要基础的理财知识引导）',
+            'investor_exp': '有投资经验（可以接触更复杂的金融产品）',
+            'finance_major': '金融相关专业（对金融概念有一定理解）',
+            'tech_major': '理工科背景（逻辑思维强，可能对量化投资感兴趣）',
+            'arts_major': '文科背景（可能更关注消费和生活品质）',
+            'risk_lover': '喜欢冒险（可以生成高风险高收益的机会）',
+            'risk_averse': '稳健保守（应提供低风险的稳健选择）',
+            'goal_house': '目标买房（关注房产投资和储蓄计划）',
+            'goal_retire': '关注养老（对长期规划和保险感兴趣）',
+        }
+        
+        parts = []
+        preset_tags = []
+        custom_tags = []
+        
+        if user_tags:
+            user_tag_list = user_tags.split(',')
+            for t in user_tag_list:
+                if t.startswith('custom:'):
+                    # 自定义标签
+                    custom_tags.append(t[7:])  # 去掉 'custom:' 前缀
+                elif t in tag_descriptions:
+                    # 预设标签
+                    preset_tags.append(tag_descriptions[t])
+                elif t:
+                    # 未知的预设标签，直接使用
+                    preset_tags.append(t)
+        
+        if preset_tags:
+            parts.append("【角色身份标签】\n" + "\n".join(f"- {d}" for d in preset_tags))
+        
+        if custom_tags:
+            parts.append("【用户自定义标签】\n" + "\n".join(f"- {t}（请根据这个标签推断角色的特点和可能面临的场景）" for t in custom_tags))
+        
+        if auto_tags:
+            parts.append(f"【行为特征标签】{auto_tags}")
+        
+        if parts:
+            return "\n" + "\n".join(parts) + "\n"
+        return ""
     
     def _parse_situation_response(self, response: str) -> Optional[Dict]:
         """解析情况生成响应"""
@@ -526,13 +586,15 @@ class DeepSeekEngine:
             }
         
         system_prompt = """身份设定：你是指挥未来城市'FinAI'经济系统的中央AI核心。
+背景：这是一个为南京大学学生设计的金融素养提升模拟沙盘游戏。用户是正在学习金融知识的大学生，通过这个游戏来培养理财意识和投资能力。
 核心指令：
 1. 保持冷静、理性的语气，带有轻微的赛博朋克科技感。
-2. 你的目标是辅助用户在金融沙盘中生存并积累财富。
+2. 你的目标是辅助用户在金融沙盘中生存并积累财富，同时帮助他们理解金融概念和风险管理。
 3. 分析问题时，请结合用户的财务状况、MBTI性格特质以及当前面临的风险。
-4. 回答应当简练、直击要害，避免空泛的安慰。
-5. 如果用户面临决策，请从风险/收益角度提供数据支持的建议。
-6. 当用户询问“当前情况”或寻求建议时，必须基于【可选行动】推荐一个具体的选项，并说明理由。"""
+4. 回答应当简练、直击要害，避免空泛的安慰。适当融入金融知识科普。
+5. 如果用户面临决策，请从风险/收益角度提供数据支持的建议，培养他们的理性决策能力。
+6. 当用户询问"当前情况"或寻求建议时，必须基于【可选行动】推荐一个具体的选项，并说明理由。
+7. 鼓励用户建立良好的理财习惯，如分散投资、风险控制、长期规划等。"""
         
         if context:
             info_parts = []
