@@ -874,8 +874,7 @@ onUnmounted(() => {
 }
 
 .nav-section {
-  flex: 1;
-  overflow: hidden;
+  flex-shrink: 0;
   padding: 16px;
 }
 
@@ -896,7 +895,8 @@ onUnmounted(() => {
 }
 
 .nav-spacer {
-  flex: 1; /* 填充剩余空间 */
+  flex: 1 1 0; /* 可扩展也可收缩到0 */
+  min-height: 0;
 }
 
 /* 导航项箭头 */
@@ -1021,6 +1021,8 @@ onUnmounted(() => {
   gap: 8px;
   padding: 10px;
   border-top: 2px solid var(--term-border);
+  background: var(--term-panel-bg); /* 确保背景色 */
+  margin-top: auto; /* 推到底部 */
 }
 
 .action-btn {
