@@ -60,6 +60,9 @@ class FinAIDatabase:
                     cursor.execute('ALTER TABLE users ADD COLUMN energy INTEGER DEFAULT 75')
                 if 'health' not in columns:
                     cursor.execute('ALTER TABLE users ADD COLUMN health INTEGER DEFAULT 80')
+                if 'tags' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN tags TEXT DEFAULT ""')
+                    print("[INFO] 添加 tags 列到 users 表")
             except:
                 pass
             
@@ -83,6 +86,10 @@ class FinAIDatabase:
                     mbti TEXT NOT NULL,
                     fate TEXT NOT NULL,
                     credits INTEGER NOT NULL,
+                    tags TEXT DEFAULT "",
+                    happiness INTEGER DEFAULT 70,
+                    energy INTEGER DEFAULT 75,
+                    health INTEGER DEFAULT 80,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (username) REFERENCES accounts (username)
