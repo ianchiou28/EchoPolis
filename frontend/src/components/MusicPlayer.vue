@@ -101,6 +101,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { buildAssetUrl } from '../utils/api'
 
 const emit = defineEmits(['stateChange'])
 
@@ -121,7 +122,7 @@ const playlist = ref([
     id: 'default-1',
     name: 'Affection',
     artist: 'jinsang',
-    url: '/assets/music/default.mp3',
+    url: buildAssetUrl('assets/music/default.mp3'),
     isDefault: true
   }
 ])

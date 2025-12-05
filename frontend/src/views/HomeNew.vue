@@ -160,7 +160,7 @@
                :style="pinStyle(district)"
                @click="handleZoneSelect(district)">
             <div class="district-visual">
-              <img :src="`/assets/districts/${district.id}.png`" 
+              <img :src="buildAssetUrl(`assets/districts/${district.id}.png`)" 
                    class="pixel-building" 
                    :style="{ animationDelay: `${(district.id.length % 3) * 0.5}s` }"
                    :alt="district.name"
@@ -402,6 +402,7 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
 import { useThemeStore } from '../stores/theme'
+import { buildAssetUrl } from '../utils/api'
 import ProfileView from '../components/views/ProfileView.vue'
 import TimelineView from '../components/views/TimelineView.vue'
 import ArchivesView from '../components/views/ArchivesView.vue'
