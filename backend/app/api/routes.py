@@ -3655,3 +3655,539 @@ async def get_archives(session_id: str):
         traceback.print_exc()
         return {"success": False, "error": str(e), "archives": {}}
 
+
+# ==================== 用户标签系统 API ====================
+from core.systems.user_tag_system import UserTagSystem, TagCategory
+
+# 初始化标签系统
+user_tag_system = UserTagSystem()
+
+@router.get("/user/tags/{session_id}")
+async def get_user_tags(session_id: str):
+    """获取用户的所有标签"""
+    try:
+        from core.database.database import Database
+        db = Database()
+        
+        # 尝试从数据库获取用户标签
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 检查用户标签表是否存在，不存在则创建
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_tags (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    tag_id TEXT NOT NULL,
+                    weight REAL DEFAULT 0.5,
+                    acquired_at TEXT,
+                    source TEXT,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, tag_id)
+                )
+            ''')
+            conn.commit()
+            
+            # 查询用户标签
+            cursor.execute('''
+                SELECT tag_id, weight, acquired_at, source
+                FROM user_tags
+                WHERE session_id = ?
+                ORDER BY weight DESC
+            ''', (session_id,))
+            
+            rows = cursor.fetchall()
+            
+            if rows:
+                # 从数据库重建标签
+                tags = []
+                for row in rows:
+                    tag_id, weight, acquired_at, source = row
+                    tag_def = user_tag_system.get_tag_definition(tag_id)
+                    if tag_def:
+                        tags.append({
+                            "id": tag_id,
+                            "name": tag_def["name"],
+                            "icon": tag_def["icon"],
+                            "category": tag_def["category"],
+                            "weight": weight,
+                            "acquired_at": acquired_at,
+                            "source": source
+                        })
+                
+                return {
+                    "success": True,
+                    "tags": tags,
+                    "tag_count": len(tags)
+                }
+            else:
+                # 如果没有标签，初始化默认标签
+                default_tags = user_tag_system.initialize_user_tags(session_id)
+                
+                # 保存到数据库
+                for tag in default_tags:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO user_tags (session_id, tag_id, weight, acquired_at, source)
+                        VALUES (?, ?, ?, datetime('now'), '系统初始化')
+                    ''', (session_id, tag.id, tag.weight))
+                conn.commit()
+                
+                return {
+                    "success": True,
+                    "tags": [user_tag_system.tag_to_dict(t) for t in default_tags],
+                    "tag_count": len(default_tags),
+                    "initialized": True
+                }
+    except Exception as e:
+        print(f"[UserTags] Error getting tags: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e), "tags": []}
+
+
+@router.post("/user/tags/{session_id}/update")
+async def update_user_tags(session_id: str, tag_updates: dict):
+    """更新用户标签（基于事件选择）"""
+    try:
+        from core.database.database import Database
+        db = Database()
+        
+        choice_tags = tag_updates.get("choice_tags", [])  # 与选择相关的标签ID列表
+        chosen = tag_updates.get("chosen", True)  # 是否选择了该选项
+        event_id = tag_updates.get("event_id", "")
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 获取当前标签
+            cursor.execute('''
+                SELECT tag_id, weight FROM user_tags WHERE session_id = ?
+            ''', (session_id,))
+            
+            current_tags = {row[0]: row[1] for row in cursor.fetchall()}
+            
+            # 更新标签权重
+            for tag_id in choice_tags:
+                if tag_id in current_tags:
+                    # 更新现有标签权重
+                    delta = 0.1 if chosen else -0.05
+                    new_weight = max(0.0, min(1.0, current_tags[tag_id] + delta))
+                    cursor.execute('''
+                        UPDATE user_tags 
+                        SET weight = ?, updated_at = datetime('now'), source = ?
+                        WHERE session_id = ? AND tag_id = ?
+                    ''', (new_weight, f"事件选择: {event_id}", session_id, tag_id))
+                else:
+                    # 添加新标签
+                    initial_weight = 0.6 if chosen else 0.3
+                    cursor.execute('''
+                        INSERT INTO user_tags (session_id, tag_id, weight, acquired_at, source)
+                        VALUES (?, ?, ?, datetime('now'), ?)
+                    ''', (session_id, tag_id, initial_weight, f"事件选择: {event_id}"))
+            
+            conn.commit()
+            
+            # 返回更新后的标签
+            cursor.execute('''
+                SELECT tag_id, weight FROM user_tags 
+                WHERE session_id = ? ORDER BY weight DESC
+            ''', (session_id,))
+            
+            updated_tags = []
+            for row in cursor.fetchall():
+                tag_def = user_tag_system.get_tag_definition(row[0])
+                if tag_def:
+                    updated_tags.append({
+                        "id": row[0],
+                        "name": tag_def["name"],
+                        "icon": tag_def["icon"],
+                        "category": tag_def["category"],
+                        "weight": row[1]
+                    })
+            
+            return {
+                "success": True,
+                "updated_tags": updated_tags,
+                "changes": len(choice_tags)
+            }
+            
+    except Exception as e:
+        print(f"[UserTags] Error updating tags: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/user/tags/categories")
+async def get_tag_categories():
+    """获取所有标签类别"""
+    return {
+        "success": True,
+        "categories": [
+            {"id": "personality", "name": "性格特质", "icon": "🎭"},
+            {"id": "financial", "name": "财务偏好", "icon": "💰"},
+            {"id": "life", "name": "生活态度", "icon": "🏠"},
+            {"id": "social", "name": "社交风格", "icon": "👥"},
+            {"id": "consumption", "name": "消费习惯", "icon": "🛒"},
+            {"id": "career", "name": "职业倾向", "icon": "💼"},
+            {"id": "risk", "name": "风险态度", "icon": "⚖️"},
+            {"id": "investment", "name": "投资风格", "icon": "📈"}
+        ]
+    }
+
+
+@router.get("/user/tags/all")
+async def get_all_available_tags():
+    """获取所有可用标签定义"""
+    return {
+        "success": True,
+        "tags": user_tag_system.get_all_tag_definitions()
+    }
+
+
+# ==================== 事件回响系统 API ====================
+
+@router.get("/events/pool")
+async def get_event_pool():
+    """获取完整事件池"""
+    try:
+        events = user_tag_system.get_event_pool()
+        return {
+            "success": True,
+            "events": events,
+            "total_count": len(events)
+        }
+    except Exception as e:
+        print(f"[Events] Error getting event pool: {e}")
+        return {"success": False, "error": str(e), "events": []}
+
+
+@router.get("/events/personalized/{session_id}")
+async def get_personalized_events(session_id: str, limit: int = 10):
+    """获取基于用户标签的个性化事件"""
+    try:
+        from core.database.database import Database
+        db = Database()
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 获取用户标签
+            cursor.execute('''
+                SELECT tag_id, weight FROM user_tags 
+                WHERE session_id = ? AND weight > 0.3
+                ORDER BY weight DESC
+            ''', (session_id,))
+            
+            user_tag_weights = {row[0]: row[1] for row in cursor.fetchall()}
+            
+            # 获取事件池
+            all_events = user_tag_system.get_event_pool()
+            
+            # 基于标签筛选和排序事件
+            scored_events = []
+            for event in all_events:
+                event_tags = event.get("tags", [])
+                
+                # 计算事件与用户标签的匹配度
+                match_score = 0
+                matched_tags = []
+                for tag_id in event_tags:
+                    if tag_id in user_tag_weights:
+                        match_score += user_tag_weights[tag_id]
+                        matched_tags.append(tag_id)
+                
+                # 添加一些随机性
+                import random
+                randomness = random.uniform(0.8, 1.2)
+                final_score = match_score * randomness
+                
+                scored_events.append({
+                    **event,
+                    "match_score": final_score,
+                    "matched_tags": matched_tags
+                })
+            
+            # 按匹配度排序
+            scored_events.sort(key=lambda x: x["match_score"], reverse=True)
+            
+            # 取前N个事件，但也保证一定的多样性
+            selected_events = []
+            categories_seen = set()
+            
+            for event in scored_events:
+                cat = event.get("category", "general")
+                # 每个类别最多3个事件，保证多样性
+                if categories_seen.get(cat, 0) < 3 if isinstance(categories_seen, dict) else cat not in categories_seen:
+                    selected_events.append(event)
+                    if isinstance(categories_seen, set):
+                        categories_seen = {cat: 1}
+                    else:
+                        categories_seen[cat] = categories_seen.get(cat, 0) + 1
+                    
+                    if len(selected_events) >= limit:
+                        break
+            
+            # 如果不够，补充剩余事件
+            if len(selected_events) < limit:
+                for event in scored_events:
+                    if event not in selected_events:
+                        selected_events.append(event)
+                        if len(selected_events) >= limit:
+                            break
+            
+            return {
+                "success": True,
+                "events": selected_events[:limit],
+                "user_tags": list(user_tag_weights.keys()),
+                "total_pool_size": len(all_events)
+            }
+            
+    except Exception as e:
+        print(f"[Events] Error getting personalized events: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e), "events": []}
+
+
+@router.post("/events/select/{session_id}")
+async def select_event(session_id: str, event_data: dict):
+    """选择一个事件并记录"""
+    try:
+        from core.database.database import Database
+        db = Database()
+        
+        event_id = event_data.get("event_id")
+        event_title = event_data.get("title", "")
+        event_tags = event_data.get("tags", [])
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 创建事件选择记录表（如果不存在）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS event_selections (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    event_title TEXT,
+                    selected_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 记录事件选择
+            cursor.execute('''
+                INSERT INTO event_selections (session_id, event_id, event_title)
+                VALUES (?, ?, ?)
+            ''', (session_id, event_id, event_title))
+            
+            # 更新相关标签权重
+            for tag_id in event_tags:
+                cursor.execute('''
+                    INSERT INTO user_tags (session_id, tag_id, weight, acquired_at, source)
+                    VALUES (?, ?, 0.6, datetime('now'), ?)
+                    ON CONFLICT(session_id, tag_id) DO UPDATE SET
+                    weight = MIN(1.0, weight + 0.05),
+                    updated_at = datetime('now'),
+                    source = ?
+                ''', (session_id, tag_id, f"选择事件: {event_title}", f"选择事件: {event_title}"))
+            
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": "事件已选择",
+                "event_id": event_id
+            }
+            
+    except Exception as e:
+        print(f"[Events] Error selecting event: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/events/complete/{session_id}")
+async def complete_event(session_id: str, completion_data: dict):
+    """完成事件选择并应用结果"""
+    try:
+        from core.database.database import Database
+        db = Database()
+        
+        event_id = completion_data.get("event_id")
+        choice_index = completion_data.get("choice_index", 0)
+        choice_tags = completion_data.get("choice_tags", [])
+        effects = completion_data.get("effects", {})
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 记录事件完成
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS event_completions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    choice_index INTEGER,
+                    effects TEXT,
+                    completed_at TEXT DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            import json
+            cursor.execute('''
+                INSERT INTO event_completions (session_id, event_id, choice_index, effects)
+                VALUES (?, ?, ?, ?)
+            ''', (session_id, event_id, choice_index, json.dumps(effects)))
+            
+            # 更新标签权重（基于选择）
+            for tag_id in choice_tags:
+                cursor.execute('''
+                    INSERT INTO user_tags (session_id, tag_id, weight, acquired_at, source)
+                    VALUES (?, ?, 0.7, datetime('now'), ?)
+                    ON CONFLICT(session_id, tag_id) DO UPDATE SET
+                    weight = MIN(1.0, weight + 0.1),
+                    updated_at = datetime('now')
+                ''', (session_id, tag_id, f"事件完成"))
+            
+            conn.commit()
+            
+            return {
+                "success": True,
+                "message": "事件已完成",
+                "effects_applied": effects
+            }
+            
+    except Exception as e:
+        print(f"[Events] Error completing event: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/events/history/{session_id}")
+async def get_event_history(session_id: str, limit: int = 50):
+    """获取用户的事件历史"""
+    try:
+        from core.database.database import Database
+        db = Database()
+        
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            
+            # 检查表是否存在
+            cursor.execute('''
+                SELECT name FROM sqlite_master 
+                WHERE type='table' AND name='event_completions'
+            ''')
+            
+            if not cursor.fetchone():
+                return {"success": True, "history": [], "total": 0}
+            
+            cursor.execute('''
+                SELECT event_id, choice_index, effects, completed_at
+                FROM event_completions
+                WHERE session_id = ?
+                ORDER BY completed_at DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            
+            import json
+            history = []
+            for row in cursor.fetchall():
+                history.append({
+                    "event_id": row[0],
+                    "choice_index": row[1],
+                    "effects": json.loads(row[2]) if row[2] else {},
+                    "completed_at": row[3]
+                })
+            
+            return {
+                "success": True,
+                "history": history,
+                "total": len(history)
+            }
+            
+    except Exception as e:
+        print(f"[Events] Error getting history: {e}")
+        return {"success": False, "error": str(e), "history": []}
+
+
+@router.get("/events/categories")
+async def get_event_categories():
+    """获取所有事件类别"""
+    return {
+        "success": True,
+        "categories": [
+            {"id": "financial", "name": "财务决策", "icon": "💰", "color": "#FFD700"},
+            {"id": "career", "name": "职业发展", "icon": "💼", "color": "#4169E1"},
+            {"id": "life", "name": "生活选择", "icon": "🏠", "color": "#32CD32"},
+            {"id": "social", "name": "社交关系", "icon": "👥", "color": "#FF69B4"},
+            {"id": "investment", "name": "投资机会", "icon": "📈", "color": "#00CED1"},
+            {"id": "emergency", "name": "突发事件", "icon": "⚡", "color": "#FF4500"},
+            {"id": "growth", "name": "个人成长", "icon": "🌱", "color": "#9370DB"},
+            {"id": "consumption", "name": "消费抉择", "icon": "🛒", "color": "#FF8C00"}
+        ]
+    }
+
+
+# ==================== 实时同步 API ====================
+
+@router.get("/realtime/status")
+async def get_realtime_sync_status():
+    """获取实时同步系统状态"""
+    try:
+        from core.systems.realtime_sync import realtime_sync
+        status = realtime_sync.get_sync_status()
+        return {"success": True, **status}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/realtime/game-time/{session_id}")
+async def get_game_time(session_id: str):
+    """获取会话的当前游戏时间
+    
+    时间流速: 1现实小时 = 1游戏月
+    """
+    try:
+        from core.systems.realtime_sync import realtime_sync
+        game_time = realtime_sync.get_current_game_time(session_id)
+        return {"success": True, **game_time}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/realtime/init-session/{session_id}")
+async def init_realtime_session(session_id: str):
+    """初始化会话的实时状态"""
+    try:
+        from core.systems.realtime_sync import realtime_sync
+        result = realtime_sync.init_session_realtime(session_id)
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/realtime/force-sync")
+async def force_realtime_sync():
+    """强制立即同步（管理员功能）"""
+    try:
+        from core.systems.realtime_sync import realtime_sync
+        result = realtime_sync.force_sync()
+        return {"success": True, **result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/realtime/set-active/{session_id}")
+async def set_session_active(session_id: str, is_active: bool = True):
+    """设置会话是否活跃"""
+    try:
+        from core.systems.realtime_sync import realtime_sync
+        realtime_sync.set_session_active(session_id, is_active)
+        return {"success": True, "session_id": session_id, "is_active": is_active}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
