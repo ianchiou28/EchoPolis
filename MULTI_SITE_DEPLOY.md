@@ -151,7 +151,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/EchoPolis
-ExecStart=/usr/bin/python3 start.py
+ExecStart=/root/EchoPolis/venv/bin/python start.py
 Restart=always
 RestartSec=5
 
