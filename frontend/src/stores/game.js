@@ -86,18 +86,7 @@ export const useGameStore = defineStore('game', {
       interest: 4.5,
       market_idx: 12450,
       market_trend: 'up'
-    },
-    // 实时时间同步
-    realtime: {
-      gameMonth: 1,
-      gameYear: 1,
-      monthInYear: 1,
-      nextMonthIn: 3600,
-      progress: 0,
-      isActive: true,
-      lastUpdate: null
-    },
-    realtimeTimer: null
+    }
   }),
 
   getters: {
@@ -762,127 +751,6 @@ export const useGameStore = defineStore('game', {
       this.isLoadingDistrict = false
       this.isAdvancingMonth = false
       this.isAiInvesting = false
-      // 停止实时计时器
-      this.stopRealtimeTimer()
-    },
-
-    // ==================== 实时时间同步 ====================
-    
-    async fetchRealtimeGameTime() {
-      /**
-       * 获取实时游戏时间
-       * 时间流速: 1现实小时 = 1游戏月
-       */
-      try {
-        const character = this.getCurrentCharacter()
-        if (!character) return
-        
-        const res = await axios.get(`/api/realtime/game-time/${character.id}`)
-        if (res.data.success) {
-          this.realtime = {
-            gameMonth: res.data.game_month,
-            gameYear: res.data.game_year,
-            monthInYear: res.data.month_in_year,
-            nextMonthIn: res.data.next_month_in,
-            progress: res.data.progress,
-            isActive: res.data.is_active,
-            lastUpdate: new Date().toISOString()
-          }
-          
-          // 同步到avatar
-          if (this.avatar) {
-            this.avatar.current_month = res.data.game_month
-          }
-          
-          console.log(`[Realtime] 游戏时间: 第${res.data.game_year}年第${res.data.month_in_year}月 (总第${res.data.game_month}月)`)
-          console.log(`[Realtime] 下个月倒计时: ${res.data.next_month_in}秒`)
-        }
-      } catch (error) {
-        console.error('[Game Store] 获取实时时间失败:', error)
-      }
-    },
-
-    async initRealtimeSession() {
-      /**
-       * 初始化实时会话
-       */
-      try {
-        const character = this.getCurrentCharacter()
-        if (!character) return
-        
-        const res = await axios.post(`/api/realtime/init-session/${character.id}`)
-        if (res.data.success) {
-          this.realtime = {
-            gameMonth: res.data.game_month,
-            gameYear: res.data.game_year,
-            monthInYear: res.data.month_in_year,
-            nextMonthIn: res.data.next_month_in,
-            progress: res.data.progress,
-            isActive: res.data.is_active,
-            lastUpdate: new Date().toISOString()
-          }
-          console.log('[Realtime] 会话已初始化')
-        }
-      } catch (error) {
-        console.error('[Game Store] 初始化实时会话失败:', error)
-      }
-    },
-
-    startRealtimeTimer() {
-      /**
-       * 启动实时时间更新计时器
-       * 每分钟更新一次时间状态
-       */
-      if (this.realtimeTimer) {
-        clearInterval(this.realtimeTimer)
-      }
-      
-      // 立即获取一次
-      this.fetchRealtimeGameTime()
-      
-      // 每60秒更新一次
-      this.realtimeTimer = setInterval(() => {
-        this.fetchRealtimeGameTime()
-        
-        // 本地更新倒计时（减少API调用）
-        if (this.realtime.nextMonthIn > 0) {
-          this.realtime.nextMonthIn = Math.max(0, this.realtime.nextMonthIn - 60)
-          this.realtime.progress = Math.min(1, this.realtime.progress + 1/60)
-        }
-      }, 60000)
-      
-      console.log('[Realtime] 实时计时器已启动')
-    },
-
-    stopRealtimeTimer() {
-      if (this.realtimeTimer) {
-        clearInterval(this.realtimeTimer)
-        this.realtimeTimer = null
-        console.log('[Realtime] 实时计时器已停止')
-      }
-    },
-
-    async getRealtimeSyncStatus() {
-      /**
-       * 获取同步系统状态
-       */
-      try {
-        const res = await axios.get('/api/realtime/status')
-        return res.data
-      } catch (error) {
-        console.error('[Game Store] 获取同步状态失败:', error)
-        return null
-      }
-    },
-
-    formatRealtimeCountdown() {
-      /**
-       * 格式化倒计时显示
-       */
-      const seconds = this.realtime.nextMonthIn
-      const minutes = Math.floor(seconds / 60)
-      const secs = seconds % 60
-      return `${minutes}:${secs.toString().padStart(2, '0')}`
     }
   }
 })

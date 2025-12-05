@@ -75,13 +75,7 @@
         
         <div class="header-right">
           <div class="header-meta">
-            <span class="month-badge">
-              第{{ gameStore.realtime.gameYear }}年{{ gameStore.realtime.monthInYear }}月
-            </span>
-            <span class="countdown" :title="'下个月倒计时'">
-              ⏱️ {{ formatCountdown }}
-            </span>
-            <span class="date">{{ currentDate }}</span>
+            <span class="date-time">🕐 {{ currentDateTime }}</span>
           </div>
           <MusicPlayer ref="musicPlayerRef" />
         </div>
@@ -134,20 +128,9 @@
                   <span class="bar-label">精力</span>
                   <div class="bar"><div class="fill orange" :style="{ width: (avatar?.energy || 75) + '%' }"></div></div>
                 </div>
-              </div>
             </div>
           </div>
-          
-          <!-- 时间推进按钮 -->
-          <button 
-            class="advance-btn"
-            :disabled="gameStore.isAdvancingMonth"
-            @click="handleAdvanceMonth">
-            {{ gameStore.isAdvancingMonth ? '处理中...' : '>> 推进下一月' }}
-          </button>
-        </div>
-
-        <!-- 城市地图 -->
+        </div>        <!-- 城市地图 -->
         <div class="city-map" @mousemove="onParallax" @mouseleave="resetParallax">
           <div class="city-sky" :style="parallaxStyles.sky" />
           <div class="city-grid" :style="parallaxStyles.grid" />
@@ -230,7 +213,24 @@ const activeBuilding = ref(null)
 const parallax = ref({ x: 0, y: 0 })
 const isCrtOn = ref(true)
 const musicPlayerRef = ref(null)
-const currentDate = ref(new Date().toLocaleDateString('zh-CN').replace(/\//g, '-'))
+// 真实北京时间
+const currentDateTime = ref('')
+let timeInterval = null
+
+const updateTime = () => {
+  const now = new Date()
+  const options = {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }
+  currentDateTime.value = now.toLocaleString('zh-CN', options).replace(/\//g, '-')
+}
 
 // 建筑配置 - 使用与图片文件匹配的ID
 const buildings = [
@@ -249,13 +249,7 @@ const assets = computed(() => ({
   cash: gameStore.assets?.cash ?? 0
 }))
 
-// 实时时间倒计时格式化
-const formatCountdown = computed(() => {
-  const seconds = gameStore.realtime.nextMonthIn
-  const minutes = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${minutes}:${secs.toString().padStart(2, '0')}`
-})
+
 
 // 视差效果
 const parallaxStyles = computed(() => {
@@ -303,25 +297,21 @@ const resetParallax = () => {
 }
 
 const exitToSelect = () => {
-  gameStore.stopRealtimeTimer()
+  if (timeInterval) clearInterval(timeInterval)
   router.push('/character-select')
-}
-
-const handleAdvanceMonth = async () => {
-  await gameStore.advanceMonth()
 }
 
 // 生命周期
 onMounted(async () => {
   await gameStore.loadAvatar()
-  // 启动实时时间同步
-  await gameStore.initRealtimeSession()
-  gameStore.startRealtimeTimer()
+  // 启动真实时间更新
+  updateTime()
+  timeInterval = setInterval(updateTime, 1000)
 })
 
 onUnmounted(() => {
   // 组件销毁时停止计时器
-  gameStore.stopRealtimeTimer()
+  if (timeInterval) clearInterval(timeInterval)
 })
 </script>
 
@@ -530,28 +520,20 @@ onUnmounted(() => {
 
 .header-meta {
   display: flex;
+  align-items: center;
   gap: 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--term-text-secondary);
   font-family: 'JetBrains Mono', monospace;
 }
 
-.month-badge {
-  padding: 4px 10px;
-  background: var(--term-accent);
-  color: #000;
-  font-weight: 800;
-  font-size: 11px;
-}
-
-.countdown {
-  padding: 4px 10px;
-  background: rgba(255, 165, 0, 0.15);
-  border: 1px solid rgba(255, 165, 0, 0.4);
-  color: #ffa500;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  font-size: 11px;
+.date-time {
+  padding: 6px 12px;
+  background: rgba(0, 255, 136, 0.1);
+  border: 1px solid var(--term-accent);
+  color: var(--term-accent);
+  font-weight: 600;
+  font-size: 12px;
 }
 
 /* 地图视图 */
@@ -720,30 +702,6 @@ onUnmounted(() => {
 .bar .fill.green { background: var(--term-accent); }
 .bar .fill.yellow { background: #f59e0b; }
 .bar .fill.orange { background: #f97316; }
-
-.advance-btn {
-  width: 100%;
-  padding: 14px 20px;
-  background: var(--term-accent);
-  color: #000;
-  border: none;
-  font-weight: 800;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.advance-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 255, 136, 0.4);
-}
-
-.advance-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* 城市地图 */
 .city-map {

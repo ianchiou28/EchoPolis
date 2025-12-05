@@ -266,6 +266,11 @@ const filteredEvents = computed(() => {
 // 获取session_id
 const getSessionId = () => {
   try {
+    // 优先从 gameStore 获取
+    if (gameStore.avatar?.session_id) {
+      return gameStore.avatar.session_id
+    }
+    // 其次从 localStorage 获取
     const char = localStorage.getItem('currentCharacter')
     return char ? JSON.parse(char).id : null
   } catch { return null }
@@ -327,7 +332,15 @@ const selectEvent = (event) => {
 // 加载用户标签
 const loadUserTags = async () => {
   const sessionId = getSessionId()
-  if (!sessionId) return
+  if (!sessionId) {
+    console.warn('[EventEcho] 未找到 sessionId，使用默认标签')
+    userTags.value = [
+      { id: 'moderate', name: '稳健型', icon: '⚖️', weight: 0.5 },
+      { id: 'work_life_balance', name: '平衡生活', icon: '🧘', weight: 0.5 },
+      { id: 'steady_job', name: '稳定工作', icon: '🏢', weight: 0.5 }
+    ]
+    return
+  }
 
   try {
     const res = await axios.get(`/api/user/tags/${sessionId}`)
@@ -348,10 +361,17 @@ const loadUserTags = async () => {
 // 加载个性化事件
 const loadEvents = async () => {
   const sessionId = getSessionId()
-  if (!sessionId) return
-
+  
   loading.value = true
   selectedEvent.value = null
+
+  // 如果没有 sessionId，使用模拟数据
+  if (!sessionId) {
+    console.warn('[EventEcho] 未找到 sessionId，使用模拟事件数据')
+    events.value = generateMockEvents()
+    loading.value = false
+    return
+  }
 
   try {
     const res = await axios.get(`/api/events/personalized/${sessionId}`, { 
@@ -359,8 +379,12 @@ const loadEvents = async () => {
         limit: 10
       } 
     })
-    if (res.data.success) {
-      events.value = res.data.events || []
+    if (res.data.success && res.data.events?.length > 0) {
+      events.value = res.data.events
+    } else {
+      // API返回空数据，使用模拟数据
+      console.warn('[EventEcho] API返回空事件，使用模拟数据')
+      events.value = generateMockEvents()
     }
   } catch (e) {
     console.error('加载事件失败:', e)
@@ -509,6 +533,10 @@ const generateMockEvents = () => [
 
 // 初始化
 onMounted(async () => {
+  // 确保先加载 avatar 数据
+  if (!gameStore.avatar) {
+    await gameStore.loadAvatar()
+  }
   await loadUserTags()
   await loadEvents()
 })
