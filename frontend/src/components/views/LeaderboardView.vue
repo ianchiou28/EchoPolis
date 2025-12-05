@@ -113,7 +113,7 @@ const loadLeaderboard = async () => {
   try {
     // Load leaderboard by type
     const endpoint = `/api/leaderboard/${currentTab.value}`
-    const res = await fetch(endpoint)
+    const res = await fetch(buildApiUrl(endpoint))
     const data = await res.json()
     
     if (data.success && data.leaderboard && data.leaderboard.length > 0) {

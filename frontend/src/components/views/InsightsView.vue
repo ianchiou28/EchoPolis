@@ -644,6 +644,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useGameStore } from '@/stores/game'
+import { buildApiUrl } from '@/utils/api'
 
 export default {
   name: 'InsightsView',
@@ -785,7 +786,7 @@ export default {
       
       loading.value = true
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/personal/${sessionId.value}`)
+        const response = await fetch(buildApiUrl(`/api/insights/personal/${sessionId.value}`))
         const result = await response.json()
         if (result.success) {
           personalData.value = result.data
@@ -800,7 +801,7 @@ export default {
     const loadCohortInsights = async () => {
       loading.value = true
       try {
-        const url = 'http://localhost:8000/api/insights/cohort?limit=20'
+        const url = buildApiUrl('/api/insights/cohort?limit=20')
         console.log('[Insights] Fetching cohort insights from:', url)
         const response = await fetch(url)
         const result = await response.json()
@@ -821,7 +822,7 @@ export default {
       if (!sessionId.value) return
       
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/peer-comparison/${sessionId.value}`)
+        const response = await fetch(buildApiUrl(`/api/insights/peer-comparison/${sessionId.value}`))
         const result = await response.json()
         if (result.success) {
           peerComparison.value = result.data
@@ -836,7 +837,7 @@ export default {
       if (!sessionId.value) return
       
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/evolution/${sessionId.value}`)
+        const response = await fetch(buildApiUrl(`/api/insights/evolution/${sessionId.value}`))
         const result = await response.json()
         if (result.success) {
           evolutionData.value = result.data
@@ -919,7 +920,7 @@ export default {
       
       loading.value = true
       try {
-        const url = `http://localhost:8000/api/insights/statistics/${sessionId.value}`
+        const url = buildApiUrl(`/api/insights/statistics/${sessionId.value}`)
         console.log('[Insights] Fetching statistics from:', url)
         const response = await fetch(url)
         const result = await response.json()
@@ -941,7 +942,7 @@ export default {
       
       aiLoading.value = true
       try {
-        const response = await fetch(`http://localhost:8000/api/insights/ai/${sessionId.value}`)
+        const response = await fetch(buildApiUrl(`/api/insights/ai/${sessionId.value}`))
         const result = await response.json()
         if (result.success) {
           aiInsight.value = result.data
@@ -966,7 +967,7 @@ export default {
       
       warningsLoading.value = true
       try {
-        const url = `http://localhost:8000/api/insights/warnings/${sessionId.value}`
+        const url = buildApiUrl(`/api/insights/warnings/${sessionId.value}`)
         console.log('[Insights] Fetching warnings from:', url)
         const response = await fetch(url)
         const result = await response.json()
