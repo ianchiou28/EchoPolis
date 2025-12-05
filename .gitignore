@@ -73,3 +73,5 @@ echopolis.db
 .db
 .env
 echopolis copy.db
+.venv/
+.venv311/

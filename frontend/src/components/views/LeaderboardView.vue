@@ -47,6 +47,9 @@
               <span v-else-if="index === 2" class="medal bronze">🥉</span>
               <span v-else class="rank-num">{{ index + 1 }}</span>
             </div>
+            <div class="player-avatar" :style="{ backgroundColor: player.avatar_color || '#ff8c00' }">
+              {{ player.avatar_emoji || '🎭' }}
+            </div>
             <div class="rank-info">
               <div class="player-name">{{ player.name }}</div>
               <div class="player-detail" v-if="currentTab === 'assets'">
@@ -285,6 +288,18 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 700;
   color: var(--term-text-secondary);
+}
+
+.player-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.2);
 }
 
 .rank-info { flex: 1; }

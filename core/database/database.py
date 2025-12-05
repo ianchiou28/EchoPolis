@@ -480,6 +480,30 @@ class FinAIDatabase:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # 用户头像表（已拥有的头像）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_avatars (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    avatar_id TEXT NOT NULL,
+                    purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, avatar_id)
+                )
+            ''')
+            
+            # 用户当前装备的头像（在users表添加字段）
+            try:
+                cursor.execute("PRAGMA table_info(users)")
+                columns = [col[1] for col in cursor.fetchall()]
+                if 'current_avatar' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN current_avatar TEXT DEFAULT "default_orange"')
+                    print("[INFO] 添加 current_avatar 列到 users 表")
+                if 'avatar_coins' not in columns:
+                    cursor.execute('ALTER TABLE users ADD COLUMN avatar_coins INTEGER DEFAULT 0')
+                    print("[INFO] 添加 avatar_coins 列到 users 表")
+            except Exception as e:
+                print(f"[WARN] 添加头像字段失败: {e}")
 
             conn.commit()
     
@@ -1458,6 +1482,98 @@ class FinAIDatabase:
                 'total_coins': row[1] or 0,
                 'total_exp': row[2] or 0
             }
+    
+    # ============ 头像系统方法 ============
+    
+    def get_user_avatar_coins(self, session_id: str) -> int:
+        """获取用户的头像金币（等于总成就金币减去已花费的）"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            # 获取总成就金币
+            cursor.execute('''
+                SELECT COALESCE(SUM(reward_coins), 0) FROM achievements_unlocked WHERE session_id = ?
+            ''', (session_id,))
+            total_earned = cursor.fetchone()[0] or 0
+            
+            # 获取已花费的金币（记录在users表）
+            cursor.execute('SELECT avatar_coins FROM users WHERE session_id = ?', (session_id,))
+            row = cursor.fetchone()
+            spent = row[0] if row and row[0] else 0
+            
+            # 返回剩余金币（总获得 - 已花费）
+            # 注意：这里用负数记录花费，所以是加法
+            return total_earned + spent
+    
+    def get_user_avatars(self, session_id: str) -> List[str]:
+        """获取用户拥有的所有头像ID"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT avatar_id FROM user_avatars WHERE session_id = ?
+            ''', (session_id,))
+            avatars = [r[0] for r in cursor.fetchall()]
+            # 确保默认头像存在
+            if 'default_orange' not in avatars:
+                avatars.insert(0, 'default_orange')
+            return avatars
+    
+    def get_current_avatar(self, session_id: str) -> str:
+        """获取用户当前装备的头像"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT current_avatar FROM users WHERE session_id = ?', (session_id,))
+            row = cursor.fetchone()
+            return row[0] if row and row[0] else 'default_orange'
+    
+    def purchase_avatar(self, session_id: str, avatar_id: str, price: int) -> bool:
+        """购买头像"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # 检查是否已拥有
+                cursor.execute('''
+                    SELECT id FROM user_avatars WHERE session_id = ? AND avatar_id = ?
+                ''', (session_id, avatar_id))
+                if cursor.fetchone():
+                    return False  # 已拥有
+                
+                # 记录购买（花费金币为负数）
+                cursor.execute('''
+                    UPDATE users SET avatar_coins = COALESCE(avatar_coins, 0) - ? WHERE session_id = ?
+                ''', (price, session_id))
+                
+                # 添加到拥有列表
+                cursor.execute('''
+                    INSERT INTO user_avatars (session_id, avatar_id) VALUES (?, ?)
+                ''', (session_id, avatar_id))
+                
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"[ERROR] 购买头像失败: {e}")
+            return False
+    
+    def equip_avatar(self, session_id: str, avatar_id: str) -> bool:
+        """装备头像"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                # 检查是否拥有（默认头像无需拥有）
+                if avatar_id != 'default_orange':
+                    cursor.execute('''
+                        SELECT id FROM user_avatars WHERE session_id = ? AND avatar_id = ?
+                    ''', (session_id, avatar_id))
+                    if not cursor.fetchone():
+                        return False  # 未拥有
+                
+                cursor.execute('''
+                    UPDATE users SET current_avatar = ? WHERE session_id = ?
+                ''', (avatar_id, session_id))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"[ERROR] 装备头像失败: {e}")
+            return False
     
     # ============ 经济状态方法 ============
     

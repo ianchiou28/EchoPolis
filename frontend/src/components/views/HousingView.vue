@@ -673,4 +673,325 @@ onMounted(() => {
 .filter-tabs { display: flex; gap: 4px; }
 .tab { font-size: 10px; padding: 2px 6px; cursor: pointer; border: 1px solid var(--term-border); }
 .tab.active { background: var(--term-accent); color: #000; border-color: var(--term-accent); }
+
+@media (max-width: 768px) {
+  /* 移动端容器可滚动 */
+  .view-container {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding: 16px 8px;
+  }
+  
+  .content-grid { 
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 0;
+    flex: none;
+  }
+  
+  /* 移动端列布局优化 */
+  .col-left, .col-right {
+    min-height: auto;
+    gap: 12px;
+  }
+  
+  /* 可滚动卡片固定高度 */
+  .archive-card.flex-grow {
+    flex: none;
+    min-height: auto;
+  }
+  
+  .archive-card.flex-grow .archive-body.scrollable {
+    max-height: 150px;
+    overflow-y: auto;
+  }
+  
+  /* 手风琴面板折叠时不占空间 */
+  .accordion-card {
+    flex: none !important;
+  }
+  
+  .accordion-card.expanded .accordion-body {
+    max-height: 350px;
+    overflow-y: auto;
+  }
+  
+  /* 手风琴面板移动端优化 */
+  .accordion-header {
+    padding: 10px 12px;
+  }
+  
+  .accordion-title {
+    font-size: 11px;
+  }
+  
+  .accordion-body {
+    padding: 12px;
+  }
+  
+  /* 当前居住状态 */
+  .living-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+    padding-bottom: 12px;
+  }
+  
+  .status-icon {
+    font-size: 32px;
+  }
+  
+  .status-info {
+    width: 100%;
+  }
+  
+  .status-type {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  
+  .status-detail {
+    font-size: 11px;
+  }
+  
+  .status-cost {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  
+  .living-effects {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  
+  .effect {
+    min-width: 45%;
+  }
+  
+  .effect .label {
+    font-size: 9px;
+  }
+  
+  .effect .value {
+    font-size: 12px;
+  }
+  
+  /* 房产卡片 */
+  .property-card {
+    padding: 12px;
+  }
+  
+  .prop-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .prop-icon {
+    font-size: 28px;
+  }
+  
+  .prop-name {
+    font-size: 13px;
+  }
+  
+  .prop-status {
+    font-size: 9px;
+    padding: 2px 6px;
+  }
+  
+  .prop-stats {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .prop-stat {
+    min-width: 45%;
+    flex: 1;
+  }
+  
+  .prop-stat .label {
+    font-size: 9px;
+  }
+  
+  .prop-stat .value {
+    font-size: 12px;
+  }
+  
+  /* 贷款信息 */
+  .mortgage-info {
+    padding: 10px;
+  }
+  
+  .mortgage-item {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 0;
+  }
+  
+  .mortgage-item .label {
+    font-size: 10px;
+    min-width: 60px;
+  }
+  
+  .mortgage-bar {
+    flex: 1;
+    min-width: 100px;
+    order: 3;
+    width: 100%;
+    margin-top: 4px;
+  }
+  
+  .mortgage-item .value {
+    font-size: 10px;
+  }
+  
+  /* 房产列表 */
+  .property-listing {
+    padding: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .listing-icon {
+    font-size: 28px;
+  }
+  
+  .listing-info {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .listing-name {
+    font-size: 12px;
+  }
+  
+  .listing-desc {
+    font-size: 10px;
+  }
+  
+  .listing-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--term-border);
+  }
+  
+  .listing-price {
+    font-size: 14px;
+  }
+  
+  .listing-cost {
+    font-size: 10px;
+  }
+  
+  /* 按钮 */
+  .term-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  
+  /* 弹窗 */
+  .modal-overlay {
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 60px;
+  }
+  
+  .modal-box {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 100px);
+  }
+  
+  .modal-header {
+    padding: 12px 16px;
+  }
+  
+  .modal-title {
+    font-size: 14px;
+  }
+  
+  .modal-body {
+    padding: 16px;
+  }
+  
+  .detail-row {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 0;
+  }
+  
+  .detail-row .label {
+    font-size: 11px;
+    min-width: 80px;
+  }
+  
+  .detail-row .value {
+    font-size: 12px;
+  }
+  
+  .payment-options {
+    gap: 8px;
+  }
+  
+  .payment-option {
+    padding: 10px;
+  }
+  
+  .option-name {
+    font-size: 12px;
+  }
+  
+  .option-desc {
+    font-size: 10px;
+  }
+  
+  .modal-footer {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  
+  /* 装修面板 */
+  .reno-options {
+    gap: 8px;
+  }
+  
+  .reno-option {
+    padding: 10px;
+  }
+  
+  .reno-name {
+    font-size: 12px;
+  }
+  
+  .reno-cost {
+    font-size: 11px;
+  }
+  
+  .reno-desc {
+    font-size: 10px;
+  }
+  
+  /* 筛选标签 */
+  .filter-tabs {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .tab {
+    font-size: 9px;
+    padding: 2px 5px;
+  }
+  
+  /* 空状态 */
+  .empty-state {
+    padding: 20px;
+    font-size: 12px;
+  }
+}
 </style>

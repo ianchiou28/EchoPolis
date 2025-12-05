@@ -1342,12 +1342,63 @@ async def buy_stock(data: dict):
         except Exception as e:
             print(f"[BehaviorLog] Failed to log stock buy: {e}")
         
+        # 检查成就解锁（首次买股票）
+        unlocked_achievements = []
+        try:
+            from core.systems.achievement_system import achievement_system
+            
+            # 获取已解锁成就
+            with sqlite3.connect(game_service.db.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT achievement_id, unlocked_month FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+                unlocked_rows = cursor.fetchall()
+                unlocked_list = [{"achievement_id": r[0], "unlocked_month": r[1]} for r in unlocked_rows]
+            
+            # 加载已解锁成就到系统
+            achievement_system.load_unlocked_from_list(unlocked_list)
+            
+            # 检查首次买股票成就
+            first_stock_result = achievement_system.record_first_action("stock_buy", current_month)
+            if first_stock_result:
+                ach = first_stock_result["achievement"]
+                rewards = first_stock_result["rewards"]
+                game_service.db.save_achievement_unlock(session_id, {
+                    "achievement_id": ach["id"],
+                    "achievement_name": ach["name"],
+                    "rarity": ach["rarity"],
+                    "reward_coins": rewards["coins"],
+                    "reward_exp": rewards["exp"],
+                    "reward_title": rewards.get("title"),
+                    "unlocked_month": current_month
+                })
+                unlocked_achievements.append(first_stock_result)
+                
+            # 如果是第一个月投资，还有早起鸟儿成就
+            if current_month <= 1:
+                early_bird_result = achievement_system.record_special_event("early_invest", current_month)
+                if early_bird_result:
+                    ach = early_bird_result["achievement"]
+                    rewards = early_bird_result["rewards"]
+                    game_service.db.save_achievement_unlock(session_id, {
+                        "achievement_id": ach["id"],
+                        "achievement_name": ach["name"],
+                        "rarity": ach["rarity"],
+                        "reward_coins": rewards["coins"],
+                        "reward_exp": rewards["exp"],
+                        "reward_title": rewards.get("title"),
+                        "unlocked_month": current_month
+                    })
+                    unlocked_achievements.append(early_bird_result)
+        except Exception as e:
+            print(f"[Achievement] Failed to check achievements: {e}")
+        
         return {
             "success": True,
             "message": f"成功买入 {stock['name']} {shares}股",
             "price": price,
             "total_cost": total_cost,
-            "new_cash": new_cash
+            "new_cash": new_cash,
+            "unlocked_achievements": unlocked_achievements
         }
     except HTTPException:
         raise
@@ -1599,6 +1650,39 @@ async def apply_loan(data: dict):
             except Exception as e:
                 print(f"[BehaviorLog] Failed to log loan apply: {e}")
             
+            # 检查成就解锁（首次贷款）
+            unlocked_achievements = []
+            try:
+                from core.systems.achievement_system import achievement_system
+                
+                # 获取已解锁成就
+                with sqlite3.connect(game_service.db.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT achievement_id, unlocked_month FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+                    unlocked_rows = cursor.fetchall()
+                    unlocked_list = [{"achievement_id": r[0], "unlocked_month": r[1]} for r in unlocked_rows]
+                
+                # 加载已解锁成就到系统
+                achievement_system.load_unlocked_from_list(unlocked_list)
+                
+                # 检查首次贷款成就
+                first_loan_result = achievement_system.record_first_action("loan", current_month)
+                if first_loan_result:
+                    ach = first_loan_result["achievement"]
+                    rewards = first_loan_result["rewards"]
+                    game_service.db.save_achievement_unlock(session_id, {
+                        "achievement_id": ach["id"],
+                        "achievement_name": ach["name"],
+                        "rarity": ach["rarity"],
+                        "reward_coins": rewards["coins"],
+                        "reward_exp": rewards["exp"],
+                        "reward_title": rewards.get("title"),
+                        "unlocked_month": current_month
+                    })
+                    unlocked_achievements.append(first_loan_result)
+            except Exception as e:
+                print(f"[Achievement] Failed to check achievements: {e}")
+            
             return {
                 "success": True,
                 "message": f"贷款审批通过，¥{amount:,}已到账",
@@ -1607,7 +1691,8 @@ async def apply_loan(data: dict):
                     "monthly_payment": loan.monthly_payment,
                     "total_interest": loan.monthly_payment * loan.term_months - loan.principal
                 },
-                "new_cash": new_cash
+                "new_cash": new_cash,
+                "unlocked_achievements": unlocked_achievements
             }
         else:
             return {"success": False, "message": result}
@@ -1711,6 +1796,40 @@ async def purchase_insurance(data: dict):
             except Exception as e:
                 print(f"[BehaviorLog] Failed to log insurance buy: {e}")
             
+            # 检查成就解锁（首次购买保险）
+            unlocked_achievements = []
+            try:
+                from core.systems.achievement_system import achievement_system
+                import sqlite3
+                
+                # 获取已解锁成就
+                with sqlite3.connect(game_service.db.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('SELECT achievement_id, unlocked_month FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+                    unlocked_rows = cursor.fetchall()
+                    unlocked_list = [{"achievement_id": r[0], "unlocked_month": r[1]} for r in unlocked_rows]
+                
+                # 加载已解锁成就到系统
+                achievement_system.load_unlocked_from_list(unlocked_list)
+                
+                # 检查首次保险成就
+                first_insurance_result = achievement_system.record_first_action("insurance", current_month)
+                if first_insurance_result:
+                    ach = first_insurance_result["achievement"]
+                    rewards = first_insurance_result["rewards"]
+                    game_service.db.save_achievement_unlock(session_id, {
+                        "achievement_id": ach["id"],
+                        "achievement_name": ach["name"],
+                        "rarity": ach["rarity"],
+                        "reward_coins": rewards["coins"],
+                        "reward_exp": rewards["exp"],
+                        "reward_title": rewards.get("title"),
+                        "unlocked_month": current_month
+                    })
+                    unlocked_achievements.append(first_insurance_result)
+            except Exception as e:
+                print(f"[Achievement] Failed to check achievements: {e}")
+            
             return {
                 "success": True,
                 "message": f"成功购买{policy.product_name}",
@@ -1719,7 +1838,8 @@ async def purchase_insurance(data: dict):
                     "name": policy.product_name,
                     "monthly_premium": policy.monthly_premium,
                     "coverage": policy.coverage_amount
-                }
+                },
+                "unlocked_achievements": unlocked_achievements
             }
         else:
             return {"success": False, "message": result}
@@ -2159,7 +2279,41 @@ async def make_deposit(request: dict):
         except Exception as e:
             print(f"[BehaviorLog] Failed to log deposit: {e}")
         
-        return {"success": True, "message": f"成功存入 ¥{amount}"}
+        # 检查成就解锁（首次存款）
+        unlocked_achievements = []
+        try:
+            from core.systems.achievement_system import achievement_system
+            import sqlite3
+            
+            # 获取已解锁成就
+            with sqlite3.connect(game_service.db.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT achievement_id, unlocked_month FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+                unlocked_rows = cursor.fetchall()
+                unlocked_list = [{"achievement_id": r[0], "unlocked_month": r[1]} for r in unlocked_rows]
+            
+            # 加载已解锁成就到系统
+            achievement_system.load_unlocked_from_list(unlocked_list)
+            
+            # 检查首次存款成就
+            first_deposit_result = achievement_system.record_first_action("deposit", current_month)
+            if first_deposit_result:
+                ach = first_deposit_result["achievement"]
+                rewards = first_deposit_result["rewards"]
+                game_service.db.save_achievement_unlock(session_id, {
+                    "achievement_id": ach["id"],
+                    "achievement_name": ach["name"],
+                    "rarity": ach["rarity"],
+                    "reward_coins": rewards["coins"],
+                    "reward_exp": rewards["exp"],
+                    "reward_title": rewards.get("title"),
+                    "unlocked_month": current_month
+                })
+                unlocked_achievements.append(first_deposit_result)
+        except Exception as e:
+            print(f"[Achievement] Failed to check achievements: {e}")
+        
+        return {"success": True, "message": f"成功存入 ¥{amount}", "unlocked_achievements": unlocked_achievements}
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -2274,17 +2428,52 @@ async def apply_bank_loan(request: dict):
             ''', (username, session_id, current_month, f'申请{product["name"]}', amount, f'贷款批准，本金¥{amount:,}，月供¥{monthly_payment:,}，期限{term_months}个月'))
             
             conn.commit()
+        
+        # 检查成就解锁（首次贷款）
+        unlocked_achievements = []
+        try:
+            from core.systems.achievement_system import achievement_system
+            import sqlite3
             
-            return {
-                "success": True,
-                "message": f"贷款批准，¥{amount:,} 已到账",
-                "loan": {
-                    "id": loan_id,
-                    "monthly_payment": monthly_payment,
-                    "total_interest": monthly_payment * term_months - amount
-                },
-                "new_cash": new_cash
-            }
+            # 获取已解锁成就
+            with sqlite3.connect(game_service.db.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('SELECT achievement_id, unlocked_month FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+                unlocked_rows = cursor.fetchall()
+                unlocked_list = [{"achievement_id": r[0], "unlocked_month": r[1]} for r in unlocked_rows]
+            
+            # 加载已解锁成就到系统
+            achievement_system.load_unlocked_from_list(unlocked_list)
+            
+            # 检查首次贷款成就
+            first_loan_result = achievement_system.record_first_action("loan", current_month)
+            if first_loan_result:
+                ach = first_loan_result["achievement"]
+                rewards = first_loan_result["rewards"]
+                game_service.db.save_achievement_unlock(session_id, {
+                    "achievement_id": ach["id"],
+                    "achievement_name": ach["name"],
+                    "rarity": ach["rarity"],
+                    "reward_coins": rewards["coins"],
+                    "reward_exp": rewards["exp"],
+                    "reward_title": rewards.get("title"),
+                    "unlocked_month": current_month
+                })
+                unlocked_achievements.append(first_loan_result)
+        except Exception as e:
+            print(f"[Achievement] Failed to check achievements: {e}")
+            
+        return {
+            "success": True,
+            "message": f"贷款批准，¥{amount:,} 已到账",
+            "loan": {
+                "id": loan_id,
+                "monthly_payment": monthly_payment,
+                "total_interest": monthly_payment * term_months - amount
+            },
+            "new_cash": new_cash,
+            "unlocked_achievements": unlocked_achievements
+        }
             
     except Exception as e:
         import traceback
@@ -2507,6 +2696,145 @@ async def record_trade(request: dict):
     
     leaderboard_system.record_trade(session_id, invested, returned)
     return {"success": True, "message": "Trade recorded"}
+
+
+# ==================== 头像系统路由 ====================
+
+@router.get("/avatar/shop")
+async def get_avatar_shop():
+    """获取头像商店列表"""
+    try:
+        from core.systems.avatar_system import avatar_system
+        avatars = avatar_system.get_all_avatars()
+        return {"success": True, "avatars": avatars}
+    except Exception as e:
+        print(f"[Avatar] Error getting shop: {e}")
+        return {"success": False, "error": str(e)}
+
+@router.get("/avatar/user/{session_id}")
+async def get_user_avatar_info(session_id: str):
+    """获取用户头像信息"""
+    try:
+        from core.systems.avatar_system import avatar_system
+        import sqlite3
+        
+        # 直接查询成就金币用于调试
+        with sqlite3.connect(game_service.db.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT achievement_id, reward_coins FROM achievements_unlocked WHERE session_id = ?', (session_id,))
+            raw_achievements = cursor.fetchall()
+            print(f"[Avatar Debug] session_id: {session_id}")
+            print(f"[Avatar Debug] Raw achievements: {raw_achievements}")
+        
+        # 获取用户金币
+        coins = game_service.db.get_user_avatar_coins(session_id)
+        print(f"[Avatar Debug] Calculated coins: {coins}")
+        
+        # 获取拥有的头像
+        owned = game_service.db.get_user_avatars(session_id)
+        
+        # 获取当前装备的头像
+        current = game_service.db.get_current_avatar(session_id)
+        current_info = avatar_system.get_avatar(current)
+        
+        # 获取成就统计
+        stats = game_service.db.get_achievement_stats(session_id)
+        unlocked_achievements = game_service.db.get_unlocked_achievements(session_id)
+        achievement_ids = [a['achievement_id'] for a in unlocked_achievements]
+        
+        return {
+            "success": True,
+            "coins": coins,
+            "owned_avatars": owned,
+            "current_avatar": current,
+            "current_avatar_info": current_info,
+            "achievement_count": stats['unlocked_count'],
+            "achievement_ids": achievement_ids,
+            "debug_achievements": raw_achievements  # 调试用
+        }
+    except Exception as e:
+        print(f"[Avatar] Error getting user info: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e), "coins": 0, "owned_avatars": ["default_orange"], "current_avatar": "default_orange"}
+
+@router.post("/avatar/purchase")
+async def purchase_avatar(request: dict):
+    """购买头像"""
+    try:
+        from core.systems.avatar_system import avatar_system
+        
+        session_id = request.get("session_id")
+        avatar_id = request.get("avatar_id")
+        
+        if not session_id or not avatar_id:
+            return {"success": False, "error": "缺少参数"}
+        
+        # 获取头像信息
+        avatar_info = avatar_system.get_avatar(avatar_id)
+        if not avatar_info:
+            return {"success": False, "error": "头像不存在"}
+        
+        # 检查是否已拥有
+        owned = game_service.db.get_user_avatars(session_id)
+        if avatar_id in owned:
+            return {"success": False, "error": "已拥有该头像"}
+        
+        # 获取用户金币和成就
+        coins = game_service.db.get_user_avatar_coins(session_id)
+        stats = game_service.db.get_achievement_stats(session_id)
+        unlocked = game_service.db.get_unlocked_achievements(session_id)
+        achievement_ids = [a['achievement_id'] for a in unlocked]
+        
+        # 检查是否可以购买
+        can_buy, message = avatar_system.can_purchase(
+            avatar_id, coins, achievement_ids, stats['unlocked_count']
+        )
+        
+        if not can_buy:
+            return {"success": False, "error": message}
+        
+        # 执行购买
+        result = game_service.db.purchase_avatar(session_id, avatar_id, avatar_info['price'])
+        if result:
+            new_coins = game_service.db.get_user_avatar_coins(session_id)
+            return {
+                "success": True, 
+                "message": f"成功购买「{avatar_info['name']}」！",
+                "new_coins": new_coins
+            }
+        else:
+            return {"success": False, "error": "购买失败"}
+    except Exception as e:
+        print(f"[Avatar] Error purchasing: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+
+@router.post("/avatar/equip")
+async def equip_avatar(request: dict):
+    """装备头像"""
+    try:
+        session_id = request.get("session_id")
+        avatar_id = request.get("avatar_id")
+        
+        if not session_id or not avatar_id:
+            return {"success": False, "error": "缺少参数"}
+        
+        result = game_service.db.equip_avatar(session_id, avatar_id)
+        if result:
+            from core.systems.avatar_system import avatar_system
+            avatar_info = avatar_system.get_avatar(avatar_id)
+            return {
+                "success": True, 
+                "message": f"已装备「{avatar_info['name'] if avatar_info else avatar_id}」",
+                "current_avatar": avatar_id
+            }
+        else:
+            return {"success": False, "error": "装备失败，请确保已拥有该头像"}
+    except Exception as e:
+        print(f"[Avatar] Error equipping: {e}")
+        return {"success": False, "error": str(e)}
 
 
 # ==================== 房产系统路由 ====================

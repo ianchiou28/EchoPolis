@@ -171,6 +171,13 @@
       </div>
     </div>
   </div>
+
+  <!-- Achievement Modal -->
+  <AchievementModal 
+    v-if="showAchievement"
+    :achievement="currentAchievement"
+    @close="showAchievement = false"
+  />
 </template>
 
 <script setup>
@@ -178,6 +185,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useGameStore } from '../../stores/game'
 import { buildApiUrl } from '../../utils/api'
 import VChart from 'vue-echarts'
+import AchievementModal from '../AchievementModal.vue'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { CandlestickChart, LineChart, BarChart } from 'echarts/charts'
@@ -199,6 +207,11 @@ const marketMood = ref('bullish')
 const klineData = ref([])
 const technicalData = ref(null)
 const rightPanel = ref('trade')  // 'trade' or 'holdings'
+
+// Achievement state
+const showAchievement = ref(false)
+const currentAchievement = ref(null)
+const achievementQueue = ref([])
 
 const sectors = [
   { id: 'all', name: '全部' },
@@ -424,6 +437,29 @@ const generateSampleKline = () => {
   }
 }
 
+// Show next achievement from queue
+const showNextAchievement = () => {
+  if (achievementQueue.value.length > 0 && !showAchievement.value) {
+    const next = achievementQueue.value.shift()
+    currentAchievement.value = {
+      name: next.achievement.name,
+      description: next.achievement.description,
+      icon: next.achievement.icon,
+      rarity: next.achievement.rarity,
+      reward: `+${next.rewards.coins} 金币 / +${next.rewards.exp} 经验`,
+      points: next.rewards.exp
+    }
+    showAchievement.value = true
+  }
+}
+
+// Watch for achievement modal close to show next
+watch(showAchievement, (newVal) => {
+  if (!newVal) {
+    setTimeout(() => showNextAchievement(), 500)
+  }
+})
+
 const executeTrade = async (action) => {
   if (!selectedStock.value) return
   const sessionId = getSessionId()
@@ -445,6 +481,12 @@ const executeTrade = async (action) => {
     if (data.success) {
       await loadHoldings()
       await gameStore.loadAvatar()
+      
+      // Handle achievement unlocks
+      if (data.unlocked_achievements && data.unlocked_achievements.length > 0) {
+        achievementQueue.value.push(...data.unlocked_achievements)
+        showNextAchievement()
+      }
     } else {
       alert(data.message || '交易失败')
     }
@@ -766,8 +808,218 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .content-grid { grid-template-columns: 1fr; }
-  .view-container { overflow-y: auto; }
-  .chart-container { height: 200px; }
+  .view-container {
+    overflow-y: auto;
+    padding: 12px;
+  }
+  
+  .view-header h2 {
+    font-size: 16px;
+  }
+  
+  .header-line {
+    margin-bottom: 12px;
+  }
+  
+  .content-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .col-left, .col-right {
+    gap: 12px;
+  }
+  
+  /* 市场指数简化 */
+  .index-display {
+    margin-bottom: 12px;
+  }
+  
+  .index-value {
+    font-size: 24px;
+  }
+  
+  .index-change {
+    font-size: 12px;
+  }
+  
+  .mood-row {
+    font-size: 11px;
+  }
+  
+  /* 股票筛选标签横向滚动 */
+  .filter-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+  }
+  
+  .tab {
+    font-size: 9px;
+    padding: 2px 5px;
+    flex-shrink: 0;
+  }
+  
+  /* 股票列表 */
+  .stock-row {
+    padding: 10px;
+    margin-bottom: 6px;
+  }
+  
+  .stock-name {
+    font-size: 13px;
+  }
+  
+  .stock-code {
+    font-size: 9px;
+  }
+  
+  .price {
+    font-size: 13px;
+  }
+  
+  .change {
+    font-size: 10px;
+  }
+  
+  /* K线图 */
+  .chart-container {
+    height: 180px;
+  }
+  
+  .chart-loading {
+    height: 180px;
+  }
+  
+  .kline-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .kline-title {
+    font-size: 11px;
+  }
+  
+  /* 交易面板 */
+  .selected-info h3 {
+    font-size: 15px;
+  }
+  
+  .price-big {
+    font-size: 22px;
+  }
+  
+  .change-tag {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+  
+  /* 技术指标 */
+  .tech-indicators {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+  }
+  
+  .indicator {
+    flex: 1 0 45%;
+    min-width: 80px;
+  }
+  
+  .ind-label {
+    font-size: 9px;
+  }
+  
+  .ind-value {
+    font-size: 12px;
+  }
+  
+  /* 交易表单 */
+  .form-row {
+    margin-bottom: 12px;
+  }
+  
+  .form-row label {
+    font-size: 11px;
+  }
+  
+  .qty-input input {
+    width: 60px;
+    padding: 5px;
+    font-size: 12px;
+  }
+  
+  .qty-btn {
+    width: 26px;
+    height: 26px;
+  }
+  
+  .amount-val {
+    font-size: 15px;
+  }
+  
+  .trade-actions {
+    gap: 8px;
+  }
+  
+  .term-btn.buy, .term-btn.sell {
+    padding: 10px;
+    font-size: 12px;
+  }
+  
+  /* 持仓列表 */
+  .holding-row {
+    padding: 10px;
+    margin-bottom: 6px;
+  }
+  
+  .holding-name {
+    font-size: 13px;
+  }
+  
+  .holding-shares {
+    font-size: 10px;
+  }
+  
+  .market-val {
+    font-size: 13px;
+  }
+  
+  .profit {
+    font-size: 10px;
+  }
+  
+  /* 折叠面板 */
+  .accordion-header {
+    padding: 10px 12px;
+  }
+  
+  .accordion-icon {
+    font-size: 14px;
+  }
+  
+  .accordion-title {
+    font-size: 11px;
+  }
+  
+  .accordion-body {
+    padding: 12px;
+  }
+  
+  .archive-header {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  
+  .archive-body {
+    padding: 12px;
+  }
+  
+  .empty-state {
+    padding: 20px 10px;
+    font-size: 12px;
+  }
 }
 </style>

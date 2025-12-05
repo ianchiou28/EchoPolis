@@ -518,4 +518,244 @@ onMounted(async () => {
 .accordion-title { flex: 1; font-size: 12px; text-transform: uppercase; }
 .accordion-arrow { font-size: 10px; color: var(--term-text-secondary); }
 .accordion-body { flex: 1; overflow-y: auto; padding: 16px; }
+
+@media (max-width: 768px) {
+  /* 移动端容器可滚动 */
+  .view-container {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding: 16px 8px;
+  }
+  
+  .content-grid { 
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 0;
+    flex: none;
+  }
+  
+  /* 移动端列布局优化 */
+  .col-left, .col-right {
+    min-height: auto;
+    gap: 12px;
+  }
+  
+  /* 可滚动卡片固定高度 */
+  .archive-card.flex-grow {
+    flex: none;
+    min-height: auto;
+  }
+  
+  .archive-card.flex-grow .archive-body.scrollable {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  
+  /* 手风琴面板折叠时不占空间 */
+  .accordion-card {
+    flex: none !important;
+  }
+  
+  .accordion-card.expanded .accordion-body {
+    max-height: 350px;
+    overflow-y: auto;
+  }
+  
+  /* 手风琴面板移动端优化 */
+  .accordion-header {
+    padding: 10px 12px;
+  }
+  
+  .accordion-title {
+    font-size: 11px;
+  }
+  
+  .accordion-body {
+    padding: 12px;
+  }
+  
+  /* 状态栏 */
+  .status-bars {
+    gap: 10px;
+    padding: 12px;
+  }
+  
+  .bar-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  
+  .bar-icon {
+    font-size: 16px;
+  }
+  
+  .bar-name {
+    font-size: 10px;
+    min-width: 40px;
+  }
+  
+  .bar-track {
+    flex: 1;
+    min-width: 80px;
+    order: 3;
+    width: 100%;
+  }
+  
+  .bar-value {
+    font-size: 10px;
+    min-width: 35px;
+  }
+  
+  /* 活动网格 */
+  .activity-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  
+  .activity-card {
+    padding: 10px 6px;
+  }
+  
+  .card-icon {
+    font-size: 20px;
+  }
+  
+  .card-name {
+    font-size: 10px;
+    margin: 2px 0;
+  }
+  
+  .card-cost {
+    font-size: 9px;
+  }
+  
+  .card-effects {
+    font-size: 8px;
+  }
+  
+  /* 社交列表 */
+  .social-list {
+    gap: 8px;
+  }
+  
+  .social-item {
+    padding: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .social-main {
+    flex: 1;
+    min-width: 150px;
+  }
+  
+  .social-icon {
+    font-size: 20px;
+  }
+  
+  .social-name {
+    font-size: 12px;
+  }
+  
+  .social-desc {
+    font-size: 10px;
+  }
+  
+  .social-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--term-border);
+  }
+  
+  .social-cost {
+    font-size: 12px;
+  }
+  
+  .social-effects {
+    font-size: 10px;
+  }
+  
+  /* 副业卡片 */
+  .business-card {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .biz-header {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .biz-icon {
+    font-size: 18px;
+  }
+  
+  .biz-name {
+    font-size: 12px;
+  }
+  
+  .biz-status {
+    font-size: 9px;
+    padding: 1px 6px;
+  }
+  
+  .biz-desc {
+    font-size: 11px;
+    margin-bottom: 10px;
+  }
+  
+  .biz-stats {
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .biz-stat {
+    min-width: 45%;
+  }
+  
+  .biz-stat .label {
+    font-size: 9px;
+  }
+  
+  .biz-stat .value {
+    font-size: 12px;
+  }
+  
+  /* 按钮 */
+  .term-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  
+  /* 结果提示 */
+  .result-toast {
+    bottom: 80px;
+    padding: 10px 16px;
+    font-size: 12px;
+    left: 16px;
+    right: 16px;
+    transform: none;
+    width: auto;
+  }
+  
+  .result-icon {
+    font-size: 16px;
+  }
+  
+  @keyframes slideUp { 
+    from { transform: translateY(20px); opacity: 0; } 
+    to { transform: translateY(0); opacity: 1; } 
+  }
+  
+  /* 空状态 */
+  .empty-state {
+    padding: 20px;
+    font-size: 12px;
+  }
+}
 </style>

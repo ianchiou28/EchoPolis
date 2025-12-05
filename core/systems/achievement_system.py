@@ -166,7 +166,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🎨",
         condition_desc="持有5种以上不同类型资产",
         reward_coins=500,
-        reward_exp=200
+        reward_exp=200,
+        hidden=True  # 功能暂未实现
     ),
     Achievement(
         id="DIVIDEND_COLLECTOR",
@@ -177,7 +178,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="💵",
         condition_desc="累计股息收入 ≥ ¥10,000",
         reward_coins=800,
-        reward_exp=400
+        reward_exp=400,
+        hidden=True  # 股息发放功能暂未实现
     ),
     Achievement(
         id="TEN_BAGGER",
@@ -201,7 +203,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="📦",
         condition_desc="基金累计盈利 ≥ ¥50,000",
         reward_coins=400,
-        reward_exp=200
+        reward_exp=200,
+        hidden=True  # 基金购买功能暂未实现
     ),
     
     # ============ 储蓄成就 ============
@@ -225,7 +228,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🛡️",
         condition_desc="储蓄 ≥ 6个月支出",
         reward_coins=300,
-        reward_exp=150
+        reward_exp=150,
+        hidden=True  # 月支出追踪功能暂未实现
     ),
     Achievement(
         id="SAVING_RATE_30",
@@ -236,7 +240,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="📥",
         condition_desc="连续6个月储蓄率 ≥ 30%",
         reward_coins=600,
-        reward_exp=300
+        reward_exp=300,
+        hidden=True  # 储蓄率追踪功能暂未实现
     ),
     
     # ============ 债务管理 ============
@@ -283,7 +288,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🏠",
         condition_desc="持有房贷",
         reward_coins=200,
-        reward_exp=100
+        reward_exp=100,
+        hidden=True  # 房贷系统暂未实现
     ),
     Achievement(
         id="HOUSE_PAID_OFF",
@@ -296,7 +302,8 @@ ACHIEVEMENTS: List[Achievement] = [
         reward_coins=3000,
         reward_exp=1500,
         reward_title="房产自由者",
-        prerequisite="MORTGAGE_OWNER"
+        prerequisite="MORTGAGE_OWNER",
+        hidden=True  # 房贷系统暂未实现
     ),
     
     # ============ 职业发展 ============
@@ -344,7 +351,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🔀",
         condition_desc="有副业收入",
         reward_coins=200,
-        reward_exp=100
+        reward_exp=100,
+        hidden=True  # 副业系统暂未实现
     ),
     Achievement(
         id="PASSIVE_INCOME",
@@ -356,7 +364,8 @@ ACHIEVEMENTS: List[Achievement] = [
         condition_desc="被动收入 > 主动收入",
         reward_coins=5000,
         reward_exp=2000,
-        reward_title="财务自由者"
+        reward_title="财务自由者",
+        hidden=True  # 收入分类功能暂未实现
     ),
     
     # ============ 生活方式 ============
@@ -380,7 +389,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🏥",
         condition_desc="持有3种以上保险",
         reward_coins=400,
-        reward_exp=200
+        reward_exp=200,
+        hidden=True  # 保险购买UI暂未实现
     ),
     Achievement(
         id="SURVIVOR",
@@ -403,7 +413,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="✅",
         condition_desc="获得保险理赔",
         reward_coins=200,
-        reward_exp=100
+        reward_exp=100,
+        hidden=True  # 保险理赔功能暂未实现
     ),
     
     # ============ 技能解锁 ============
@@ -416,7 +427,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="📊",
         condition_desc="连续3个月控制支出",
         reward_coins=300,
-        reward_exp=150
+        reward_exp=150,
+        hidden=True  # 预算功能暂未实现
     ),
     Achievement(
         id="SKILL_TIMING",
@@ -439,7 +451,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🔍",
         condition_desc="查看50次报告",
         reward_coins=100,
-        reward_exp=50
+        reward_exp=50,
+        hidden=True  # 报告查看计数功能暂未实现
     ),
     
     # ============ 特殊成就 ============
@@ -477,7 +490,8 @@ ACHIEVEMENTS: List[Achievement] = [
         icon="🕰️",
         condition_desc="持股超过24个月",
         reward_coins=1000,
-        reward_exp=500
+        reward_exp=500,
+        hidden=True  # 持股时间追踪功能暂未实现
     ),
     Achievement(
         id="BLACK_SWAN",
@@ -502,7 +516,8 @@ ACHIEVEMENTS: List[Achievement] = [
         condition_desc="解锁50个成就",
         reward_coins=20000,
         reward_exp=10000,
-        reward_title="人生赢家"
+        reward_title="人生赢家",
+        hidden=True  # 当前可解锁成就不足50个
     ),
     
     # ============ 行为洞察成就 ============

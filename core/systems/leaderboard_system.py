@@ -42,11 +42,14 @@ class LeaderboardSystem:
             return []
         
         import sqlite3
+        from core.systems.avatar_system import avatar_system
+        
         with sqlite3.connect(self.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT u.session_id, u.name, u.credits,
-                       COALESCE(SUM(i.amount), 0) as invested
+                       COALESCE(SUM(i.amount), 0) as invested,
+                       u.current_avatar
                 FROM users u
                 LEFT JOIN investments i ON u.session_id = i.session_id 
                     AND i.remaining_months > 0
@@ -58,13 +61,18 @@ class LeaderboardSystem:
             results = []
             for rank, row in enumerate(cursor.fetchall(), 1):
                 total = row[2] + row[3]
+                avatar_id = row[4] or 'default_orange'
+                avatar_info = avatar_system.get_avatar(avatar_id)
                 results.append({
                     "rank": rank,
                     "session_id": row[0],
                     "name": row[1],
                     "total_assets": total,
                     "cash": row[2],
-                    "invested": row[3]
+                    "invested": row[3],
+                    "avatar_id": avatar_id,
+                    "avatar_emoji": avatar_info.get('emoji', '🎭') if avatar_info else '🎭',
+                    "avatar_color": avatar_info.get('color', '#ff8c00') if avatar_info else '#ff8c00'
                 })
             return results
     
@@ -74,6 +82,8 @@ class LeaderboardSystem:
             return []
         
         import sqlite3
+        from core.systems.avatar_system import avatar_system
+        
         with sqlite3.connect(self.db.db_path) as conn:
             cursor = conn.cursor()
             # 计算最近3个月的增长率
@@ -86,7 +96,8 @@ class LeaderboardSystem:
                     CASE WHEN s2.total_assets > 0 
                         THEN (s1.total_assets - s2.total_assets) * 100.0 / s2.total_assets
                         ELSE 0 
-                    END as growth_rate
+                    END as growth_rate,
+                    u.current_avatar
                 FROM sessions s
                 JOIN users u ON s.session_id = u.session_id
                 LEFT JOIN (
@@ -108,12 +119,17 @@ class LeaderboardSystem:
             
             results = []
             for rank, row in enumerate(cursor.fetchall(), 1):
+                avatar_id = row[5] or 'default_orange'
+                avatar_info = avatar_system.get_avatar(avatar_id)
                 results.append({
                     "rank": rank,
                     "session_id": row[0],
                     "name": row[1],
                     "current_assets": row[2],
-                    "growth_rate": round(row[4], 2)
+                    "growth_rate": round(row[4], 2),
+                    "avatar_id": avatar_id,
+                    "avatar_emoji": avatar_info.get('emoji', '🎭') if avatar_info else '🎭',
+                    "avatar_color": avatar_info.get('color', '#ff8c00') if avatar_info else '#ff8c00'
                 })
             return results
     
@@ -123,6 +139,8 @@ class LeaderboardSystem:
             return []
         
         import sqlite3
+        from core.systems.avatar_system import avatar_system
+        
         with sqlite3.connect(self.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -131,7 +149,8 @@ class LeaderboardSystem:
                     u.name,
                     SUM(st.profit) as total_profit,
                     COUNT(*) as trade_count,
-                    SUM(CASE WHEN st.profit > 0 THEN 1 ELSE 0 END) as win_count
+                    SUM(CASE WHEN st.profit > 0 THEN 1 ELSE 0 END) as win_count,
+                    u.current_avatar
                 FROM stock_transactions st
                 JOIN users u ON st.session_id = u.session_id
                 WHERE st.action = 'sell'
@@ -143,13 +162,18 @@ class LeaderboardSystem:
             results = []
             for rank, row in enumerate(cursor.fetchall(), 1):
                 win_rate = row[4] / row[3] * 100 if row[3] > 0 else 0
+                avatar_id = row[5] or 'default_orange'
+                avatar_info = avatar_system.get_avatar(avatar_id)
                 results.append({
                     "rank": rank,
                     "session_id": row[0],
                     "name": row[1],
                     "total_profit": row[2],
                     "trade_count": row[3],
-                    "win_rate": round(win_rate, 1)
+                    "win_rate": round(win_rate, 1),
+                    "avatar_id": avatar_id,
+                    "avatar_emoji": avatar_info.get('emoji', '🎭') if avatar_info else '🎭',
+                    "avatar_color": avatar_info.get('color', '#ff8c00') if avatar_info else '#ff8c00'
                 })
             return results
     
@@ -159,6 +183,8 @@ class LeaderboardSystem:
             return []
         
         import sqlite3
+        from core.systems.avatar_system import avatar_system
+        
         with sqlite3.connect(self.db.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -167,7 +193,8 @@ class LeaderboardSystem:
                     u.name,
                     COUNT(*) as achievement_count,
                     SUM(a.reward_coins) as total_coins,
-                    SUM(a.reward_exp) as total_exp
+                    SUM(a.reward_exp) as total_exp,
+                    u.current_avatar
                 FROM achievements_unlocked a
                 JOIN users u ON a.session_id = u.session_id
                 GROUP BY a.session_id
@@ -177,13 +204,18 @@ class LeaderboardSystem:
             
             results = []
             for rank, row in enumerate(cursor.fetchall(), 1):
+                avatar_id = row[5] or 'default_orange'
+                avatar_info = avatar_system.get_avatar(avatar_id)
                 results.append({
                     "rank": rank,
                     "session_id": row[0],
                     "name": row[1],
                     "achievement_count": row[2],
                     "total_coins": row[3] or 0,
-                    "total_exp": row[4] or 0
+                    "total_exp": row[4] or 0,
+                    "avatar_id": avatar_id,
+                    "avatar_emoji": avatar_info.get('emoji', '🎭') if avatar_info else '🎭',
+                    "avatar_color": avatar_info.get('color', '#ff8c00') if avatar_info else '#ff8c00'
                 })
             return results
     

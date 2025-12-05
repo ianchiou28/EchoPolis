@@ -467,6 +467,188 @@ onMounted(() => {
 .accordion-body { flex: 1; overflow-y: auto; padding: 16px; }
 
 @media (max-width: 768px) {
-  .content-grid { grid-template-columns: 1fr; }
+  /* 移动端容器可滚动 */
+  .view-container {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+    padding: 16px 8px;
+  }
+  
+  .content-grid { 
+    grid-template-columns: 1fr; 
+    gap: 12px;
+    padding: 0;
+    flex: none;
+  }
+  
+  /* 移动端列布局优化 */
+  .col-left, .col-right {
+    min-height: auto;
+    gap: 12px;
+  }
+  
+  /* 可滚动卡片固定高度 */
+  .archive-card.flex-grow {
+    flex: none;
+    min-height: auto;
+  }
+  
+  .archive-card.flex-grow .archive-body.scrollable {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  
+  /* 手风琴面板折叠时不占空间 */
+  .accordion-card {
+    flex: none !important;
+  }
+  
+  .accordion-card.expanded .accordion-body {
+    max-height: 350px;
+    overflow-y: auto;
+  }
+  
+  /* 手风琴面板移动端优化 */
+  .accordion-header {
+    padding: 10px 12px;
+  }
+  
+  .accordion-title {
+    font-size: 11px;
+  }
+  
+  .accordion-body {
+    padding: 12px;
+  }
+  
+  /* 当前工作显示 */
+  .job-display {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px;
+  }
+  
+  .job-icon {
+    font-size: 32px;
+  }
+  
+  .job-title {
+    font-size: 14px;
+  }
+  
+  .job-company {
+    font-size: 11px;
+  }
+  
+  .income-section {
+    width: 100%;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--term-border);
+  }
+  
+  .income-amount {
+    font-size: 16px;
+  }
+  
+  /* 技能列表 */
+  .skill-row {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 0;
+  }
+  
+  .skill-name {
+    font-size: 11px;
+    min-width: 60px;
+  }
+  
+  .skill-bar {
+    flex: 1;
+    min-width: 100px;
+  }
+  
+  .skill-level {
+    font-size: 10px;
+    min-width: 50px;
+  }
+  
+  /* 工作列表 */
+  .job-row {
+    padding: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .job-row .job-icon {
+    font-size: 24px;
+  }
+  
+  .job-info {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .job-info .job-title {
+    font-size: 12px;
+  }
+  
+  .job-req {
+    font-size: 10px;
+  }
+  
+  .job-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--term-border);
+  }
+  
+  .job-salary {
+    font-size: 12px;
+  }
+  
+  .term-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+  
+  /* 副业列表 */
+  .sb-row {
+    padding: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .sb-icon {
+    font-size: 24px;
+  }
+  
+  .sb-info {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .sb-right {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid var(--term-border);
+  }
+  
+  /* 空状态 */
+  .empty-state {
+    padding: 20px;
+    font-size: 12px;
+  }
 }
 </style>

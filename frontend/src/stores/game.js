@@ -356,6 +356,11 @@ export const useGameStore = defineStore('game', {
           this.updateAssets()
           this.pushAssetSnapshot()
           
+          // 更新 AI 思考
+          if (data.reflection) {
+            this.aiReflection = data.reflection
+          }
+          
           // 处理触发的事件
           if (data.events && data.events.length > 0) {
             for (const event of data.events) {

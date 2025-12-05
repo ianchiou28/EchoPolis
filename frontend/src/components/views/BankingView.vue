@@ -193,18 +193,31 @@
         <button class="term-btn" @click="showResult = false">确定</button>
       </div>
     </div>
+
+    <!-- Achievement Modal -->
+    <AchievementModal 
+      v-if="showAchievement"
+      :achievement="currentAchievement"
+      @close="showAchievement = false"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useGameStore } from '../../stores/game'
 import { buildApiUrl } from '../../utils/api'
+import AchievementModal from '../AchievementModal.vue'
 
 const gameStore = useGameStore()
 
 // 右侧折叠面板状态
 const rightPanel = ref('deposit') // 默认展开存款业务
+
+// Achievement state
+const showAchievement = ref(false)
+const currentAchievement = ref(null)
+const achievementQueue = ref([])
 
 // 账户数据
 const cash = computed(() => gameStore.assets?.cash || 0)
@@ -301,6 +314,29 @@ const getSessionId = () => {
   } catch { return null }
 }
 
+// Show next achievement from queue
+const showNextAchievement = () => {
+  if (achievementQueue.value.length > 0 && !showAchievement.value) {
+    const next = achievementQueue.value.shift()
+    currentAchievement.value = {
+      name: next.achievement.name,
+      description: next.achievement.description,
+      icon: next.achievement.icon,
+      rarity: next.achievement.rarity,
+      reward: `+${next.rewards.coins} 金币 / +${next.rewards.exp} 经验`,
+      points: next.rewards.exp
+    }
+    showAchievement.value = true
+  }
+}
+
+// Watch for achievement modal close to show next
+watch(showAchievement, (newVal) => {
+  if (!newVal) {
+    setTimeout(() => showNextAchievement(), 500)
+  }
+})
+
 const makeDeposit = async () => {
   if (!depositAmount.value || depositAmount.value > cash.value) return
   
@@ -325,6 +361,12 @@ const makeDeposit = async () => {
       depositAmount.value = null
       await gameStore.loadAvatar()
       await loadBankingData()
+      
+      // Handle achievement unlocks
+      if (data.unlocked_achievements && data.unlocked_achievements.length > 0) {
+        achievementQueue.value.push(...data.unlocked_achievements)
+        showNextAchievement()
+      }
     } else {
       throw new Error(data.error)
     }
@@ -364,6 +406,12 @@ const applyLoan = async () => {
       selectedLoan.value = null
       await gameStore.loadAvatar()
       await loadBankingData()
+      
+      // Handle achievement unlocks
+      if (data.unlocked_achievements && data.unlocked_achievements.length > 0) {
+        achievementQueue.value.push(...data.unlocked_achievements)
+        showNextAchievement()
+      }
     } else {
       throw new Error(data.error)
     }
@@ -893,5 +941,234 @@ onMounted(() => {
   gap: 8px;
   overflow-y: auto;
   flex-shrink: 0;
+}
+
+/* 手机端响应式样式 */
+@media (max-width: 768px) {
+  .view-container {
+    overflow-y: auto;
+    padding: 12px;
+  }
+  
+  .view-header h2 {
+    font-size: 16px;
+  }
+  
+  .header-line {
+    margin-bottom: 12px;
+  }
+  
+  .content-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .col-left, .col-right {
+    gap: 12px;
+  }
+  
+  /* 账户总览 */
+  .account-summary {
+    gap: 10px;
+  }
+  
+  .account-label {
+    font-size: 11px;
+  }
+  
+  .account-value {
+    font-size: 16px;
+  }
+  
+  /* 信用评估 */
+  .credit-display {
+    padding: 16px 0;
+    margin-bottom: 12px;
+  }
+  
+  .credit-score {
+    font-size: 36px;
+  }
+  
+  .credit-label {
+    font-size: 11px;
+  }
+  
+  .credit-level {
+    font-size: 12px;
+  }
+  
+  .credit-factors {
+    gap: 8px;
+  }
+  
+  .factor {
+    font-size: 11px;
+    padding: 6px 0;
+  }
+  
+  .stars {
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  
+  /* 贷款状态 */
+  .loan-item {
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+  
+  .loan-header {
+    font-size: 12px;
+  }
+  
+  .loan-type {
+    font-size: 12px;
+  }
+  
+  .loan-status {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+  
+  .loan-details {
+    gap: 8px;
+  }
+  
+  .detail {
+    font-size: 11px;
+  }
+  
+  .detail span:last-child {
+    font-size: 12px;
+  }
+  
+  .progress-text {
+    font-size: 9px;
+  }
+  
+  /* 存款选项 */
+  .deposit-types {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  
+  .deposit-option, .loan-option {
+    padding: 8px 10px;
+  }
+  
+  .option-name {
+    font-size: 12px;
+  }
+  
+  .option-rate, .option-limit {
+    font-size: 10px;
+  }
+  
+  .option-desc, .option-req {
+    font-size: 10px;
+  }
+  
+  .option-details {
+    font-size: 10px;
+    gap: 8px;
+  }
+  
+  /* 操作行 */
+  .action-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .amount-input {
+    padding: 10px;
+    font-size: 14px;
+  }
+  
+  .term-btn {
+    padding: 10px 16px;
+    font-size: 12px;
+    width: 100%;
+    text-align: center;
+  }
+  
+  /* 贷款计算器 */
+  .loan-calculator {
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  
+  .calc-row {
+    margin-bottom: 10px;
+  }
+  
+  .calc-row label {
+    font-size: 10px;
+  }
+  
+  .calc-preview {
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .preview-item {
+    font-size: 11px;
+  }
+  
+  .preview-item span:last-child {
+    font-size: 13px;
+  }
+  
+  /* 折叠面板 */
+  .accordion-header {
+    padding: 10px 12px;
+  }
+  
+  .accordion-icon {
+    font-size: 14px;
+  }
+  
+  .accordion-title {
+    font-size: 11px;
+  }
+  
+  .accordion-body {
+    padding: 12px;
+  }
+  
+  .archive-header {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  
+  .archive-body {
+    padding: 12px;
+  }
+  
+  /* 结果弹窗 */
+  .result-content {
+    padding: 24px 20px;
+    min-width: 260px;
+    max-width: 90vw;
+  }
+  
+  .result-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+  }
+  
+  .result-title {
+    font-size: 18px;
+  }
+  
+  .result-message {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  
+  .empty-state {
+    padding: 16px;
+    font-size: 11px;
+  }
 }
 </style>

@@ -196,10 +196,10 @@
               </div>
               <div class="archive-body">
                 <div class="avatar-row">
-                  <div class="avatar-face">
-                    <div class="eye left"></div>
-                    <div class="eye right"></div>
-                    <div class="mouth"></div>
+                  <div class="avatar-face user-avatar" 
+                    :style="{ backgroundColor: userAvatarInfo?.color || '#ff8c00' }"
+                    @click="openView('avatar-shop')">
+                    <span class="avatar-emoji">{{ userAvatarInfo?.emoji || '🎭' }}</span>
                   </div>
                   <div class="avatar-details">
                     <h3>{{ avatar?.name || 'Echo' }}</h3>
@@ -381,6 +381,7 @@
         <LeaderboardView v-if="currentView === 'leaderboard'" />
         <AchievementView v-if="currentView === 'achievements'" />
         <InsightsView v-if="currentView === 'insights'" />
+        <AvatarShopView v-if="currentView === 'avatar-shop'" @avatar-changed="onAvatarChanged" />
       </div>
 
     </main>
@@ -414,6 +415,7 @@ import BankingView from '../components/views/BankingView.vue'
 import HousingView from '../components/views/HousingView.vue'
 import LifestyleView from '../components/views/LifestyleView.vue'
 import InsightsView from '../components/views/InsightsView.vue'
+import AvatarShopView from '../components/views/AvatarShopView.vue'
 import DistrictPreviewPanel from '../components/DistrictPreviewPanel.vue'
 import EventModal from '../components/EventModal.vue'
 import MusicPlayer from '../components/MusicPlayer.vue'
@@ -463,7 +465,8 @@ const groupItems = {
   personal: [
     { id: 'profile', label: '主体数据', icon: '👤', desc: '查看角色属性与状态' },
     { id: 'insights', label: '行为洞察', icon: '🧠', desc: 'AI分析你的决策模式' },
-    { id: 'achievements', label: '成就系统', icon: '🏆', desc: '解锁的成就与里程碑' }
+    { id: 'achievements', label: '成就系统', icon: '🏆', desc: '解锁的成就与里程碑' },
+    { id: 'avatar-shop', label: '头像商店', icon: '🎭', desc: '用成就金币购买头像' }
   ],
   finance: [
     { id: 'banking', label: '银行系统', icon: '🏦', desc: '存款、贷款与理财' },
@@ -512,6 +515,9 @@ const aiReflection = computed(() => gameStore.aiReflection)
 const currentSituation = computed(() => gameStore.currentSituation)
 const situationOptions = computed(() => gameStore.situationOptions)
 const chatMessages = computed(() => gameStore.chatMessages)
+
+// 用户头像信息
+const userAvatarInfo = ref({ emoji: '🎭', color: '#ff8c00', name: '默认头像' })
 
 const formatNumber = (num) => Number(num || 0).toLocaleString('zh-CN')
 
@@ -826,8 +832,39 @@ onMounted(() => {
   
   // 加载活跃效果（后台执行）
   loadActiveEffects()
+  
+  // 加载用户头像信息
+  loadUserAvatar()
+  
   console.log('[HomeNew] onMounted 执行完毕，页面应该已经渲染')
 })
+
+// 加载用户头像
+const loadUserAvatar = async () => {
+  const sessionId = getSessionId()
+  console.log('[HomeNew] loadUserAvatar called, sessionId:', sessionId)
+  if (!sessionId) return
+  
+  try {
+    const url = buildApiUrl(`/api/avatar/user/${sessionId}`)
+    console.log('[HomeNew] Fetching avatar from:', url)
+    const res = await fetch(url)
+    const data = await res.json()
+    console.log('[HomeNew] Avatar API response:', data)
+    if (data.success && data.current_avatar_info) {
+      userAvatarInfo.value = data.current_avatar_info
+      console.log('[HomeNew] Updated userAvatarInfo:', userAvatarInfo.value)
+    }
+  } catch (e) {
+    console.error('加载头像信息失败:', e)
+  }
+}
+
+// 头像更换时更新显示
+const onAvatarChanged = (newAvatar) => {
+  console.log('[HomeNew] Avatar changed:', newAvatar)
+  userAvatarInfo.value = newAvatar
+}
 
 // 加载活跃效果
 const loadActiveEffects = async () => {
@@ -1479,6 +1516,24 @@ onUnmounted(() => {
   position: relative;
 }
 
+.avatar-face.user-avatar {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.avatar-face.user-avatar:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+.avatar-emoji {
+  font-size: 32px;
+}
+
 .avatar-face .eye {
   position: absolute;
   top: 24px;
@@ -1799,6 +1854,14 @@ onUnmounted(() => {
   position: relative;
 }
 
+@media (max-width: 768px) {
+  .view-placeholder {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 .blink {
   animation: blink 1s step-end infinite;
 }
@@ -1941,6 +2004,31 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .top-bar {
+    padding: 0 8px;
+    gap: 8px;
+  }
+  
+  .brand-logo {
+    font-size: 20px;
+    white-space: nowrap;
+  }
+  
+  .header-right {
+    gap: 8px;
+  }
+  
+  .header-meta {
+    font-size: 10px;
+    gap: 8px;
+  }
+  
+  .header-back-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    margin-right: 8px;
+  }
+  
   .menu-btn {
     display: block;
   }

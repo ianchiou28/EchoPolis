@@ -934,6 +934,27 @@ class GameService:
                 avatar.attributes.credits = new_cash
                 avatar.attributes.current_month = new_month
                 avatar.attributes.invested_assets = current_invested
+                avatar.attributes.decision_count = new_month  # 用月份作为决策计数
+                
+                # 从数据库加载用户标签
+                try:
+                    with sqlite3.connect(self.db.db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute('SELECT tags FROM users WHERE session_id = ?', (session_id,))
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            avatar.set_user_tags(row[0])
+                            print(f"[GameService] 加载用户标签: {row[0]}")
+                except Exception as e:
+                    print(f"[GameService] 加载用户标签失败: {e}")
+                
+                # 加载职业状态
+                try:
+                    from core.systems.career_system import career_system
+                    career_info = career_system.get_career_status(session_id)
+                    avatar.set_career_status(career_info)
+                except Exception as e:
+                    print(f"[GameService] 加载职业状态失败: {e}")
                 
                 ctx = avatar.generate_situation(self.ai_engine)
                 
@@ -1009,6 +1030,12 @@ class GameService:
         
         print(f"[GameService] advance_session completed. New month: {new_month}, Cash: {new_cash}, Total: {total_assets}")
         
+        # 生成 AI 思考/反思
+        reflection = self._generate_financial_reflection(
+            new_month, new_cash, total_assets, total_income, total_expense, 
+            net_cashflow, macro_stats, new_happiness if has_stats else 70
+        )
+        
         return {
             "success": True,
             "session_id": session_id,
@@ -1044,6 +1071,8 @@ class GameService:
             "situation": situation_payload["situation"],
             "options": situation_payload["options"],
             "ai_generated": situation_payload["ai_generated"],
+            # AI 思考
+            "reflection": reflection,
             # 宏观经济
             "macro_economy": macro_stats,
             # 触发的事件
@@ -1051,6 +1080,71 @@ class GameService:
             # 解锁的成就（包括行为成就）
             "achievements": new_achievements + behavior_achievements
         }
+
+    def _generate_financial_reflection(self, month: int, cash: int, total_assets: int, 
+                                         income: int, expense: int, net_cashflow: int,
+                                         macro_stats: dict, happiness: int) -> str:
+        """生成 AI 财务思考/反思"""
+        import random
+        
+        # 经济阶段描述
+        phase_desc = {
+            "expansion": "扩张期，市场机会增多",
+            "peak": "繁荣期，需警惕泡沫风险",
+            "contraction": "收缩期，宜保守投资",
+            "trough": "萧条期，逢低布局的好时机"
+        }
+        phase = macro_stats.get('phase', 'expansion')
+        phase_text = phase_desc.get(phase, "经济波动中")
+        
+        # 储蓄率分析
+        saving_rate = net_cashflow / income * 100 if income > 0 else 0
+        
+        # 根据财务状况生成不同的思考
+        reflections = []
+        
+        # 现金流分析
+        if net_cashflow > 0:
+            if saving_rate >= 30:
+                reflections.append(f"本月储蓄率{saving_rate:.0f}%，财务纪律优秀！可以考虑增加投资比例。")
+            elif saving_rate >= 10:
+                reflections.append(f"本月储蓄率{saving_rate:.0f}%，维持正向现金流是好的开始。")
+            else:
+                reflections.append(f"本月勉强收支平衡，建议关注开支结构，提升储蓄率。")
+        else:
+            reflections.append(f"本月现金流为负（¥{net_cashflow:,}），需要警惕！考虑开源节流。")
+        
+        # 资产规模分析
+        if total_assets >= 1000000:
+            reflections.append("资产已突破百万大关，建议优化资产配置，分散风险。")
+        elif total_assets >= 500000:
+            reflections.append("资产稳步增长，距离财务自由更近一步。")
+        elif total_assets >= 100000:
+            reflections.append("原始积累进行中，保持耐心，复利需要时间。")
+        elif total_assets >= 50000:
+            reflections.append("资产起步阶段，建议先建立应急储备金。")
+        else:
+            reflections.append("资产较少，当务之急是增加收入来源。")
+        
+        # 宏观经济建议
+        if phase == "expansion":
+            reflections.append("经济扩张期，可适度增加风险资产配置。")
+        elif phase == "peak":
+            reflections.append("经济见顶迹象，建议逐步降低杠杆，锁定收益。")
+        elif phase == "contraction":
+            reflections.append("经济收缩期，现金为王，保持流动性。")
+        elif phase == "trough":
+            reflections.append("经济触底，优质资产打折中，可考虑逐步加仓。")
+        
+        # 生活状态提醒
+        if happiness < 50:
+            reflections.append("幸福感较低，财富不是唯一目标，适当关注生活品质。")
+        elif happiness > 80:
+            reflections.append("生活状态良好，身心平衡是长期财富增长的基础。")
+        
+        # 随机选择2-3条组合
+        selected = random.sample(reflections, min(3, len(reflections)))
+        return " ".join(selected)
 
     def finish_session(self, session_id: str) -> Dict[str, Any]:
         """简单的结局报告：基于净资产与波动给评分"""
