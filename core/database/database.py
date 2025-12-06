@@ -505,6 +505,57 @@ class FinAIDatabase:
             except Exception as e:
                 print(f"[WARN] 添加头像字段失败: {e}")
 
+            # ============ 事件池系统表 ============
+            
+            # 事件池表（存储从真实世界获取的事件）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS event_pool (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id TEXT UNIQUE NOT NULL,
+                    title TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    sentiment TEXT NOT NULL,
+                    sentiment_score REAL NOT NULL,
+                    source TEXT NOT NULL,
+                    source_url TEXT,
+                    tags TEXT,
+                    relevance_keywords TEXT,
+                    impact_sectors TEXT,
+                    published_at TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # 用户事件记录表（记录用户对事件的响应）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_event_responses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    game_event_id TEXT NOT NULL,
+                    option_chosen INTEGER NOT NULL,
+                    option_text TEXT NOT NULL,
+                    impact_data TEXT,
+                    month INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(session_id, game_event_id)
+                )
+            ''')
+            
+            # 事件筛选日志表（记录AI筛选过程）
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS event_filter_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT NOT NULL,
+                    candidate_count INTEGER NOT NULL,
+                    selected_count INTEGER NOT NULL,
+                    filter_method TEXT NOT NULL,
+                    user_tags TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             conn.commit()
     
     def create_account(self, username: str, password: str) -> bool:
@@ -1925,6 +1976,137 @@ class FinAIDatabase:
                 }
                 for r in cursor.fetchall()
             ]
+
+    # ============ 事件池方法 ============
+    
+    def save_pool_event(self, event_data: Dict) -> bool:
+        """保存事件到事件池"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT OR REPLACE INTO event_pool (
+                        event_id, title, summary, category, sentiment,
+                        sentiment_score, source, source_url, tags,
+                        relevance_keywords, impact_sectors, published_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    event_data['id'], event_data['title'], event_data['summary'],
+                    event_data['category'], event_data['sentiment'],
+                    event_data['sentiment_score'], event_data['source'],
+                    event_data.get('source_url'),
+                    ','.join(event_data.get('tags', [])),
+                    ','.join(event_data.get('relevance_keywords', [])),
+                    ','.join(event_data.get('impact_sectors', [])),
+                    event_data.get('published_at')
+                ))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"[ERROR] save_pool_event: {e}")
+            return False
+    
+    def get_pool_events(self, category: str = None, limit: int = 100) -> List[Dict]:
+        """获取事件池中的事件"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            if category:
+                cursor.execute('''
+                    SELECT event_id, title, summary, category, sentiment,
+                           sentiment_score, source, source_url, tags,
+                           relevance_keywords, impact_sectors, published_at, created_at
+                    FROM event_pool
+                    WHERE category = ?
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                ''', (category, limit))
+            else:
+                cursor.execute('''
+                    SELECT event_id, title, summary, category, sentiment,
+                           sentiment_score, source, source_url, tags,
+                           relevance_keywords, impact_sectors, published_at, created_at
+                    FROM event_pool
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                ''', (limit,))
+            return [
+                {
+                    'id': r[0], 'title': r[1], 'summary': r[2],
+                    'category': r[3], 'sentiment': r[4], 'sentiment_score': r[5],
+                    'source': r[6], 'source_url': r[7],
+                    'tags': r[8].split(',') if r[8] else [],
+                    'relevance_keywords': r[9].split(',') if r[9] else [],
+                    'impact_sectors': r[10].split(',') if r[10] else [],
+                    'published_at': r[11], 'created_at': r[12]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def get_pool_event_count(self) -> int:
+        """获取事件池事件数量"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM event_pool')
+            return cursor.fetchone()[0]
+    
+    def save_user_event_response(self, session_id: str, event_id: str,
+                                  game_event_id: str, option_chosen: int,
+                                  option_text: str, impact_data: Dict, month: int) -> bool:
+        """保存用户对事件的响应"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                import json
+                cursor.execute('''
+                    INSERT OR REPLACE INTO user_event_responses (
+                        session_id, event_id, game_event_id, option_chosen,
+                        option_text, impact_data, month
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    session_id, event_id, game_event_id, option_chosen,
+                    option_text, json.dumps(impact_data), month
+                ))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"[ERROR] save_user_event_response: {e}")
+            return False
+    
+    def get_user_event_responses(self, session_id: str, limit: int = 50) -> List[Dict]:
+        """获取用户的事件响应历史"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT event_id, game_event_id, option_chosen, option_text,
+                       impact_data, month, created_at
+                FROM user_event_responses
+                WHERE session_id = ?
+                ORDER BY month DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            import json
+            return [
+                {
+                    'event_id': r[0], 'game_event_id': r[1],
+                    'option_chosen': r[2], 'option_text': r[3],
+                    'impact_data': json.loads(r[4]) if r[4] else {},
+                    'month': r[5], 'created_at': r[6]
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def clear_old_pool_events(self, days: int = 7) -> int:
+        """清理过期的事件池事件"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                DELETE FROM event_pool
+                WHERE created_at < datetime('now', '-' || ? || ' days')
+            ''', (days,))
+            deleted = cursor.rowcount
+            conn.commit()
+            return deleted
+
 
 
 # 全局数据库实例

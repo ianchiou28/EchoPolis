@@ -73,7 +73,32 @@ npm run build
 
 ## 4. 配置后端
 
-### 4.1 启动 EchoPolis 后端 (端口 8000)
+### 4.1 环境变量配置（重要）
+
+EchoPolis 后端需要配置以下环境变量：
+
+| 环境变量 | 说明 | 默认值 | 生产环境建议值 |
+|---------|------|--------|---------------|
+| `ADMIN_KEY` | 管理员密钥，用于后台管理接口验证 | `echopolis_admin_2024` | **请修改为强密码** |
+| `WIDE_RESEARCH_API_URL` | Wide-Research API 地址 | `http://finai.org.cn` | `http://127.0.0.1:5000`（内网更快） |
+| `DEEPSEEK_API_KEY` | DeepSeek AI API 密钥 | 无 | 从 DeepSeek 官网获取 |
+
+创建环境变量文件 `/root/EchoPolis/.env`：
+
+```bash
+cat > /root/EchoPolis/.env << 'EOF'
+# 管理员密钥（请修改为强密码）
+ADMIN_KEY=your_secure_admin_key_here
+
+# Wide-Research API（服务器内网地址，更快）
+WIDE_RESEARCH_API_URL=http://127.0.0.1:5000
+
+# DeepSeek API 密钥
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+EOF
+```
+
+### 4.2 启动 EchoPolis 后端 (端口 8000)
 
 ```bash
 cd /root/EchoPolis
@@ -151,6 +176,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/EchoPolis
+EnvironmentFile=/root/EchoPolis/.env
 ExecStart=/root/EchoPolis/venv/bin/python start.py
 Restart=always
 RestartSec=5
@@ -158,6 +184,8 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 ```
+
+> **注意**: `EnvironmentFile` 会自动加载 `.env` 文件中的环境变量
 
 ### 7.2 创建 Finance 服务
 

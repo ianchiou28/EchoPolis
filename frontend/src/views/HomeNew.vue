@@ -391,6 +391,7 @@
         <AchievementView v-if="currentView === 'achievements'" />
         <InsightsView v-if="currentView === 'insights'" />
         <AvatarShopView v-if="currentView === 'avatar-shop'" @avatar-changed="onAvatarChanged" />
+        <EventPoolView v-if="currentView === 'event-pool'" />
       </div>
 
     </main>
@@ -433,6 +434,7 @@ import HousingView from '../components/views/HousingView.vue'
 import LifestyleView from '../components/views/LifestyleView.vue'
 import InsightsView from '../components/views/InsightsView.vue'
 import AvatarShopView from '../components/views/AvatarShopView.vue'
+import EventPoolView from '../components/views/EventPoolView.vue'
 import DistrictPreviewPanel from '../components/DistrictPreviewPanel.vue'
 import EventModal from '../components/EventModal.vue'
 import MusicPlayer from '../components/MusicPlayer.vue'
@@ -496,7 +498,8 @@ const groupItems = {
   ],
   system: [
     { id: 'logs', label: '档案库', icon: '📖', desc: '历史记录与存档' },
-    { id: 'timeline', label: '时间线', icon: '🕒', desc: '人生轨迹回顾' }
+    { id: 'timeline', label: '时间线', icon: '🕒', desc: '人生轨迹回顾' },
+    { id: 'event-pool', label: '事件池', icon: '📡', desc: '实时新闻与市场动态' }
   ]
 }
 
