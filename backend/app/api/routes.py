@@ -412,6 +412,7 @@ async def make_ai_decision(session_id: str, name: str, mbti: str, cash: int, sit
 async def advance_time(data: dict):
     try:
         from core.ai.deepseek_engine import DeepSeekEngine
+        from core.systems.market_engine import market_engine
         import json
         import os
         
@@ -422,6 +423,14 @@ async def advance_time(data: dict):
         total_assets = data.get('total_assets', 0)
         
         print(f"[时间推进] 角色: {name} ({mbti}), 现金: {cash}, 总资产: {total_assets}")
+        
+        # ============ 推进股票市场 ============
+        market_report = None
+        try:
+            market_report = market_engine.advance_month_with_report("expansion")
+            print(f"[时间推进] 股票市场已更新: 指数变化={market_report.get('index_change')}%")
+        except Exception as e:
+            print(f"[时间推进] 股票市场更新失败: {e}")
         
         # 加载API key
         config_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config.json')
@@ -546,6 +555,7 @@ async def advance_time(data: dict):
                 "new_cash": new_cash,
                 "total_assets": new_cash,
                 "monthly_income": monthly_income,
+                "market_report": market_report,
                 "situation": situation or "新的一个月开始了，你需要做出新的决策。",
                 "options": options if len(options) == 3 else [
                     "继续当前策略",
@@ -563,6 +573,7 @@ async def advance_time(data: dict):
                 "new_cash": new_cash,
                 "total_assets": new_cash,
                 "monthly_income": monthly_income,
+                "market_report": market_report,
                 "situation": "新的一个月开始了。你的投资组合产生了收益，现在需要考虑下一步的财务规划。",
                 "options": [
                     "继续持有当前投资",
@@ -1244,8 +1255,8 @@ async def simulate_market_day():
     """模拟一天的市场变化（供测试用）"""
     try:
         from core.systems.market_engine import market_engine
-        market_engine.simulate_day()
-        return {"success": True, "message": "市场已模拟一天"}
+        candles = market_engine.advance_day()
+        return {"success": True, "message": "市场已模拟一天", "stocks_updated": len(candles)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1513,16 +1524,34 @@ async def get_stock_holdings(session_id: str):
     """获取股票持仓"""
     try:
         from core.systems.market_engine import market_engine
+        from core.systems.longbridge_client import longbridge_client
+        
         holdings = game_service.db.get_stock_holdings(session_id)
         
-        # 添加当前价格和盈亏
+        # 添加当前价格和盈亏 - 使用数据库K线数据保持与股票列表一致
         for h in holdings:
-            stock = market_engine.get_stock_quote(h["stock_id"])
-            if stock:
-                h["current_price"] = stock["price"]
-                h["market_value"] = int(stock["price"] * h["shares"])
-                h["profit"] = int((stock["price"] - h["avg_cost"]) * h["shares"])
-                h["profit_rate"] = (stock["price"] - h["avg_cost"]) / h["avg_cost"] if h["avg_cost"] > 0 else 0
+            stock_id = h["stock_id"]
+            current_price = None
+            
+            # 优先从数据库K线获取最新价格（与股票列表一致）
+            try:
+                kline = longbridge_client.get_kline_from_db(stock_id, 1)
+                if kline and len(kline) > 0:
+                    current_price = kline[-1].get("close", 0)
+            except:
+                pass
+            
+            # 如果数据库没有，则使用 market_engine
+            if not current_price:
+                stock = market_engine.get_stock_quote(stock_id)
+                if stock:
+                    current_price = stock["price"]
+            
+            if current_price:
+                h["current_price"] = current_price
+                h["market_value"] = int(current_price * h["shares"])
+                h["profit"] = int((current_price - h["avg_cost"]) * h["shares"])
+                h["profit_rate"] = (current_price - h["avg_cost"]) / h["avg_cost"] if h["avg_cost"] > 0 else 0
         
         return {"success": True, "holdings": holdings}
     except Exception as e:

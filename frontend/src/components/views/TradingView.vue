@@ -384,6 +384,16 @@ const loadKlineData = async () => {
       const lastClose = closes[closes.length - 1]
       const prevClose = closes.length > 1 ? closes[closes.length - 2] : lastClose
       
+      // 使用K线最新收盘价更新当前选中股票的价格和涨跌幅（保持一致性）
+      if (selectedStock.value && lastClose) {
+        const changePercent = prevClose > 0 ? ((lastClose - prevClose) / prevClose * 100) : 0
+        selectedStock.value = {
+          ...selectedStock.value,
+          price: lastClose,
+          change: changePercent
+        }
+      }
+      
       technicalData.value = {
         ma5,
         ma20,
@@ -561,6 +571,19 @@ const loadHoldings = async () => {
 onMounted(() => {
   loadStocks()
   loadHoldings()
+})
+
+// 监听月份变化，自动刷新股票数据
+watch(() => gameStore.avatar?.current_month, (newMonth, oldMonth) => {
+  if (newMonth && oldMonth && newMonth !== oldMonth) {
+    console.log('[TradingView] 月份变化，刷新股票数据:', newMonth)
+    loadStocks()
+    loadHoldings()
+    // 如果有选中的股票，也刷新K线数据和价格
+    if (selectedStock.value) {
+      loadKlineData()
+    }
+  }
 })
 </script>
 

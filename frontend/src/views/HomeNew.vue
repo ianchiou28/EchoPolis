@@ -283,8 +283,17 @@
                 </div>
 
                 <div class="control-bar">
-                  <button class="term-btn primary full" :disabled="gameStore.isAdvancingMonth || isProcessing" @click="handleAdvance">
-                    {{ (gameStore.isAdvancingMonth || isProcessing) ? '处理中...' : '>> 执行下一周期' }}
+                  <button 
+                    class="term-btn primary full" 
+                    :class="{ 'is-loading': gameStore.isAdvancingMonth || isProcessing, 'is-disabled': !canAdvance }"
+                    :disabled="!canAdvance || gameStore.isAdvancingMonth || isProcessing" 
+                    @click="handleAdvance">
+                    <span v-if="gameStore.isAdvancingMonth || isProcessing" class="loading-content">
+                      <span class="spinner"></span>
+                      <span>处理中，请稍候...</span>
+                    </span>
+                    <span v-else-if="!canAdvance">⏳ 等待事件生成...</span>
+                    <span v-else>>> 执行下一周期</span>
                   </button>
                 </div>
               </div>
@@ -396,6 +405,14 @@
       @event-completed="onEventCompleted"
       @all-events-done="onAllEventsDone"
     />
+    
+    <!-- 推进成功提示 -->
+    <Transition name="toast">
+      <div v-if="advanceSuccessToast.show" class="advance-success-toast">
+        <span class="toast-icon">✓</span>
+        <span class="toast-message">{{ advanceSuccessToast.message }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -514,6 +531,11 @@ const districts = computed(() => gameStore.districts)
 const aiReflection = computed(() => gameStore.aiReflection)
 const currentSituation = computed(() => gameStore.currentSituation)
 const situationOptions = computed(() => gameStore.situationOptions)
+
+// 是否可以推进下一周期（需要有事件生成）
+const canAdvance = computed(() => {
+  return currentSituation.value && currentSituation.value.description && situationOptions.value?.length > 0
+})
 const chatMessages = computed(() => gameStore.chatMessages)
 
 // 用户头像信息
@@ -680,8 +702,12 @@ const handleBack = () => {
 }
 
 const handleAdvance = async () => {
-  if (isProcessing.value) return
+  if (isProcessing.value || !canAdvance.value) return
   isProcessing.value = true
+  
+  // 记录当前月份用于提示
+  const currentMonth = gameStore.avatar?.current_month || 1
+  
   try {
     // Commit decision if selected
     if (selectedOptionIndex.value !== null) {
@@ -697,12 +723,29 @@ const handleAdvance = async () => {
     
     // 更新活跃效果
     await updateActiveEffects()
+    
+    // 处理完成提示
+    const newMonth = gameStore.avatar?.current_month || currentMonth + 1
+    showAdvanceSuccessToast(currentMonth, newMonth)
+    
   } catch (e) { 
     console.error(e)
     alert('推进失败: ' + e.message)
   } finally {
     isProcessing.value = false
   }
+}
+
+// 显示推进成功提示
+const advanceSuccessToast = ref({ show: false, message: '' })
+const showAdvanceSuccessToast = (fromMonth, toMonth) => {
+  advanceSuccessToast.value = {
+    show: true,
+    message: `周期推进完成：第 ${fromMonth} 月 → 第 ${toMonth} 月`
+  }
+  setTimeout(() => {
+    advanceSuccessToast.value.show = false
+  }, 3000)
 }
 
 // 获取当前会话ID
@@ -2132,5 +2175,98 @@ onUnmounted(() => {
   .pixel-building {
     max-width: 40vw;
   }
+}
+
+/* 推进按钮加载状态 */
+.term-btn.is-loading {
+  background: #666 !important;
+  cursor: wait !important;
+  pointer-events: none;
+}
+
+.term-btn.is-disabled {
+  background: #444 !important;
+  color: #888 !important;
+  cursor: not-allowed !important;
+  border-color: #555 !important;
+}
+
+.term-btn.is-disabled:hover {
+  transform: none !important;
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.1) !important;
+}
+
+.loading-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #333;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 推进成功提示 Toast */
+.advance-success-toast {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  z-index: 9999;
+  border: 2px solid #4caf50;
+}
+
+.toast-icon {
+  background: #4caf50;
+  color: #fff;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.toast-message {
+  white-space: nowrap;
+}
+
+/* Toast 动画 */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
 }
 </style>

@@ -641,6 +641,18 @@ class GameService:
         print(f"[GameService] Macro stats: {macro_stats}")
         asset_impact = macro_economy.get_asset_impact()
         
+        # ============ 推进市场引擎（股票价格更新）============
+        market_report = None
+        try:
+            from core.systems.market_engine import market_engine
+            economic_phase = macro_stats.get('phase', 'expansion')
+            market_report = market_engine.advance_month_with_report(economic_phase)
+            print(f"[GameService] Market updated: index_change={market_report.get('index_change')}%, gainers={len(market_report.get('gainers', []))}")
+        except Exception as e:
+            print(f"[GameService] Market engine update failed: {e}")
+            import traceback
+            traceback.print_exc()
+        
         import sqlite3
         # 加载基本状态
         with sqlite3.connect(self.db.db_path) as conn:
@@ -1075,6 +1087,8 @@ class GameService:
             "reflection": reflection,
             # 宏观经济
             "macro_economy": macro_stats,
+            # 股票市场报告
+            "market_report": market_report,
             # 触发的事件
             "events": triggered_events,
             # 解锁的成就（包括行为成就）

@@ -11,14 +11,17 @@ from typing import Dict, List, Optional, Tuple
 from enum import Enum
 from datetime import datetime, timedelta
 
-# 导入 Longbridge 客户端
+# 导入 Longbridge 客户端（用于数据库操作，不依赖 SDK）
 try:
     from .longbridge_client import longbridge_client, STOCK_SYMBOL_MAPPING
-    HAS_LONGBRIDGE = True
+    HAS_LONGBRIDGE_CLIENT = True  # 客户端模块可用（可以操作数据库）
 except ImportError:
-    HAS_LONGBRIDGE = False
+    HAS_LONGBRIDGE_CLIENT = False
     longbridge_client = None
     STOCK_SYMBOL_MAPPING = {}
+
+# 为了向后兼容
+HAS_LONGBRIDGE = HAS_LONGBRIDGE_CLIENT
 
 
 class Sector(Enum):
@@ -148,9 +151,10 @@ class MarketEngine:
         self._load_history_from_db()
     
     def _load_history_from_db(self):
-        """从 stock.db 数据库加载历史 K 线数据"""
-        if not HAS_LONGBRIDGE or not longbridge_client:
-            print("[MarketEngine] Longbridge client not available, using default prices")
+        """从 stock.db 数据库加载历史 K 线数据，如果没有则生成初始数据"""
+        if not HAS_LONGBRIDGE_CLIENT or not longbridge_client:
+            print("[MarketEngine] Longbridge client not available, generating initial data...")
+            self._generate_initial_history()
             return
         
         print("[MarketEngine] Loading historical data from stock.db...")
@@ -191,8 +195,53 @@ class MarketEngine:
         
         print(f"[MarketEngine] Loaded {loaded_count} stocks from database")
         
+        # 如果没有加载到数据，生成初始历史
+        if loaded_count == 0:
+            print("[MarketEngine] No data in database, generating initial history...")
+            self._generate_initial_history()
+            # 保存到数据库
+            self._sync_prices_to_db()
+        
         # 计算市场指数
         self._update_market_index()
+    
+    def _generate_initial_history(self):
+        """生成初始60天的K线历史数据"""
+        print("[MarketEngine] Generating initial 60-day history for all stocks...")
+        for stock_code, stock_info in self.stocks.items():
+            history = []
+            current_price = stock_info.base_price
+            current_date = datetime.now() - timedelta(days=60)
+            
+            for day in range(60):
+                # 生成日K线
+                volatility = stock_info.volatility
+                daily_return = random.gauss(0, volatility)
+                
+                open_price = current_price
+                close_price = current_price * (1 + daily_return)
+                high_price = max(open_price, close_price) * (1 + random.uniform(0, volatility * 0.5))
+                low_price = min(open_price, close_price) * (1 - random.uniform(0, volatility * 0.5))
+                volume = random.randint(500000, 5000000)
+                
+                ohlcv = OHLCV(
+                    date=current_date.strftime("%Y-%m-%d"),
+                    open=round(open_price, 2),
+                    high=round(high_price, 2),
+                    low=round(low_price, 2),
+                    close=round(close_price, 2),
+                    volume=volume,
+                    change_pct=round(daily_return * 100, 2)
+                )
+                history.append(ohlcv)
+                
+                current_price = close_price
+                current_date += timedelta(days=1)
+            
+            self.price_history[stock_code] = history
+            self.current_prices[stock_code] = current_price
+        
+        print(f"[MarketEngine] Generated initial history for {len(self.stocks)} stocks")
     
     def _update_market_index(self):
         """根据所有股票价格更新市场指数"""
@@ -421,7 +470,7 @@ class MarketEngine:
         self._sync_prices_to_db()
     
     def _sync_prices_to_db(self):
-        """同步当前价格到数据库"""
+        """同步当前价格和K线数据到数据库"""
         if not HAS_LONGBRIDGE or not longbridge_client:
             return
         
@@ -448,6 +497,23 @@ class MarketEngine:
                     volume=volume,
                     data_source="ai_generated"
                 )
+                
+                # 同步K线历史数据到数据库（最近60天）
+                if history:
+                    kline_data = []
+                    for k in history[-60:]:
+                        kline_data.append({
+                            "date": k.date,
+                            "open": round(k.open, 2),
+                            "high": round(k.high, 2),
+                            "low": round(k.low, 2),
+                            "close": round(k.close, 2),
+                            "volume": k.volume,
+                            "change_pct": round(((k.close - k.open) / k.open * 100) if k.open > 0 else 0, 2)
+                        })
+                    longbridge_client.save_kline_to_db(code, kline_data)
+        
+        print(f"[MarketEngine] Synced {len(self.current_prices)} stocks to database")
     
     def _generate_daily_candle_deterministic(self, stock: StockInfo, prev_close: float, rng: random.Random) -> OHLCV:
         """生成单日K线 - 使用传入的随机生成器保证确定性"""
