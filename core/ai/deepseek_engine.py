@@ -276,27 +276,44 @@ class DeepSeekEngine:
         
         prompt = self._build_situation_prompt(context)
         
-        # 使用更高的 temperature 增加多样性
-        response = requests.post(
-            self.base_url,
-            headers=self.headers,
-            json={
-                "model": "deepseek-chat",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.95,  # 提高多样性
-                "max_tokens": 500,
-                "presence_penalty": 0.6,  # 减少重复
-                "frequency_penalty": 0.5   # 鼓励新内容
-            },
-            timeout=30
-        )
+        # 添加重试机制处理网络不稳定
+        max_retries = 3
+        last_error = None
         
-        if response.status_code == 200:
-            result = response.json()
-            ai_response = result["choices"][0]["message"]["content"]
-            return self._parse_situation_response(ai_response)
-        else:
-            raise Exception(f"DeepSeek situation API error: {response.status_code} - {response.text}")
+        for attempt in range(max_retries):
+            try:
+                # 使用更高的 temperature 增加多样性
+                response = requests.post(
+                    self.base_url,
+                    headers=self.headers,
+                    json={
+                        "model": "deepseek-chat",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.95,  # 提高多样性
+                        "max_tokens": 500,
+                        "presence_penalty": 0.6,  # 减少重复
+                        "frequency_penalty": 0.5   # 鼓励新内容
+                    },
+                    timeout=45  # 增加超时时间
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    ai_response = result["choices"][0]["message"]["content"]
+                    return self._parse_situation_response(ai_response)
+                else:
+                    raise Exception(f"DeepSeek situation API error: {response.status_code} - {response.text}")
+                    
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+                last_error = e
+                print(f"[WARN] AI situation generation attempt {attempt + 1}/{max_retries} failed: {e}")
+                if attempt < max_retries - 1:
+                    import time
+                    time.sleep(2)  # 等待2秒后重试
+                continue
+        
+        # 所有重试都失败
+        raise Exception(f"AI situation generation failed after {max_retries} attempts: {last_error}")
     
     def _build_situation_prompt(self, context: Dict) -> str:
         """构建情况生成提示词"""
@@ -403,7 +420,31 @@ class DeepSeekEngine:
 - 关注职业发展和资产积累
 """
 
-        prompt = f"""你是一个金融游戏的情况生成器。这是一个为南京大学学生设计的金融素养提升模拟沙盘游戏，旨在帮助大学生培养理财意识、理解金融概念和风险管理能力。
+        # 计算金额上限
+        max_spend = int(context['cash'] * 0.6)  # 最高支出为现金的60%
+        cash_amount = context['cash']
+        
+        # 根据现金金额给出具体的金额范围建议
+        if cash_amount < 5000:
+            amount_guide = f"建议金额范围：100-2000 CP（小额消费、学习资料、简单理财）"
+        elif cash_amount < 15000:
+            amount_guide = f"建议金额范围：500-8000 CP（中等消费、课程培训、小额投资）"
+        elif cash_amount < 50000:
+            amount_guide = f"建议金额范围：1000-25000 CP（较大消费、技能提升、稳健投资）"
+        else:
+            amount_guide = f"建议金额范围：2000-{max_spend:,} CP（根据风险偏好灵活设置）"
+
+        prompt = f"""你是一个金融游戏的情况生成器。这是一个为南京大学学生设计的金融素养提升模拟沙盘游戏。
+
+【⚠️ 最重要约束 - 金额限制 ⚠️】
+角色当前现金余额：{cash_amount:,} CP
+最高允许单笔支出：{max_spend:,} CP
+{amount_guide}
+
+❌ 严禁生成超过 {max_spend:,} CP 的任何支出选项！
+❌ 严禁提及角色拥有更多资金（如"账户里有XX万"）！
+✅ 所有选项金额必须在角色可承受范围内！
+
 {identity_emphasis}
 请为以下角色生成一个适合的决策情况：
 
@@ -414,7 +455,7 @@ class DeepSeekEngine:
 - MBTI类型：{context['mbti']} ({mbti_profile})
 - 职业状态：{career_desc}
 - {skills_desc}
-- 现金：{context['cash']:,} CP
+- 💰 现金余额：{context['cash']:,} CP（最高可支出 {max_spend:,} CP）
 - 健康：{context['health']}/100
 - 幸福感：{context['happiness']}/100
 - 精力：{context.get('energy', 100)}/100
@@ -424,17 +465,18 @@ class DeepSeekEngine:
 {self._build_tags_context(context)}
 {market_context}
 请生成一个符合以下要求的情况：
-1. 【最重要】如果上面标注了"角色是在校学生"，绝对禁止出现"毕业"、"刚毕业"、"找工作"、"求职"、"入职"等词汇！必须生成校园相关场景！
-2. 必须与角色的当前职业状态相符：如果角色无业且是学生，生成校园场景；如果有工作，可以生成职场相关场景。
-3. 情况描述应多样化，避免总是"偶遇老同学"、"咖啡馆聊天"、"某天下午"等相似开头。
-4. 具有金融或生活决策的性质，可以是学业挑战、兼职实习、投资理财、生活消费或突发事件。
+1. 【身份约束】如果标注了"角色是在校学生"，禁止出现"毕业"、"找工作"、"求职"、"入职"等词汇，必须生成校园相关场景！
+2. 必须与角色的当前职业状态相符。
+3. 情况描述应多样化，避免重复的场景开头。
+4. 具有金融或生活决策的性质。
 5. 提供3个不同的选择方案，每个选项应体现不同的风险/收益权衡。
+6. 【再次强调】所有涉及金额的选项，单笔支出不得超过 {max_spend:,} CP！
 
 请严格按照以下格式回复：
-情况：[详细描述当前面临的情况]
-选项1：[第一个选择]
-选项2：[第二个选择]
-选项3：[第三个选择]"""
+情况：[详细描述当前面临的情况，不要提及虚假的资金数额]
+选项1：[第一个选择，金额不超过{max_spend:,}CP]
+选项2：[第二个选择，金额不超过{max_spend:,}CP]
+选项3：[第三个选择，金额不超过{max_spend:,}CP]"""
         return prompt
     
     def _build_tags_context(self, context: Dict) -> str:

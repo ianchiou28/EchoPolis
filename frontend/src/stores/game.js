@@ -331,6 +331,21 @@ export const useGameStore = defineStore('game', {
             this.macroIndicators = data.macro_economy
           }
 
+          // 记录市场变化事件
+          if (data.market_report) {
+            const mr = data.market_report
+            const marketDesc = mr.index_change > 0 
+              ? `📈 市场上涨 ${mr.index_change}%` 
+              : mr.index_change < 0 
+                ? `📉 市场下跌 ${Math.abs(mr.index_change)}%`
+                : '📊 市场横盘'
+            this.appendCityEvent({
+              type: 'market',
+              title: '股市月报',
+              description: `${marketDesc} | 领涨: ${mr.gainers?.[0]?.[1] || '无'} | 领跌: ${mr.losers?.[0]?.[1] || '无'}`
+            })
+          }
+
           // 记录事件
           this.appendCityEvent({
             districtId: this.selectedDistrictId,

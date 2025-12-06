@@ -34,3 +34,41 @@ export const apiFetch = async (path, options = {}) => {
   const url = buildApiUrl(path)
   return fetch(url, options)
 }
+
+// ============ 管理员 API 工具函数 ============
+
+// 获取管理员密钥
+export const getAdminKey = () => {
+  return localStorage.getItem('admin_key') || ''
+}
+
+// 设置管理员密钥
+export const setAdminKey = (key) => {
+  localStorage.setItem('admin_key', key)
+}
+
+// 清除管理员密钥
+export const clearAdminKey = () => {
+  localStorage.removeItem('admin_key')
+}
+
+// 管理员 API 请求
+export const adminApiFetch = async (path, options = {}) => {
+  const adminKey = getAdminKey()
+  const separator = path.includes('?') ? '&' : '?'
+  const url = buildApiUrl(`${path}${separator}admin_key=${adminKey}`)
+  return fetch(url, options)
+}
+
+// 管理员 POST 请求
+export const adminApiPost = async (path, data = {}) => {
+  const adminKey = getAdminKey()
+  const url = buildApiUrl(`${path}?admin_key=${adminKey}`)
+  return fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+}

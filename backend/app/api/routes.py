@@ -12,7 +12,12 @@ from app.models.requests import (
     SessionFinishRequest,
     AIChatRequest,
 )
-from app.models.auth import LoginRequest, RegisterRequest, AuthResponse
+from app.models.auth import (
+    LoginRequest, RegisterRequest, AuthResponse,
+    AdminLoginRequest, AdminAuthResponse,
+    UpdateCreditsRequest, UpdateStatusRequest,
+    DeleteAccountRequest, DeleteUserRequest
+)
 from app.services.game_service import GameService
 import sys
 import os
@@ -23,6 +28,9 @@ from core.systems.asset_manager import AssetManager
 router = APIRouter()
 game_service = GameService()
 asset_manager = AssetManager()
+
+# 管理员密钥（生产环境应该从环境变量读取）
+ADMIN_KEY = os.environ.get('ADMIN_KEY', 'echopolis_admin_2024')
 
 @router.get("/mbti-types")
 async def get_mbti_types():
@@ -412,6 +420,7 @@ async def make_ai_decision(session_id: str, name: str, mbti: str, cash: int, sit
 async def advance_time(data: dict):
     try:
         from core.ai.deepseek_engine import DeepSeekEngine
+        from core.systems.market_engine import market_engine
         import json
         import os
         
@@ -422,6 +431,14 @@ async def advance_time(data: dict):
         total_assets = data.get('total_assets', 0)
         
         print(f"[时间推进] 角色: {name} ({mbti}), 现金: {cash}, 总资产: {total_assets}")
+        
+        # ============ 推进股票市场 ============
+        market_report = None
+        try:
+            market_report = market_engine.advance_month_with_report("expansion")
+            print(f"[时间推进] 股票市场已更新: 指数变化={market_report.get('index_change')}%")
+        except Exception as e:
+            print(f"[时间推进] 股票市场更新失败: {e}")
         
         # 加载API key
         config_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'config.json')
@@ -546,6 +563,7 @@ async def advance_time(data: dict):
                 "new_cash": new_cash,
                 "total_assets": new_cash,
                 "monthly_income": monthly_income,
+                "market_report": market_report,
                 "situation": situation or "新的一个月开始了，你需要做出新的决策。",
                 "options": options if len(options) == 3 else [
                     "继续当前策略",
@@ -563,6 +581,7 @@ async def advance_time(data: dict):
                 "new_cash": new_cash,
                 "total_assets": new_cash,
                 "monthly_income": monthly_income,
+                "market_report": market_report,
                 "situation": "新的一个月开始了。你的投资组合产生了收益，现在需要考虑下一步的财务规划。",
                 "options": [
                     "继续持有当前投资",
@@ -1244,8 +1263,8 @@ async def simulate_market_day():
     """模拟一天的市场变化（供测试用）"""
     try:
         from core.systems.market_engine import market_engine
-        market_engine.simulate_day()
-        return {"success": True, "message": "市场已模拟一天"}
+        candles = market_engine.advance_day()
+        return {"success": True, "message": "市场已模拟一天", "stocks_updated": len(candles)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1513,16 +1532,34 @@ async def get_stock_holdings(session_id: str):
     """获取股票持仓"""
     try:
         from core.systems.market_engine import market_engine
+        from core.systems.longbridge_client import longbridge_client
+        
         holdings = game_service.db.get_stock_holdings(session_id)
         
-        # 添加当前价格和盈亏
+        # 添加当前价格和盈亏 - 使用数据库K线数据保持与股票列表一致
         for h in holdings:
-            stock = market_engine.get_stock_quote(h["stock_id"])
-            if stock:
-                h["current_price"] = stock["price"]
-                h["market_value"] = int(stock["price"] * h["shares"])
-                h["profit"] = int((stock["price"] - h["avg_cost"]) * h["shares"])
-                h["profit_rate"] = (stock["price"] - h["avg_cost"]) / h["avg_cost"] if h["avg_cost"] > 0 else 0
+            stock_id = h["stock_id"]
+            current_price = None
+            
+            # 优先从数据库K线获取最新价格（与股票列表一致）
+            try:
+                kline = longbridge_client.get_kline_from_db(stock_id, 1)
+                if kline and len(kline) > 0:
+                    current_price = kline[-1].get("close", 0)
+            except:
+                pass
+            
+            # 如果数据库没有，则使用 market_engine
+            if not current_price:
+                stock = market_engine.get_stock_quote(stock_id)
+                if stock:
+                    current_price = stock["price"]
+            
+            if current_price:
+                h["current_price"] = current_price
+                h["market_value"] = int(current_price * h["shares"])
+                h["profit"] = int((current_price - h["avg_cost"]) * h["shares"])
+                h["profit_rate"] = (current_price - h["avg_cost"]) / h["avg_cost"] if h["avg_cost"] > 0 else 0
         
         return {"success": True, "holdings": holdings}
     except Exception as e:
@@ -3982,4 +4019,449 @@ async def get_archives(session_id: str):
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e), "archives": {}}
+
+
+# ============ 管理员 API ============
+
+@router.post("/admin/login")
+async def admin_login(request: AdminLoginRequest):
+    """管理员登录验证"""
+    if request.admin_key == ADMIN_KEY:
+        return AdminAuthResponse(success=True, message="管理员验证成功", is_admin=True)
+    else:
+        return AdminAuthResponse(success=False, message="管理员密钥错误", is_admin=False)
+
+@router.get("/admin/stats")
+async def admin_get_stats(admin_key: str = None):
+    """获取管理员统计数据"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        stats = game_service.db.get_admin_stats()
+        return {"success": True, "stats": stats}
+    except Exception as e:
+        print(f"[Admin] Error getting stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/accounts")
+async def admin_get_accounts(admin_key: str = None):
+    """获取所有账户"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        accounts = game_service.db.get_all_accounts()
+        return {"success": True, "accounts": accounts}
+    except Exception as e:
+        print(f"[Admin] Error getting accounts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/users")
+async def admin_get_users(admin_key: str = None):
+    """获取所有角色"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        users = game_service.db.get_all_users()
+        return {"success": True, "users": users}
+    except Exception as e:
+        print(f"[Admin] Error getting users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/delete-account")
+async def admin_delete_account(request: DeleteAccountRequest, admin_key: str = None):
+    """删除账户"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.delete_account(request.username)
+        if success:
+            return {"success": True, "message": f"账户 {request.username} 已删除"}
+        else:
+            return {"success": False, "message": "删除账户失败"}
+    except Exception as e:
+        print(f"[Admin] Error deleting account: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/delete-user")
+async def admin_delete_user(request: DeleteUserRequest, admin_key: str = None):
+    """删除角色"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.delete_user(request.session_id)
+        if success:
+            return {"success": True, "message": f"角色 {request.session_id} 已删除"}
+        else:
+            return {"success": False, "message": "删除角色失败"}
+    except Exception as e:
+        print(f"[Admin] Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/update-credits")
+async def admin_update_credits(request: UpdateCreditsRequest, admin_key: str = None):
+    """更新角色金币"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.update_user_credits(request.session_id, request.credits)
+        if success:
+            return {"success": True, "message": "金币已更新"}
+        else:
+            return {"success": False, "message": "更新金币失败"}
+    except Exception as e:
+        print(f"[Admin] Error updating credits: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/update-status")
+async def admin_update_status(request: UpdateStatusRequest, admin_key: str = None):
+    """更新角色状态"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.update_user_status(
+            request.session_id,
+            happiness=request.happiness,
+            energy=request.energy,
+            health=request.health
+        )
+        if success:
+            return {"success": True, "message": "状态已更新"}
+        else:
+            return {"success": False, "message": "更新状态失败"}
+    except Exception as e:
+        print(f"[Admin] Error updating status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ 事件池 API ============
+
+@router.get("/event-pool/stats")
+async def get_event_pool_stats():
+    """获取事件池统计信息"""
+    try:
+        from core.systems.event_pool import event_pool_manager
+        
+        pool_size = event_pool_manager.get_pool_size()
+        db_count = 0
+        if game_service.db:
+            db_count = game_service.db.get_pool_event_count()
+        
+        return {
+            "success": True,
+            "stats": {
+                "memory_pool_size": pool_size,
+                "database_count": db_count
+            }
+        }
+    except Exception as e:
+        print(f"[EventPool] Error getting stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/event-pool/events")
+async def get_event_pool_events(category: str = None, limit: int = 50):
+    """获取事件池中的事件"""
+    try:
+        if game_service.db:
+            events = game_service.db.get_pool_events(category=category, limit=limit)
+            return {"success": True, "events": events, "count": len(events)}
+        else:
+            return {"success": False, "error": "数据库未初始化"}
+    except Exception as e:
+        print(f"[EventPool] Error getting events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/event-pool/filter")
+async def filter_events_for_user(session_id: str, limit: int = 5):
+    """为用户筛选相关事件"""
+    try:
+        from core.systems.event_pool import event_pool_manager
+        
+        # 获取用户画像
+        user = game_service.db.get_user_by_session(session_id) if game_service.db else None
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        
+        user_profile = {
+            "mbti": user.get("mbti", ""),
+            "tags": user.get("tags", "").split(",") if user.get("tags") else [],
+            "risk_preference": "moderate"
+        }
+        
+        # 获取行为画像
+        if game_service.db:
+            behavior = game_service.db.get_behavior_profile(session_id)
+            if behavior:
+                user_profile["risk_preference"] = behavior.get("risk_preference", "moderate")
+        
+        # 筛选事件
+        events = event_pool_manager.filter_events_for_user(user_profile, limit=limit)
+        
+        return {
+            "success": True,
+            "events": [e.to_dict() for e in events],
+            "count": len(events)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[EventPool] Error filtering events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/event-pool/game-events")
+async def get_game_events_for_user(session_id: str, limit: int = 3):
+    """获取用户的游戏化事件（AI筛选）"""
+    try:
+        from core.systems.event_pool import event_pool_manager
+        
+        # 获取用户画像
+        user = game_service.db.get_user_by_session(session_id) if game_service.db else None
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+        
+        user_profile = {
+            "mbti": user.get("mbti", ""),
+            "tags": user.get("tags", "").split(",") if user.get("tags") else [],
+            "risk_preference": "moderate",
+            "interests": []
+        }
+        
+        # 获取行为画像
+        if game_service.db:
+            behavior = game_service.db.get_behavior_profile(session_id)
+            if behavior:
+                user_profile["risk_preference"] = behavior.get("risk_preference", "moderate")
+        
+        # 设置AI引擎（如果有）
+        if game_service.ai_engine:
+            event_pool_manager.set_ai_engine(game_service.ai_engine)
+        
+        # AI筛选并生成游戏事件
+        game_events = event_pool_manager.ai_filter_events(user_profile, limit=limit)
+        
+        return {
+            "success": True,
+            "game_events": [e.to_dict() for e in game_events],
+            "count": len(game_events)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[EventPool] Error getting game events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/event-pool/respond")
+async def respond_to_event(session_id: str, game_event_id: str, 
+                           event_id: str, option_index: int, month: int):
+    """用户响应事件"""
+    try:
+        from core.systems.event_pool import event_pool_manager
+        
+        # 获取事件的选项信息
+        # 这里简化处理，实际应该从缓存获取完整事件
+        option_text = f"选项{option_index + 1}"
+        impact_data = {}
+        
+        # 保存响应
+        if game_service.db:
+            success = game_service.db.save_user_event_response(
+                session_id=session_id,
+                event_id=event_id,
+                game_event_id=game_event_id,
+                option_chosen=option_index,
+                option_text=option_text,
+                impact_data=impact_data,
+                month=month
+            )
+            
+            return {"success": success, "message": "响应已记录"}
+        else:
+            return {"success": False, "error": "数据库未初始化"}
+    except Exception as e:
+        print(f"[EventPool] Error responding to event: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/event-pool/user-history")
+async def get_user_event_history(session_id: str, limit: int = 50):
+    """获取用户事件响应历史"""
+    try:
+        if game_service.db:
+            responses = game_service.db.get_user_event_responses(session_id, limit=limit)
+            return {"success": True, "responses": responses, "count": len(responses)}
+        else:
+            return {"success": False, "error": "数据库未初始化"}
+    except Exception as e:
+        print(f"[EventPool] Error getting user history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/event-pool/init-samples")
+async def init_sample_events():
+    """初始化示例事件数据"""
+    try:
+        from core.systems.event_pool import init_event_pool_with_samples, event_pool_manager
+        
+        # 添加示例事件到内存
+        added = init_event_pool_with_samples()
+        
+        # 同时保存到数据库
+        db_saved = 0
+        if game_service.db:
+            event_pool_manager.set_database(game_service.db)
+            for event in event_pool_manager.event_pool:
+                if game_service.db.save_pool_event(event.to_dict()):
+                    db_saved += 1
+        
+        return {
+            "success": True,
+            "message": f"初始化完成：内存 {added} 个，数据库 {db_saved} 个",
+            "pool_size": event_pool_manager.get_pool_size()
+        }
+    except Exception as e:
+        print(f"[EventPool] Error initializing samples: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/event-pool/fetch-latest")
+async def fetch_latest_events(force: bool = False):
+    """获取最新事件（自动降级：Wide-Research失败时使用备用数据）"""
+    try:
+        from core.systems.event_pool import event_pool_manager, create_sample_events
+        
+        # 设置数据库
+        if game_service.db:
+            event_pool_manager.set_database(game_service.db)
+        
+        used_fallback = False
+        added = 0
+        
+        # 先尝试从Wide-Research获取
+        try:
+            added = event_pool_manager.fetch_from_wide_research(force=force)
+        except Exception as e:
+            print(f"[EventPool] Wide-Research获取失败: {e}")
+            added = 0
+        
+        # 如果Wide-Research失败或没有获取到数据，使用备用数据
+        if added == 0:
+            print("[EventPool] Wide-Research无数据，使用备用数据")
+            samples = create_sample_events()
+            added = event_pool_manager.add_events_batch(samples)
+            used_fallback = True
+        
+        # 保存到数据库
+        db_saved = 0
+        if game_service.db and added > 0:
+            for event in event_pool_manager.event_pool[-added:]:
+                if game_service.db.save_pool_event(event.to_dict()):
+                    db_saved += 1
+        
+        return {
+            "success": True,
+            "message": f"获取 {added} 个事件，保存 {db_saved} 个到数据库" + (" (备用数据)" if used_fallback else ""),
+            "fetched": added,
+            "saved": db_saved,
+            "used_fallback": used_fallback,
+            "pool_size": event_pool_manager.get_pool_size()
+        }
+    except Exception as e:
+        print(f"[EventPool] Error fetching events: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/event-pool/fetch-wide-research")
+async def fetch_from_wide_research(force: bool = False):
+    """从Wide-Research API获取最新事件"""
+    try:
+        from core.systems.event_pool import event_pool_manager
+        
+        # 设置数据库
+        if game_service.db:
+            event_pool_manager.set_database(game_service.db)
+        
+        # 从Wide-Research获取
+        added = event_pool_manager.fetch_from_wide_research(force=force)
+        
+        # 保存到数据库
+        db_saved = 0
+        if game_service.db and added > 0:
+            for event in event_pool_manager.event_pool[-added:]:
+                if game_service.db.save_pool_event(event.to_dict()):
+                    db_saved += 1
+        
+        return {
+            "success": True,
+            "message": f"从Wide-Research获取 {added} 个事件，保存 {db_saved} 个到数据库",
+            "fetched": added,
+            "saved": db_saved,
+            "pool_size": event_pool_manager.get_pool_size()
+        }
+    except Exception as e:
+        print(f"[EventPool] Error fetching from Wide-Research: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/event-pool/wide-research-status")
+async def get_wide_research_status():
+    """检查Wide-Research连接状态"""
+    try:
+        import requests
+        
+        # 尝试内网
+        internal_ok = False
+        external_ok = False
+        
+        try:
+            resp = requests.get("http://127.0.0.1:5000/api/report/structured", timeout=5)
+            internal_ok = resp.status_code == 200
+        except:
+            pass
+        
+        try:
+            resp = requests.get("http://finai.org.cn/api/report/structured", timeout=5)
+            external_ok = resp.status_code == 200
+        except:
+            pass
+        
+        return {
+            "success": True,
+            "internal_available": internal_ok,
+            "external_available": external_ok,
+            "status": "online" if (internal_ok or external_ok) else "offline"
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "internal_available": False,
+            "external_available": False,
+            "status": "error",
+            "error": str(e)
+        }
+
 

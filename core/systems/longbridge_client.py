@@ -118,8 +118,17 @@ class LongbridgeClient:
         self.cache: Dict[str, RealQuote] = {}
         self.cache_time: Dict[str, float] = {}
         self.cache_ttl = 60  # 缓存60秒
+        self._stocks_initialized = False
         self._init_db()
-        self._init_stock_info()  # 初始化股票基础信息
+        # 注意：不在这里调用 _init_stock_info()，避免循环导入
+        # 将在首次访问股票数据时延迟初始化
+    
+    def _ensure_stocks_initialized(self):
+        """确保股票信息已初始化（延迟初始化，避免循环导入）"""
+        if self._stocks_initialized:
+            return
+        self._stocks_initialized = True
+        self._init_stock_info()
         
     def _init_db(self):
         """初始化股票数据库表"""

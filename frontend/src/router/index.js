@@ -7,12 +7,18 @@ import Assets from '../views/Assets.vue'
 import World from '../views/World.vue'
 import Profile from '../views/Profile.vue'
 import Insights from '../views/Insights.vue'
+import Admin from '../views/Admin.vue'
 
 const routes = [
   {
     path: '/login',
     name: 'Login',
     component: Login
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: Admin
   },
   {
     path: '/character-select',
