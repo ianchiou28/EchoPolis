@@ -549,6 +549,153 @@ class FinAIDatabase:
             print(f"[Login] Error verifying account: {e}")
             return False
     
+    # ============ 管理员方法 ============
+    
+    def get_all_accounts(self) -> List[Dict]:
+        """获取所有账户"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, username, created_at FROM accounts ORDER BY created_at DESC
+            ''')
+            return [
+                {'id': r[0], 'username': r[1], 'created_at': r[2]}
+                for r in cursor.fetchall()
+            ]
+    
+    def get_all_users(self) -> List[Dict]:
+        """获取所有角色/用户"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT u.id, u.username, u.session_id, u.name, u.mbti, u.fate, u.credits,
+                       u.happiness, u.energy, u.health, u.tags, u.created_at, u.updated_at,
+                       s.current_month
+                FROM users u
+                LEFT JOIN sessions s ON u.session_id = s.session_id
+                ORDER BY u.created_at DESC
+            ''')
+            return [
+                {
+                    'id': r[0], 'username': r[1], 'session_id': r[2], 'name': r[3],
+                    'mbti': r[4], 'fate': r[5], 'credits': r[6], 'happiness': r[7],
+                    'energy': r[8], 'health': r[9], 'tags': r[10], 'created_at': r[11],
+                    'updated_at': r[12], 'current_month': r[13] or 1
+                }
+                for r in cursor.fetchall()
+            ]
+    
+    def delete_account(self, username: str) -> bool:
+        """删除账户及其所有角色"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 先获取所有相关的 session_id
+                cursor.execute('SELECT session_id FROM users WHERE username = ?', (username,))
+                sessions = [r[0] for r in cursor.fetchall()]
+                
+                # 删除每个 session 的相关数据
+                for session_id in sessions:
+                    self.delete_user(session_id)
+                
+                # 删除账户
+                cursor.execute('DELETE FROM accounts WHERE username = ?', (username,))
+                conn.commit()
+                return True
+        except Exception as e:
+            print(f"[Admin] Error deleting account {username}: {e}")
+            return False
+    
+    def update_user_credits(self, session_id: str, credits: int) -> bool:
+        """更新用户金币"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    UPDATE users SET credits = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE session_id = ?
+                ''', (credits, session_id))
+                conn.commit()
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"[Admin] Error updating credits for {session_id}: {e}")
+            return False
+    
+    def update_user_status(self, session_id: str, happiness: int = None, 
+                           energy: int = None, health: int = None) -> bool:
+        """更新用户状态"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                updates = []
+                values = []
+                
+                if happiness is not None:
+                    updates.append('happiness = ?')
+                    values.append(happiness)
+                if energy is not None:
+                    updates.append('energy = ?')
+                    values.append(energy)
+                if health is not None:
+                    updates.append('health = ?')
+                    values.append(health)
+                
+                if updates:
+                    updates.append('updated_at = CURRENT_TIMESTAMP')
+                    values.append(session_id)
+                    cursor.execute(f'''
+                        UPDATE users SET {', '.join(updates)}
+                        WHERE session_id = ?
+                    ''', values)
+                    conn.commit()
+                    return cursor.rowcount > 0
+                return False
+        except Exception as e:
+            print(f"[Admin] Error updating status for {session_id}: {e}")
+            return False
+    
+    def get_admin_stats(self) -> Dict:
+        """获取管理员统计数据"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            
+            # 账户总数
+            cursor.execute('SELECT COUNT(*) FROM accounts')
+            total_accounts = cursor.fetchone()[0]
+            
+            # 角色总数
+            cursor.execute('SELECT COUNT(*) FROM users')
+            total_users = cursor.fetchone()[0]
+            
+            # 活跃会话数（有进度的）
+            cursor.execute('SELECT COUNT(*) FROM sessions WHERE current_month > 1')
+            active_sessions = cursor.fetchone()[0]
+            
+            # 总交易数
+            cursor.execute('SELECT COUNT(*) FROM transactions')
+            total_transactions = cursor.fetchone()[0]
+            
+            # 总投资数
+            cursor.execute('SELECT COUNT(*) FROM investments')
+            total_investments = cursor.fetchone()[0]
+            
+            # 今日注册账户数
+            cursor.execute('''
+                SELECT COUNT(*) FROM accounts 
+                WHERE DATE(created_at) = DATE('now')
+            ''')
+            today_registrations = cursor.fetchone()[0]
+            
+            return {
+                'total_accounts': total_accounts,
+                'total_users': total_users,
+                'active_sessions': active_sessions,
+                'total_transactions': total_transactions,
+                'total_investments': total_investments,
+                'today_registrations': today_registrations
+            }
+    
     def save_user(self, username: str, session_id: str, name: str, mbti: str, fate: str, credits: int, tags: str = ""):
         """保存用户信息（一个账户可以有多个角色）"""
         with sqlite3.connect(self.db_path) as conn:

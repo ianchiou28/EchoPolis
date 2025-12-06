@@ -12,7 +12,12 @@ from app.models.requests import (
     SessionFinishRequest,
     AIChatRequest,
 )
-from app.models.auth import LoginRequest, RegisterRequest, AuthResponse
+from app.models.auth import (
+    LoginRequest, RegisterRequest, AuthResponse,
+    AdminLoginRequest, AdminAuthResponse,
+    UpdateCreditsRequest, UpdateStatusRequest,
+    DeleteAccountRequest, DeleteUserRequest
+)
 from app.services.game_service import GameService
 import sys
 import os
@@ -23,6 +28,9 @@ from core.systems.asset_manager import AssetManager
 router = APIRouter()
 game_service = GameService()
 asset_manager = AssetManager()
+
+# 管理员密钥（生产环境应该从环境变量读取）
+ADMIN_KEY = os.environ.get('ADMIN_KEY', 'echopolis_admin_2024')
 
 @router.get("/mbti-types")
 async def get_mbti_types():
@@ -4011,4 +4019,144 @@ async def get_archives(session_id: str):
         import traceback
         traceback.print_exc()
         return {"success": False, "error": str(e), "archives": {}}
+
+
+# ============ 管理员 API ============
+
+@router.post("/admin/login")
+async def admin_login(request: AdminLoginRequest):
+    """管理员登录验证"""
+    if request.admin_key == ADMIN_KEY:
+        return AdminAuthResponse(success=True, message="管理员验证成功", is_admin=True)
+    else:
+        return AdminAuthResponse(success=False, message="管理员密钥错误", is_admin=False)
+
+@router.get("/admin/stats")
+async def admin_get_stats(admin_key: str = None):
+    """获取管理员统计数据"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        stats = game_service.db.get_admin_stats()
+        return {"success": True, "stats": stats}
+    except Exception as e:
+        print(f"[Admin] Error getting stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/accounts")
+async def admin_get_accounts(admin_key: str = None):
+    """获取所有账户"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        accounts = game_service.db.get_all_accounts()
+        return {"success": True, "accounts": accounts}
+    except Exception as e:
+        print(f"[Admin] Error getting accounts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/admin/users")
+async def admin_get_users(admin_key: str = None):
+    """获取所有角色"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        users = game_service.db.get_all_users()
+        return {"success": True, "users": users}
+    except Exception as e:
+        print(f"[Admin] Error getting users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/delete-account")
+async def admin_delete_account(request: DeleteAccountRequest, admin_key: str = None):
+    """删除账户"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.delete_account(request.username)
+        if success:
+            return {"success": True, "message": f"账户 {request.username} 已删除"}
+        else:
+            return {"success": False, "message": "删除账户失败"}
+    except Exception as e:
+        print(f"[Admin] Error deleting account: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/delete-user")
+async def admin_delete_user(request: DeleteUserRequest, admin_key: str = None):
+    """删除角色"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.delete_user(request.session_id)
+        if success:
+            return {"success": True, "message": f"角色 {request.session_id} 已删除"}
+        else:
+            return {"success": False, "message": "删除角色失败"}
+    except Exception as e:
+        print(f"[Admin] Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/update-credits")
+async def admin_update_credits(request: UpdateCreditsRequest, admin_key: str = None):
+    """更新角色金币"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.update_user_credits(request.session_id, request.credits)
+        if success:
+            return {"success": True, "message": "金币已更新"}
+        else:
+            return {"success": False, "message": "更新金币失败"}
+    except Exception as e:
+        print(f"[Admin] Error updating credits: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/admin/update-status")
+async def admin_update_status(request: UpdateStatusRequest, admin_key: str = None):
+    """更新角色状态"""
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="无权限访问")
+    
+    try:
+        if not game_service.db:
+            raise HTTPException(status_code=500, detail="数据库未初始化")
+        
+        success = game_service.db.update_user_status(
+            request.session_id,
+            happiness=request.happiness,
+            energy=request.energy,
+            health=request.health
+        )
+        if success:
+            return {"success": True, "message": "状态已更新"}
+        else:
+            return {"success": False, "message": "更新状态失败"}
+    except Exception as e:
+        print(f"[Admin] Error updating status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
