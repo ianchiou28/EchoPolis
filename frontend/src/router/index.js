@@ -6,6 +6,7 @@ import Home from '../views/HomeNew.vue'
 import Assets from '../views/Assets.vue'
 import World from '../views/World.vue'
 import Profile from '../views/Profile.vue'
+import Insights from '../views/Insights.vue'
 
 const routes = [
   {
@@ -48,11 +49,17 @@ const routes = [
     name: 'Profile',
     component: Profile,
     meta: { requiresAuth: true, requiresCharacter: true }
+  },
+  {
+    path: '/insights',
+    name: 'Insights',
+    component: Insights,
+    meta: { requiresAuth: true, requiresCharacter: true }
   }
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })
 

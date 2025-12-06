@@ -173,7 +173,7 @@ export const useGameStore = defineStore('game', {
     async loadCityState() {
       const character = this.getCurrentCharacter()
       if (!character) return
-      if (!this.avatar) await this.loadAvatar()
+      // 移除阻塞的 loadAvatar 调用，让 bootstrapHome 并行处理
       const res = await axios.get('/api/city/state', { 
         params: { 
           session_id: character.id,
@@ -312,40 +312,86 @@ export const useGameStore = defineStore('game', {
           echo_text: echoText
         })
         if (res.data?.success) {
+          const data = res.data
+          
+          // 更新情境
           const storyline = {
-            title: '新月份 · 城市脉搏',
-            description: res.data.situation,
-            options: res.data.options || [],
-            ai_thoughts: res.data.ai_thoughts,
-            decision_impact: res.data.decision_impact
+            title: `第${data.new_month}月 · 城市脉搏`,
+            description: data.situation,
+            options: data.options || [],
+            ai_generated: data.ai_generated,
+            income_breakdown: data.income_breakdown,
+            expense_breakdown: data.expense_breakdown
           }
           this.currentSituation = storyline
           this.situationOptions = storyline.options
           
           // 更新宏观经济数据
-          if (res.data.macro_economy) {
-            this.macroIndicators = res.data.macro_economy
+          if (data.macro_economy) {
+            this.macroIndicators = data.macro_economy
           }
 
+          // 记录事件
           this.appendCityEvent({
             districtId: this.selectedDistrictId,
-            title: '时间推进',
-            description: res.data.situation,
+            title: '月度结算',
+            description: `收入¥${data.income_breakdown?.total?.toLocaleString() || 0} | 支出¥${data.expense_breakdown?.total?.toLocaleString() || 0} | 净现金流¥${data.net_cashflow?.toLocaleString() || 0}`,
             type: 'timeline'
           })
 
-          // Optimistic update from response
+          // 直接从响应更新avatar状态
           if (this.avatar) {
-            if (res.data.new_month) this.avatar.current_month = res.data.new_month
-            if (res.data.cash !== undefined) this.avatar.cash = res.data.cash
-            if (res.data.total_assets !== undefined) this.avatar.total_assets = res.data.total_assets
-            this.updateAssets()
+            this.avatar.current_month = data.new_month
+            this.avatar.cash = data.cash
+            this.avatar.total_assets = data.total_assets
+            this.avatar.invested_assets = data.invested_assets
+            
+            // 更新生活状态
+            if (data.life_status) {
+              this.avatar.happiness = data.life_status.happiness
+              this.avatar.energy = data.life_status.energy
+              this.avatar.health = data.life_status.health
+            }
+          }
+          this.updateAssets()
+          this.pushAssetSnapshot()
+          
+          // 更新 AI 思考
+          if (data.reflection) {
+            this.aiReflection = data.reflection
           }
           
-          // Force reload with delay to ensure DB commit
+          // 处理触发的事件
+          if (data.events && data.events.length > 0) {
+            for (const event of data.events) {
+              this.appendCityEvent({
+                type: 'event',
+                title: event.title,
+                description: event.description
+              })
+            }
+            // 存储事件供EventModal使用
+            this.pendingEvents = data.events
+          }
+          
+          // 处理新成就
+          if (data.achievements && data.achievements.length > 0) {
+            for (const ach of data.achievements) {
+              this.appendCityEvent({
+                type: 'achievement',
+                title: `🏆 ${ach.achievement?.name || '成就解锁'}`,
+                description: ach.achievement?.description || ''
+              })
+            }
+            this.newAchievements = data.achievements
+          }
+          
+          // 异步刷新确保数据同步
           setTimeout(async () => {
-            await Promise.all([this.loadAvatar(), this.loadCityState()])
+            await this.loadAvatar()
           }, 100)
+          
+          return data
         }
       } finally {
         this.isAdvancingMonth = false
@@ -511,6 +557,7 @@ export const useGameStore = defineStore('game', {
     },
 
     async bootstrapHome() {
+      console.log('[Game Store] bootstrapHome 开始')
       // 检查并修复旧的localStorage数据（数字id → session_id）
       const character = this.getCurrentCharacter()
       if (character && typeof character.id === 'number') {
@@ -548,13 +595,24 @@ export const useGameStore = defineStore('game', {
         }
       }
       
-      await this.loadAvatar()
-      await this.loadCityState()
-      await this.loadTransactions()
-      await this.loadMacroIndicators()
+      console.log('[Game Store] 开始并行加载数据（非阻塞）')
+      
+      // 并行加载核心数据（不阻塞页面渲染）
+      // 使用独立的 Promise，不等待完成
+      this.loadAvatar().catch(err => console.error('[Game Store] loadAvatar 失败:', err))
+      this.loadCityState().catch(err => console.error('[Game Store] loadCityState 失败:', err))
+      this.loadTransactions().catch(err => console.error('[Game Store] loadTransactions 失败:', err))
+      this.loadMacroIndicators().catch(err => console.error('[Game Store] loadMacroIndicators 失败:', err))
+      
+      // 情境生成放在后台，不阻塞
       if (!this.currentSituation) {
-        await this.generateSituation()
+        console.log('[Game Store] 开始后台生成情境')
+        this.generateSituation().catch(err => {
+          console.error('[Game Store] 情境生成失败:', err)
+        })
       }
+      
+      console.log('[Game Store] bootstrapHome 立即返回（数据在后台加载）')
     },
 
     async sendEcho(echoText, echoType = 'advisory') {

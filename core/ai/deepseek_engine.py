@@ -238,6 +238,37 @@ class DeepSeekEngine:
                 "raw_response": response
             }
     
+    async def generate_response_async(self, prompt: str) -> Optional[str]:
+        """异步生成AI响应（用于行为洞察等功能）"""
+        if not self.api_key:
+            print("[WARN] generate_response_async: API Key missing")
+            return None
+        
+        try:
+            response = requests.post(
+                self.base_url,
+                headers=self.headers,
+                json={
+                    "model": "deepseek-chat",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                },
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                return content
+            else:
+                print(f"[ERROR] generate_response_async failed: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            print(f"[ERROR] generate_response_async exception: {e}")
+            return None
+    
     def generate_situation(self, context: Dict):
         """使用DeepSeek AI生成情况"""
         if not self.api_key:
@@ -245,14 +276,17 @@ class DeepSeekEngine:
         
         prompt = self._build_situation_prompt(context)
         
+        # 使用更高的 temperature 增加多样性
         response = requests.post(
             self.base_url,
             headers=self.headers,
             json={
                 "model": "deepseek-chat",
                 "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.8,
-                "max_tokens": 400
+                "temperature": 0.95,  # 提高多样性
+                "max_tokens": 500,
+                "presence_penalty": 0.6,  # 减少重复
+                "frequency_penalty": 0.5   # 鼓励新内容
             },
             timeout=30
         )
@@ -300,6 +334,26 @@ class DeepSeekEngine:
         if context["life_stage"] == "startup" and current_month > 3:
             life_stage_desc = f"职场新人，已工作{current_month}个月"
 
+        # 构建职业状态描述
+        career_info = context.get("career", {})
+        if career_info.get("has_job"):
+            job_title = career_info.get("job_title", "员工")
+            company = career_info.get("company", "")
+            salary = career_info.get("salary", 0)
+            months_employed = career_info.get("months_employed", 0)
+            company_str = f"在{company}" if company else ""
+            career_desc = f"目前{company_str}担任{job_title}，月薪{salary:,}CP，已工作{months_employed}个月"
+        else:
+            job_history_count = career_info.get("job_history_count", 0)
+            if job_history_count > 0:
+                career_desc = f"目前处于无业状态（曾有{job_history_count}份工作经历），正在寻找新的工作机会"
+            else:
+                career_desc = "目前没有工作，正在寻找第一份工作机会"
+        
+        # 构建技能描述
+        skills = career_info.get("skills", [])
+        skills_desc = f"掌握技能：{', '.join(skills)}" if skills else "暂无专业技能"
+
         # 获取市场情绪
         try:
             sentiment = market_sentiment_system.get_sentiment()
@@ -315,18 +369,51 @@ class DeepSeekEngine:
 - 全球市场指数：{sentiment.global_score}
 - 市场展望：{sentiment.outlook}
 - 热门话题：{', '.join(sentiment.hot_topics)}{real_events_str}
-请将这个市场背景融入到生成的情况中。如果存在“关键现实事件”，请优先基于该事件生成一个相关的游戏内情境（例如：如果现实中有战争风险，游戏中可以出现避险资产投资机会或供应链中断危机）。
+请将这个市场背景融入到生成的情况中。如果存在"关键现实事件"，请优先基于该事件生成一个相关的游戏内情境（例如：如果现实中有战争风险，游戏中可以出现避险资产投资机会或供应链中断危机）。
 """
         except:
             market_context = ""
 
-        prompt = f"""你是一个金融游戏的情况生成器。请为以下角色生成一个适合的决策情况：
+        # 检测用户标签中的关键身份
+        user_tags_str = context.get('user_tags', '')
+        is_student = 'student' in user_tags_str
+        is_graduate = 'new_graduate' in user_tags_str
+        is_working = 'working' in user_tags_str
+        
+        # 根据身份生成强调性提示
+        identity_emphasis = ""
+        if is_student:
+            identity_emphasis = """
+【极其重要 - 角色是在校学生】
+- 这个角色是在校学生，还没有毕业！
+- 禁止生成任何关于"毕业"、"找工作"、"入职"、"求职"、"刚毕业"的场景
+- 应该生成：校园生活、社团活动、兼职实习、学业压力、奖学金申请、考研备考、校园消费、学生理财、宿舍生活等场景
+- 场景应发生在学校、图书馆、宿舍、食堂、实验室、校园周边等地点
+"""
+        elif is_graduate:
+            identity_emphasis = """
+【角色是应届毕业生】
+- 可以生成求职、面试、租房、初入职场等场景
+- 关注职业选择和初期理财规划
+"""
+        elif is_working:
+            identity_emphasis = """
+【角色是职场人士】
+- 应该生成职场相关场景：同事关系、升职加薪、跳槽机会等
+- 关注职业发展和资产积累
+"""
+
+        prompt = f"""你是一个金融游戏的情况生成器。这是一个为南京大学学生设计的金融素养提升模拟沙盘游戏，旨在帮助大学生培养理财意识、理解金融概念和风险管理能力。
+{identity_emphasis}
+请为以下角色生成一个适合的决策情况：
 
 角色信息：
 - 姓名：{context['name']}
 - 年龄：{context['age']}岁
 - 人生阶段：{life_stage_desc} (第{current_month}个月)
 - MBTI类型：{context['mbti']} ({mbti_profile})
+- 职业状态：{career_desc}
+- {skills_desc}
 - 现金：{context['cash']:,} CP
 - 健康：{context['health']}/100
 - 幸福感：{context['happiness']}/100
@@ -334,11 +421,14 @@ class DeepSeekEngine:
 - 背景：{context['background']}
 - 特质：{context['traits']}
 - 已做决策数：{context['decision_count']}
+{self._build_tags_context(context)}
 {market_context}
 请生成一个符合以下要求的情况：
-1. 必须与角色的当前状态（第{current_month}个月）相符，不要重复生成"刚毕业"或"刚入职"的初始剧情，除非是第1个月。
-2. 具有金融或生活决策的性质，可以是职场挑战、投资机会、生活琐事或突发意外。
-3. 提供3个不同的选择方案。
+1. 【最重要】如果上面标注了"角色是在校学生"，绝对禁止出现"毕业"、"刚毕业"、"找工作"、"求职"、"入职"等词汇！必须生成校园相关场景！
+2. 必须与角色的当前职业状态相符：如果角色无业且是学生，生成校园场景；如果有工作，可以生成职场相关场景。
+3. 情况描述应多样化，避免总是"偶遇老同学"、"咖啡馆聊天"、"某天下午"等相似开头。
+4. 具有金融或生活决策的性质，可以是学业挑战、兼职实习、投资理财、生活消费或突发事件。
+5. 提供3个不同的选择方案，每个选项应体现不同的风险/收益权衡。
 
 请严格按照以下格式回复：
 情况：[详细描述当前面临的情况]
@@ -346,6 +436,61 @@ class DeepSeekEngine:
 选项2：[第二个选择]
 选项3：[第三个选择]"""
         return prompt
+    
+    def _build_tags_context(self, context: Dict) -> str:
+        """构建标签上下文描述"""
+        user_tags = context.get('user_tags', '')
+        auto_tags = context.get('auto_tags', '')
+        
+        if not user_tags and not auto_tags:
+            return ""
+        
+        # 标签映射
+        tag_descriptions = {
+            # 用户自选标签
+            'student': '在校学生（校园生活为主，可能有兼职或实习需求）',
+            'new_graduate': '应届毕业生（面临求职、租房等人生转折）',
+            'working': '职场人士（有稳定收入，关注职业发展）',
+            'investor_newbie': '投资新手（需要基础的理财知识引导）',
+            'investor_exp': '有投资经验（可以接触更复杂的金融产品）',
+            'finance_major': '金融相关专业（对金融概念有一定理解）',
+            'tech_major': '理工科背景（逻辑思维强，可能对量化投资感兴趣）',
+            'arts_major': '文科背景（可能更关注消费和生活品质）',
+            'risk_lover': '喜欢冒险（可以生成高风险高收益的机会）',
+            'risk_averse': '稳健保守（应提供低风险的稳健选择）',
+            'goal_house': '目标买房（关注房产投资和储蓄计划）',
+            'goal_retire': '关注养老（对长期规划和保险感兴趣）',
+        }
+        
+        parts = []
+        preset_tags = []
+        custom_tags = []
+        
+        if user_tags:
+            user_tag_list = user_tags.split(',')
+            for t in user_tag_list:
+                if t.startswith('custom:'):
+                    # 自定义标签
+                    custom_tags.append(t[7:])  # 去掉 'custom:' 前缀
+                elif t in tag_descriptions:
+                    # 预设标签
+                    preset_tags.append(tag_descriptions[t])
+                elif t:
+                    # 未知的预设标签，直接使用
+                    preset_tags.append(t)
+        
+        if preset_tags:
+            parts.append("【角色身份标签】\n" + "\n".join(f"- {d}" for d in preset_tags))
+        
+        if custom_tags:
+            parts.append("【用户自定义标签】\n" + "\n".join(f"- {t}（请根据这个标签推断角色的特点和可能面临的场景）" for t in custom_tags))
+        
+        if auto_tags:
+            parts.append(f"【行为特征标签】{auto_tags}")
+        
+        if parts:
+            return "\n" + "\n".join(parts) + "\n"
+        return ""
     
     def _parse_situation_response(self, response: str) -> Optional[Dict]:
         """解析情况生成响应"""
@@ -472,13 +617,15 @@ class DeepSeekEngine:
             }
         
         system_prompt = """身份设定：你是指挥未来城市'FinAI'经济系统的中央AI核心。
+背景：这是一个为南京大学学生设计的金融素养提升模拟沙盘游戏。用户是正在学习金融知识的大学生，通过这个游戏来培养理财意识和投资能力。
 核心指令：
 1. 保持冷静、理性的语气，带有轻微的赛博朋克科技感。
-2. 你的目标是辅助用户在金融沙盘中生存并积累财富。
+2. 你的目标是辅助用户在金融沙盘中生存并积累财富，同时帮助他们理解金融概念和风险管理。
 3. 分析问题时，请结合用户的财务状况、MBTI性格特质以及当前面临的风险。
-4. 回答应当简练、直击要害，避免空泛的安慰。
-5. 如果用户面临决策，请从风险/收益角度提供数据支持的建议。
-6. 当用户询问“当前情况”或寻求建议时，必须基于【可选行动】推荐一个具体的选项，并说明理由。"""
+4. 回答应当简练、直击要害，避免空泛的安慰。适当融入金融知识科普。
+5. 如果用户面临决策，请从风险/收益角度提供数据支持的建议，培养他们的理性决策能力。
+6. 当用户询问"当前情况"或寻求建议时，必须基于【可选行动】推荐一个具体的选项，并说明理由。
+7. 鼓励用户建立良好的理财习惯，如分散投资、风险控制、长期规划等。"""
         
         if context:
             info_parts = []

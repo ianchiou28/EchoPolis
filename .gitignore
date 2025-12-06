@@ -70,5 +70,8 @@ README_STARTUP.md
 finai.db
 DEPLOY.md
 echopolis.db
-echopolis.db
-*.db
+.db
+.env
+echopolis copy.db
+.venv/
+.venv311/

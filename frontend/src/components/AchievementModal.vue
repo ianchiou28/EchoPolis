@@ -1,10 +1,8 @@
 <template>
   <transition name="modal">
     <div class="achievement-overlay" @click="$emit('close')">
-      <div class="achievement-modal glass-panel-enhanced" @click.stop>
-        <div class="achievement-glow"></div>
-        
-        <div class="achievement-icon pulse-ring">
+      <div class="achievement-modal" @click.stop>
+        <div class="achievement-icon">
           {{ achievement.icon }}
         </div>
         
@@ -36,7 +34,7 @@
           </div>
         </div>
         
-        <button class="btn primary large" @click="$emit('close')">
+        <button class="confirm-btn" @click="$emit('close')">
           太棒了！
         </button>
       </div>
@@ -59,31 +57,30 @@ defineEmits(['close'])
 .achievement-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10000;
-  backdrop-filter: blur(10px);
 }
 
 .achievement-modal {
   position: relative;
-  width: 500px;
+  width: 420px;
   max-width: 90vw;
-  padding: 48px 40px;
+  padding: 2.5rem 2rem;
   text-align: center;
-  overflow: hidden;
-  animation: achievement-pop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  background: var(--term-panel-bg);
+  border: 3px solid var(--term-accent);
+  border-radius: 16px;
+  box-shadow: 0 0 40px var(--term-accent-glow, rgba(255, 85, 0, 0.3));
+  animation: achievement-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes achievement-pop {
   0% {
     opacity: 0;
-    transform: scale(0.5) translateY(100px);
-  }
-  50% {
-    transform: scale(1.05);
+    transform: scale(0.8) translateY(30px);
   }
   100% {
     opacity: 1;
@@ -91,126 +88,98 @@ defineEmits(['close'])
   }
 }
 
-.achievement-glow {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, rgba(59,130,246,0.3), transparent 70%);
-  animation: glow-pulse 2s ease-in-out infinite;
-  pointer-events: none;
-}
-
-@keyframes glow-pulse {
-  0%, 100% {
-    opacity: 0.5;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-}
-
 .achievement-icon {
-  font-size: 80px;
-  margin: 0 auto 24px;
-  width: 120px;
-  height: 120px;
+  font-size: 64px;
+  margin: 0 auto 1.25rem;
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(59,130,246,0.3), rgba(139,92,246,0.3));
+  background: var(--term-bg);
   border-radius: 50%;
-  border: 3px solid rgba(59,130,246,0.5);
-  position: relative;
-  z-index: 1;
+  border: 3px solid var(--term-accent);
 }
 
 .achievement-title {
-  margin: 0 0 16px 0;
-  font-size: 24px;
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #60a5fa, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  position: relative;
-  z-index: 1;
+  color: var(--term-accent);
 }
 
 .achievement-name {
-  margin: 0 0 12px 0;
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--text);
-  position: relative;
-  z-index: 1;
+  margin: 0 0 0.75rem 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--term-text);
 }
 
 .achievement-desc {
-  margin: 0 0 24px 0;
-  color: rgba(148,163,184,0.9);
-  font-size: 15px;
-  line-height: 1.6;
-  position: relative;
-  z-index: 1;
+  margin: 0 0 1.5rem 0;
+  color: var(--term-text-secondary);
+  font-size: 1rem;
+  line-height: 1.5;
 }
 
 .achievement-reward {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 12px 24px;
-  background: rgba(16,185,129,0.2);
-  border: 1px solid rgba(16,185,129,0.4);
-  border-radius: 12px;
-  margin-bottom: 24px;
-  position: relative;
-  z-index: 1;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  background: rgba(34, 197, 94, 0.15);
+  border: 2px solid var(--term-success);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
 }
 
 .reward-label {
-  font-size: 14px;
-  color: rgba(148,163,184,0.8);
+  font-size: 0.9rem;
+  color: var(--term-text-secondary);
 }
 
 .reward-value {
-  font-size: 18px;
+  font-size: 1.1rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--term-success);
 }
 
 .achievement-stats {
   display: flex;
   justify-content: center;
-  gap: 32px;
-  margin-bottom: 32px;
-  position: relative;
-  z-index: 1;
+  gap: 2rem;
+  margin-bottom: 1.75rem;
 }
 
 .stat {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: rgba(148,163,184,0.9);
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: var(--term-text-secondary);
 }
 
 .stat-icon {
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
-.btn.large {
-  padding: 14px 48px;
-  font-size: 16px;
+.confirm-btn {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  position: relative;
-  z-index: 1;
+  background: var(--term-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 
 /* 过渡动画 */
@@ -224,11 +193,7 @@ defineEmits(['close'])
   opacity: 0;
 }
 
-.modal-enter-active .achievement-modal {
-  animation: achievement-pop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
 .modal-leave-active .achievement-modal {
-  animation: achievement-pop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) reverse;
+  animation: achievement-pop 0.2s ease reverse;
 }
 </style>

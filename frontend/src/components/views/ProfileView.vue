@@ -82,22 +82,96 @@
         <div class="archive-card full-height">
           <div class="archive-header">投资组合 // PORTFOLIO</div>
           <div class="archive-body scrollable">
-            <div v-if="!investments.length" class="empty-state">
-              暂无投资记录
-            </div>
-            <div v-else class="investment-list">
-              <div v-for="inv in investments" :key="inv.id" class="inv-item">
-                <div class="inv-icon">{{ getInvIcon(inv.type) }}</div>
-                <div class="inv-info">
-                  <div class="inv-name">{{ inv.name }}</div>
-                  <div class="inv-meta">
-                    <span class="type">{{ inv.term === 'short' ? '短期' : (inv.term === 'medium' ? '中期' : '长期') }}</span>
-                    <span class="duration">剩余 {{ inv.duration }} 个月</span>
+            <!-- 股票投资 -->
+            <div class="portfolio-section">
+              <div class="section-title">📈 股票投资</div>
+              <div v-if="!stockHoldings.length" class="empty-hint">暂无股票持仓</div>
+              <div v-else class="investment-list">
+                <div v-for="stock in stockHoldings" :key="stock.stock_id" class="inv-item">
+                  <div class="inv-icon">📈</div>
+                  <div class="inv-info">
+                    <div class="inv-name">{{ stock.stock_name }}</div>
+                    <div class="inv-meta">
+                      <span class="type">{{ stock.shares }}股</span>
+                      <span class="cost">成本 ¥{{ stock.avg_cost?.toFixed(2) }}</span>
+                    </div>
+                  </div>
+                  <div class="inv-amount">
+                    <div>¥{{ formatNumber(stock.market_value || stock.shares * stock.avg_cost) }}</div>
+                    <div class="profit-hint" :class="(stock.profit || 0) >= 0 ? 'pos' : 'neg'">
+                      {{ (stock.profit || 0) >= 0 ? '+' : '' }}¥{{ formatNumber(stock.profit || 0) }}
+                    </div>
                   </div>
                 </div>
-                <div class="inv-amount">
-                  <div>¥{{ formatNumber(inv.amount) }}</div>
-                  <div class="profit-hint" v-if="inv.monthly_return > 0">+¥{{ formatNumber(inv.monthly_return * inv.amount) }}/月</div>
+              </div>
+            </div>
+
+            <!-- 银行存款 -->
+            <div class="portfolio-section">
+              <div class="section-title">🏦 银行存款</div>
+              <div v-if="!depositList.length" class="empty-hint">暂无存款</div>
+              <div v-else class="investment-list">
+                <div v-for="dep in depositList" :key="dep.id" class="inv-item">
+                  <div class="inv-icon">🏦</div>
+                  <div class="inv-info">
+                    <div class="inv-name">{{ dep.product_name }}</div>
+                    <div class="inv-meta">
+                      <span class="type">年化 {{ (dep.rate * 100).toFixed(2) }}%</span>
+                    </div>
+                  </div>
+                  <div class="inv-amount">
+                    <div>¥{{ formatNumber(dep.amount) }}</div>
+                  </div>
+                </div>
+              </div>
+              <div class="section-summary" v-if="totalDeposits > 0">
+                存款总额: ¥{{ formatNumber(totalDeposits) }}
+              </div>
+            </div>
+
+            <!-- 贷款负债 -->
+            <div class="portfolio-section">
+              <div class="section-title">💳 贷款负债</div>
+              <div v-if="!loanList.length" class="empty-hint">暂无贷款</div>
+              <div v-else class="investment-list">
+                <div v-for="loan in loanList" :key="loan.id" class="inv-item loan-item">
+                  <div class="inv-icon">💳</div>
+                  <div class="inv-info">
+                    <div class="inv-name">{{ loan.product_name }}</div>
+                    <div class="inv-meta">
+                      <span class="type">月供 ¥{{ formatNumber(loan.monthly_payment) }}</span>
+                      <span class="duration">剩余 {{ loan.remaining_months }} 期</span>
+                    </div>
+                  </div>
+                  <div class="inv-amount debt">
+                    <div>-¥{{ formatNumber(loan.remaining_principal) }}</div>
+                    <div class="rate-hint">年利率 {{ (loan.annual_rate * 100).toFixed(1) }}%</div>
+                  </div>
+                </div>
+              </div>
+              <div class="section-summary debt" v-if="totalLoans > 0">
+                负债总额: -¥{{ formatNumber(totalLoans) }}
+              </div>
+            </div>
+
+            <!-- 其他投资 -->
+            <div class="portfolio-section">
+              <div class="section-title">💼 其他投资</div>
+              <div v-if="!otherInvestments.length" class="empty-hint">暂无其他投资</div>
+              <div v-else class="investment-list">
+                <div v-for="inv in otherInvestments" :key="inv.id" class="inv-item">
+                  <div class="inv-icon">{{ getInvIcon(inv.investment_type) }}</div>
+                  <div class="inv-info">
+                    <div class="inv-name">{{ inv.name }}</div>
+                    <div class="inv-meta">
+                      <span class="type">{{ getInvTypeLabel(inv.investment_type) }}</span>
+                      <span class="duration" v-if="inv.remaining_months">剩余 {{ inv.remaining_months }} 个月</span>
+                    </div>
+                  </div>
+                  <div class="inv-amount">
+                    <div>¥{{ formatNumber(inv.amount) }}</div>
+                    <div class="profit-hint" v-if="inv.return_rate > 0">年化 {{ (inv.return_rate * 100).toFixed(1) }}%</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -109,8 +183,9 @@
 </template>
 
 <script setup>
-import { computed, ref, provide } from 'vue'
+import { computed, ref, provide, onMounted } from 'vue'
 import { useGameStore } from '../../stores/game'
+import { buildApiUrl } from '../../utils/api'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
 import { LineChart } from 'echarts/charts'
@@ -126,13 +201,87 @@ const assets = computed(() => gameStore.assets)
 const investments = computed(() => gameStore.assets.investments || [])
 const assetHistory = computed(() => gameStore.assetHistory || [])
 
+// 投资组合数据
+const stockHoldings = ref([])
+const depositList = ref([])
+const loanList = ref([])
+const totalDeposits = ref(0)
+const totalLoans = ref(0)
+
+// 其他投资（排除股票）
+const otherInvestments = computed(() => {
+  return investments.value.filter(inv => inv.investment_type !== 'stock')
+})
+
+// 获取 session ID
+const getSessionId = () => {
+  const character = gameStore.getCurrentCharacter()
+  return character?.id || null
+}
+
+// 加载投资组合数据
+const loadPortfolio = async () => {
+  const sessionId = getSessionId()
+  if (!sessionId) return
+
+  try {
+    // 并行获取股票、存款、贷款数据
+    const [stockRes, depositRes, loanRes] = await Promise.all([
+      fetch(buildApiUrl(`/api/stock/holdings?session_id=${sessionId}`)).then(r => r.json()),
+      fetch(buildApiUrl(`/api/banking/deposits/${sessionId}`)).then(r => r.json()),
+      fetch(buildApiUrl(`/api/banking/loans/${sessionId}`)).then(r => r.json())
+    ])
+
+    if (stockRes.success) {
+      stockHoldings.value = stockRes.holdings || []
+    }
+
+    if (depositRes.success) {
+      depositList.value = depositRes.deposits || []
+      totalDeposits.value = depositRes.total || 0
+    }
+
+    if (loanRes.success) {
+      loanList.value = loanRes.loans || []
+      totalLoans.value = loanRes.loans?.reduce((sum, l) => sum + (l.remaining || l.remaining_principal || 0), 0) || 0
+    }
+  } catch (error) {
+    console.error('Failed to load portfolio:', error)
+  }
+}
+
+onMounted(() => {
+  loadPortfolio()
+})
+
 const formatNumber = (num) => Number(num || 0).toLocaleString('zh-CN')
 
 const getInvIcon = (type) => {
-  if (type === 'stock') return '📈'
-  if (type === 'bond') return '📜'
-  if (type === 'realestate') return '🏢'
-  return '💼'
+  const icons = {
+    'stock': '📈',
+    'bond': '📜',
+    'realestate': '🏢',
+    'real_estate': '🏢',
+    'fund': '📊',
+    'crypto': '₿',
+    'gold': '🥇',
+    'insurance': '🛡️'
+  }
+  return icons[type] || '💼'
+}
+
+const getInvTypeLabel = (type) => {
+  const labels = {
+    'stock': '股票',
+    'bond': '债券',
+    'realestate': '房地产',
+    'real_estate': '房地产',
+    'fund': '基金',
+    'crypto': '加密货币',
+    'gold': '黄金',
+    'insurance': '保险'
+  }
+  return labels[type] || type || '投资'
 }
 
 // Chart Option
@@ -403,24 +552,68 @@ const chartOption = computed(() => {
   font-weight: 700;
 }
 
+/* Portfolio Sections */
+.portfolio-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px dashed var(--term-border);
+}
+
+.portfolio-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.section-title {
+  font-weight: 900;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--term-text);
+}
+
+.section-summary {
+  margin-top: 8px;
+  padding: 8px;
+  background: rgba(76, 175, 80, 0.1);
+  font-weight: 700;
+  font-size: 12px;
+  text-align: right;
+}
+
+.section-summary.debt {
+  background: rgba(244, 67, 54, 0.1);
+  color: #f44336;
+}
+
+.empty-hint {
+  font-size: 12px;
+  color: var(--term-text-secondary);
+  font-style: italic;
+  padding: 8px 0;
+}
+
 /* Investments */
 .investment-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .inv-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--term-border);
   background: rgba(0,0,0,0.02);
 }
 
+.inv-item.loan-item {
+  border-left: 3px solid #f44336;
+}
+
 .inv-icon {
-  font-size: 24px;
+  font-size: 20px;
 }
 
 .inv-info {
@@ -429,7 +622,7 @@ const chartOption = computed(() => {
 
 .inv-name {
   font-weight: 800;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .inv-meta {
@@ -442,12 +635,24 @@ const chartOption = computed(() => {
 .inv-amount {
   text-align: right;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
+}
+
+.inv-amount.debt {
+  color: #f44336;
 }
 
 .profit-hint {
   font-size: 10px;
   color: var(--term-success);
+}
+
+.profit-hint.pos { color: #4CAF50; }
+.profit-hint.neg { color: #f44336; }
+
+.rate-hint {
+  font-size: 10px;
+  color: var(--term-text-secondary);
 }
 
 .empty-state {
