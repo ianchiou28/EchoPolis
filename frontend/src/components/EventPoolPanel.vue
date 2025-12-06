@@ -78,8 +78,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+import { buildApiUrl } from '@/utils/api'
 
 const loading = ref(false)
 const events = ref([])
@@ -119,7 +118,7 @@ function getSentimentLabel(sentiment) {
 
 async function fetchStats() {
   try {
-    const res = await fetch(`${API_BASE}/api/event-pool/stats`)
+    const res = await fetch(buildApiUrl('/api/event-pool/stats'))
     const data = await res.json()
     if (data.success) {
       stats.value = data.stats
@@ -132,7 +131,7 @@ async function fetchStats() {
 async function fetchEvents() {
   loading.value = true
   try {
-    let url = `${API_BASE}/api/event-pool/events?limit=50`
+    let url = buildApiUrl('/api/event-pool/events?limit=50')
     if (selectedCategory.value) {
       url += `&category=${encodeURIComponent(selectedCategory.value)}`
     }
@@ -151,7 +150,7 @@ async function fetchEvents() {
 async function initSamples() {
   loading.value = true
   try {
-    const res = await fetch(`${API_BASE}/api/event-pool/init-samples`, {
+    const res = await fetch(buildApiUrl('/api/event-pool/init-samples'), {
       method: 'POST'
     })
     const data = await res.json()

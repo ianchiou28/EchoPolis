@@ -77,6 +77,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useGameStore } from '../stores/game'
+import { buildApiUrl } from '@/utils/api'
 
 const props = defineProps({
   visible: Boolean,
@@ -87,7 +88,6 @@ const props = defineProps({
 const emit = defineEmits(['close', 'responded'])
 
 const gameStore = useGameStore()
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
 const currentEvent = computed(() => props.event)
 const selectedOption = ref(null)
@@ -150,7 +150,7 @@ async function submitResponse() {
   
   submitting.value = true
   try {
-    const response = await fetch(`${API_BASE}/api/event-pool/respond`, {
+    const response = await fetch(buildApiUrl('/api/event-pool/respond'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

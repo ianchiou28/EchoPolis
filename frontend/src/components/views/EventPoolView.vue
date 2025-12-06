@@ -146,8 +146,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+import { buildApiUrl } from '@/utils/api'
 
 const loading = ref(false)
 const events = ref([])
@@ -197,7 +196,7 @@ function getSentimentLabel(sentiment) {
 
 async function fetchStats() {
   try {
-    const res = await fetch(`${API_BASE}/api/event-pool/stats`)
+    const res = await fetch(buildApiUrl('/api/event-pool/stats'))
     if (res.ok) {
       const data = await res.json()
       if (data.success) {
@@ -212,7 +211,7 @@ async function fetchStats() {
 async function checkWideResearchStatus() {
   wideResearchStatus.value = 'checking'
   try {
-    const res = await fetch(`${API_BASE}/api/event-pool/wide-research-status`, {
+    const res = await fetch(buildApiUrl('/api/event-pool/wide-research-status'), {
       signal: AbortSignal.timeout(10000)
     })
     if (res.ok) {
@@ -230,7 +229,7 @@ async function checkWideResearchStatus() {
 async function fetchEvents() {
   loading.value = true
   try {
-    let url = `${API_BASE}/api/event-pool/events?limit=50`
+    let url = buildApiUrl('/api/event-pool/events?limit=50')
     if (selectedCategory.value) {
       url += `&category=${encodeURIComponent(selectedCategory.value)}`
     }
@@ -254,7 +253,7 @@ async function fetchLatestEvents() {
   
   try {
     // 调用后端统一接口，后端会自动处理降级
-    const res = await fetch(`${API_BASE}/api/event-pool/fetch-latest`, {
+    const res = await fetch(buildApiUrl('/api/event-pool/fetch-latest'), {
       method: 'POST',
       signal: AbortSignal.timeout(30000)
     })
